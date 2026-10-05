@@ -51,7 +51,7 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 @media(max-width:760px){.shell{grid-template-columns:1fr}.side{position:sticky;top:0;z-index:5;padding:8px;display:flex;overflow:auto}.side h2{display:none}.side button{white-space:nowrap;width:auto}.main{padding:16px}.g2,.g3{grid-template-columns:1fr}.slots{grid-template-columns:repeat(2,1fr)}}
 </style></head>
 <body><div id="app"></div><script>
-const API="https://citago-backend.onrender.com/";
+const API="https://citago-backend.onrender.com";
 let view="businesses",businesses=[],types=[],plans=[],error="",loading=false;
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money=n=>"$"+Number(n||0).toLocaleString("es-CO");
