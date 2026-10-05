@@ -349,11 +349,42 @@ async function saveProfessionalServices(){
  ASSIGN_SAVING=false;
 }
 
+
+async function addRealProfessional(){
+ var n=(document.getElementById("pn")?.value||"").trim();
+ var r=(document.getElementById("pr")?.value||"").trim();
+ var ph=(document.getElementById("pp")?.value||"").trim();
+ var c=document.getElementById("pc")?.value||"#4F46E5";
+ if(!n){alert("Escribe el nombre del profesional.");return}
+ try{
+  var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals",{
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({
+    name:n,
+    specialty:r||null,
+    phone:ph||null,
+    color:c
+   })
+  });
+  if(!response.ok){
+   var er=await response.json().catch(function(){return{}});
+   throw new Error(er.detail?JSON.stringify(er.detail):("Error HTTP "+response.status));
+  }
+  await loadProfessionals();
+  alert("Profesional agregado correctamente.");
+ }catch(error){
+  console.error(error);
+  alert("No se pudo agregar el profesional: "+error.message);
+ }
+}
+
 function bizTeam(){
- var h='<h1>Profesionales</h1><p style="color:var(--mute);margin:4px 0 0">Asigna a cada profesional los servicios que realiza.</p><div style="margin-top:14px">';
+ var h='<h1>Profesionales</h1><p style="color:var(--mute);margin:4px 0 0">Crea tu equipo y asigna a cada profesional los servicios que realiza.</p><div style="margin-top:14px">';
  if(PROS_LOADING)return h+'<div class="pn"><p>Cargando equipo real...</p></div></div>';
  if(PROS_ERROR)return h+'<div class="pn"><p style="color:#B3372A">'+esc(PROS_ERROR)+'</p><button class="btn p" data-a="reloadPros">Reintentar</button></div></div>';
  if(!API_PROFESSIONALS.length)h+='<p style="color:var(--mute)">Todavía no hay profesionales.</p>';
+
  API_PROFESSIONALS.forEach(function(p){
   var pid=String(p.id);
   h+='<div class="pn" style="overflow:visible;'+(!p.is_active?'opacity:.55':'')+'">';
@@ -384,7 +415,15 @@ function bizTeam(){
   }
   h+='</div>';
  });
- return h+'</div>'
+
+ h+='</div>';
+ h+='<div class="pn" style="overflow:visible;margin-top:14px"><h2>Agregar profesional</h2>';
+ h+='<label>Nombre</label><input id="pn" placeholder="Nombre completo">';
+ h+='<label>Especialidad</label><input id="pr" placeholder="Ej. Colorista, Barbero, Matemáticas">';
+ h+='<label>WhatsApp / teléfono (opcional)</label><input id="pp" type="tel" placeholder="300 123 4567">';
+ h+='<label>Color identificador</label><input id="pc" type="color" value="#4F46E5">';
+ h+='<button class="btn p" style="margin-top:12px" data-a="apiAddPro">Agregar profesional</button></div>';
+ return h
 }
 function bizCfg(){
  return'<h1>Configuración</h1><p style="color:var(--mute);margin:4px 0 0">Tu cuenta ya viene lista. Aquí ajustas tu marca y tus horarios.</p><div class="pn" style="margin-top:14px;overflow:visible"><h2>Marca</h2><div class="rw">'+mark().replace('class="mark"','class="mark" style="margin:0"')+'<div class="grow"><label style="margin:0">Logo o foto</label><input type="file" accept="image/*" data-f="logo"></div></div><label>Nombre del negocio</label><input data-f="name" value="'+esc(BZ.name)+'"><label>Frase</label><input data-f="tag" value="'+esc(BZ.tag)+'"><label>WhatsApp del negocio (con indicativo)</label><input data-f="wa" value="'+esc(BZ.wa)+'"><label>Color de marca</label><input type="color" data-f="color" value="'+BZ.color+'"></div>'+
@@ -597,6 +636,7 @@ app.onclick=function(e){
  else if(a==="reloadSvc"){loadServices();return}
  else if(a==="reloadPros"){loadProfessionals();return}
  else if(a==="apiAddSvc"){addRealService();return}
+ else if(a==="apiAddPro"){addRealProfessional();return}
  else if(a==="openProServices"){
   var pid=String(t.dataset.id||"");
   if(ASSIGN_PRO_ID===pid){ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";render();return}
