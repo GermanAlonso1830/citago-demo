@@ -145,6 +145,8 @@ var APPTS = [], APPTS_LOADING = false, APPTS_ERROR = "";
 var API_SERVICES = [], SERVICES_LOADING = false, SERVICES_ERROR = "";
 var API_PROFESSIONALS = [], PROS_LOADING = false, PROS_ERROR = "";
 var ASSIGN_PRO_ID = null, ASSIGN_SERVICE_IDS = [], ASSIGN_LOADING = false, ASSIGN_SAVING = false, ASSIGN_ERROR = "";
+var PRO_CREATE_MSG = "", PRO_CREATE_ERROR = "", PRO_CREATE_SAVING = false;
+var SCHEDULE_PRO_ID = null, SCHEDULES = [], SCHEDULE_LOADING = false, SCHEDULE_SAVING = false, SCHEDULE_ERROR = "";
 function slug(n){return n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
 function mk(name,type,pl,price,stt,nx){var t=TPL[type],sv=t.sv.map(function(x,i){return{id:i+1,n:x[0],m:x[1],p:x[2],e:x[3]}}),
  pro=t.pr.map(function(p,i){return{id:i+1,n:p[0],r:p[1],sv:p[2].map(function(k){return k+1}),days:[1,2,3,4,5,6],open:t.open,close:t.close,c:CL[i%CL.length]}}),
@@ -355,7 +357,9 @@ async function addRealProfessional(){
  var r=(document.getElementById("pr")?.value||"").trim();
  var ph=(document.getElementById("pp")?.value||"").trim();
  var c=document.getElementById("pc")?.value||"#4F46E5";
- if(!n){alert("Escribe el nombre del profesional.");return}
+ PRO_CREATE_MSG="";PRO_CREATE_ERROR="";
+ if(!n){PRO_CREATE_ERROR="Escribe el nombre del profesional.";render();return}
+ PRO_CREATE_SAVING=true;render();
  try{
   var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals",{
    method:"POST",
@@ -368,34 +372,126 @@ async function addRealProfessional(){
    })
   });
   if(!response.ok){
-   var er=await response.json().catch(function(){return{}});
-   throw new Error(er.detail?JSON.stringify(er.detail):("Error HTTP "+response.status));
+   var raw=await response.text();
+   var msg=raw;
+   try{
+    var er=JSON.parse(raw);
+    msg=er.detail?JSON.stringify(er.detail):raw;
+   }catch(_){}
+   throw new Error(msg||("Error HTTP "+response.status));
   }
+  PRO_CREATE_MSG="Profesional agregado correctamente.";
+  PRO_CREATE_ERROR="";
   await loadProfessionals();
-  alert("Profesional agregado correctamente.");
  }catch(error){
-  console.error(error);
-  alert("No se pudo agregar el profesional: "+error.message);
+  console.error("Error creando profesional",error);
+  PRO_CREATE_ERROR="No se pudo agregar el profesional. "+error.message;
+ }finally{
+  PRO_CREATE_SAVING=false;
+  render();
  }
 }
 
+
+function normalizeSchedules(data){
+ var arr=Array.isArray(data)?data:(data&&Array.isArray(data.schedules)?data.schedules:[]);
+ return arr.map(function(x){
+  return {
+   id:x.id||null,
+   weekday:Number(x.weekday),
+   start_time:(x.start_time||"08:00").slice(0,5),
+   end_time:(x.end_time||"17:00").slice(0,5),
+   is_active:x.is_active!==false
+  };
+ });
+}
+function defaultScheduleRows(){
+ var out=[];
+ for(var i=1;i<=7;i++)out.push({weekday:i,start_time:"08:00",end_time:"17:00",is_active:i<=5});
+ return out;
+}
+async function openProfessionalSchedules(proId){
+ SCHEDULE_PRO_ID=String(proId);SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_LOADING=true;render();
+ try{
+  var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+proId+"/schedules");
+  if(!response.ok)throw new Error("Error HTTP "+response.status);
+  var rows=normalizeSchedules(await response.json());
+  SCHEDULES=defaultScheduleRows().map(function(base){
+   var found=rows.find(function(x){return Number(x.weekday)===base.weekday});
+   return found||base;
+  });
+ }catch(error){
+  console.error(error);
+  SCHEDULE_ERROR="No se pudieron cargar los horarios.";
+  SCHEDULES=defaultScheduleRows();
+ }finally{SCHEDULE_LOADING=false;render()}
+}
+async function saveProfessionalSchedules(){
+ if(!SCHEDULE_PRO_ID)return;
+ SCHEDULE_SAVING=true;SCHEDULE_ERROR="";render();
+ try{
+  var activeRows=SCHEDULES.filter(function(x){return x.is_active});
+  for(var i=0;i<activeRows.length;i++){
+   var row=activeRows[i];
+   var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+SCHEDULE_PRO_ID+"/schedules",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+     weekday:Number(row.weekday),
+     start_time:row.start_time,
+     end_time:row.end_time,
+     is_active:true
+    })
+   });
+   if(!response.ok){
+    var raw=await response.text();
+    throw new Error(raw||("Error HTTP "+response.status));
+   }
+  }
+  alert("Horarios guardados correctamente.");
+  SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";
+ }catch(error){
+  console.error(error);
+  SCHEDULE_ERROR="No se pudieron guardar los horarios: "+error.message;
+ }finally{SCHEDULE_SAVING=false;render()}
+}
+
 function bizTeam(){
- var h='<h1>Profesionales</h1><p style="color:var(--mute);margin:4px 0 0">Crea tu equipo y asigna a cada profesional los servicios que realiza.</p><div style="margin-top:14px">';
- if(PROS_LOADING)return h+'<div class="pn"><p>Cargando equipo real...</p></div></div>';
- if(PROS_ERROR)return h+'<div class="pn"><p style="color:#B3372A">'+esc(PROS_ERROR)+'</p><button class="btn p" data-a="reloadPros">Reintentar</button></div></div>';
- if(!API_PROFESSIONALS.length)h+='<p style="color:var(--mute)">Todavía no hay profesionales.</p>';
+ var dayNames={1:"Lunes",2:"Martes",3:"Miércoles",4:"Jueves",5:"Viernes",6:"Sábado",7:"Domingo"};
+ var h='<h1>Profesionales</h1><p style="color:var(--mute);margin:4px 0 0">Crea tu equipo y modifica en cualquier momento sus servicios y horarios.</p>';
+
+ h+='<div class="pn" style="overflow:visible;margin-top:14px"><h2>Agregar profesional</h2>';
+ h+='<div class="g2"><div><label>Nombre</label><input id="pn" placeholder="Nombre completo"></div><div><label>Especialidad</label><input id="pr" placeholder="Ej. Colorista, Barbero, Matemáticas"></div></div>';
+ h+='<div class="g2"><div><label>WhatsApp / teléfono (opcional)</label><input id="pp" type="tel" placeholder="300 123 4567"></div><div><label>Color identificador</label><input id="pc" type="color" value="#4F46E5"></div></div>';
+ if(PRO_CREATE_ERROR)h+='<p style="color:#B3372A;margin:8px 0 0">'+esc(PRO_CREATE_ERROR)+'</p>';
+ if(PRO_CREATE_MSG)h+='<p style="color:#18794E;margin:8px 0 0">'+esc(PRO_CREATE_MSG)+'</p>';
+ h+='<button class="btn p" style="margin-top:12px" data-a="apiAddPro" '+(PRO_CREATE_SAVING?'disabled':'')+'>'+(PRO_CREATE_SAVING?'Guardando...':'Agregar profesional')+'</button></div>';
+
+ h+='<div style="margin-top:14px">';
+ if(PROS_LOADING){
+  h+='<div class="pn"><p>Cargando equipo real...</p></div></div>';
+  return h;
+ }
+ if(PROS_ERROR){
+  h+='<div class="pn"><p style="color:#B3372A">'+esc(PROS_ERROR)+'</p><button class="btn p" data-a="reloadPros">Reintentar</button></div></div>';
+  return h;
+ }
+ if(!API_PROFESSIONALS.length)h+='<p style="color:var(--mute)">Todavía no hay profesionales. Usa el formulario de arriba para crear el primero.</p>';
 
  API_PROFESSIONALS.forEach(function(p){
   var pid=String(p.id);
   h+='<div class="pn" style="overflow:visible;'+(!p.is_active?'opacity:.55':'')+'">';
   h+='<div class="rw"><div class="av r" style="background:'+(p.color||"#4F46E5")+'">'+esc((p.name||"?")[0])+'</div>';
   h+='<div class="grow"><b>'+esc(p.name)+'</b><small style="display:block;color:var(--mute)">'+esc(p.specialty||"Sin especialidad")+(p.phone?' · '+esc(p.phone):'')+'</small></div>';
-  h+='<button class="btn o" data-a="openProServices" data-id="'+esc(pid)+'">'+(ASSIGN_PRO_ID===pid?'Cerrar':'Asignar servicios')+'</button></div>';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
+  h+='<button class="btn o" data-a="openProServices" data-id="'+esc(pid)+'">'+(ASSIGN_PRO_ID===pid?'Cerrar servicios':'Servicios')+'</button>';
+  h+='<button class="btn o" data-a="openProSchedules" data-id="'+esc(pid)+'">'+(SCHEDULE_PRO_ID===pid?'Cerrar horarios':'Horarios')+'</button>';
+  h+='</div></div>';
 
   if(ASSIGN_PRO_ID===pid){
    h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px">';
-   h+='<h2 style="margin:0 0 5px">Servicios que realiza</h2>';
-   h+='<p style="color:var(--mute);margin:0 0 10px;font-size:.86rem">Marca uno o varios servicios. El cliente solo verá este profesional en los servicios seleccionados.</p>';
+   h+='<h2 style="margin:0 0 5px">Servicios asignados</h2>';
+   h+='<p style="color:var(--mute);margin:0 0 10px;font-size:.86rem">Puedes modificar estas asignaciones cuando quieras.</p>';
    if(ASSIGN_LOADING){
     h+='<p>Cargando asignaciones...</p>';
    }else if(!API_SERVICES.length){
@@ -413,17 +509,31 @@ function bizTeam(){
    h+='<button class="btn p" data-a="saveProServices" '+(ASSIGN_LOADING||ASSIGN_SAVING||!API_SERVICES.length?'disabled':'')+'>'+(ASSIGN_SAVING?'Guardando...':'Guardar servicios')+'</button>';
    h+='<button class="btn" data-a="cancelProServices">Cancelar</button></div></div>';
   }
+
+  if(SCHEDULE_PRO_ID===pid){
+   h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px">';
+   h+='<h2 style="margin:0 0 5px">Horarios del profesional</h2>';
+   h+='<p style="color:var(--mute);margin:0 0 10px;font-size:.86rem">Activa los días que trabaja y ajusta las horas. Puedes modificarlos después.</p>';
+   if(SCHEDULE_LOADING){
+    h+='<p>Cargando horarios...</p>';
+   }else{
+    SCHEDULES.forEach(function(row,idx){
+     h+='<div style="display:grid;grid-template-columns:minmax(110px,1fr) 92px 92px;gap:8px;align-items:center;margin:8px 0;padding:8px;border:1px solid var(--line);border-radius:10px">';
+     h+='<label style="display:flex;align-items:center;gap:8px;margin:0"><input type="checkbox" data-sched-active="'+idx+'" '+(row.is_active?'checked':'')+' style="width:19px;height:19px"><span>'+dayNames[row.weekday]+'</span></label>';
+     h+='<input type="time" data-sched-start="'+idx+'" value="'+esc(row.start_time)+'" '+(!row.is_active?'disabled':'')+'>';
+     h+='<input type="time" data-sched-end="'+idx+'" value="'+esc(row.end_time)+'" '+(!row.is_active?'disabled':'')+'>';
+     h+='</div>';
+    });
+   }
+   if(SCHEDULE_ERROR)h+='<p style="color:#B3372A">'+esc(SCHEDULE_ERROR)+'</p>';
+   h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">';
+   h+='<button class="btn p" data-a="saveProSchedules" '+(SCHEDULE_LOADING||SCHEDULE_SAVING?'disabled':'')+'>'+(SCHEDULE_SAVING?'Guardando...':'Guardar horarios')+'</button>';
+   h+='<button class="btn" data-a="cancelProSchedules">Cancelar</button></div></div>';
+  }
+
   h+='</div>';
  });
-
- h+='</div>';
- h+='<div class="pn" style="overflow:visible;margin-top:14px"><h2>Agregar profesional</h2>';
- h+='<label>Nombre</label><input id="pn" placeholder="Nombre completo">';
- h+='<label>Especialidad</label><input id="pr" placeholder="Ej. Colorista, Barbero, Matemáticas">';
- h+='<label>WhatsApp / teléfono (opcional)</label><input id="pp" type="tel" placeholder="300 123 4567">';
- h+='<label>Color identificador</label><input id="pc" type="color" value="#4F46E5">';
- h+='<button class="btn p" style="margin-top:12px" data-a="apiAddPro">Agregar profesional</button></div>';
- return h
+ return h+'</div>'
 }
 function bizCfg(){
  return'<h1>Configuración</h1><p style="color:var(--mute);margin:4px 0 0">Tu cuenta ya viene lista. Aquí ajustas tu marca y tus horarios.</p><div class="pn" style="margin-top:14px;overflow:visible"><h2>Marca</h2><div class="rw">'+mark().replace('class="mark"','class="mark" style="margin:0"')+'<div class="grow"><label style="margin:0">Logo o foto</label><input type="file" accept="image/*" data-f="logo"></div></div><label>Nombre del negocio</label><input data-f="name" value="'+esc(BZ.name)+'"><label>Frase</label><input data-f="tag" value="'+esc(BZ.tag)+'"><label>WhatsApp del negocio (con indicativo)</label><input data-f="wa" value="'+esc(BZ.wa)+'"><label>Color de marca</label><input type="color" data-f="color" value="'+BZ.color+'"></div>'+
@@ -585,6 +695,15 @@ document.querySelector(".bar").onclick=function(e){};
 var app=document.getElementById("app");
 app.oninput=function(e){var k=e.target.dataset.s;if(k)st[k]=e.target.value};
 app.onchange=function(e){
+ var sa=e.target.dataset.schedActive;
+ if(sa!==undefined){
+  var ix=Number(sa); if(SCHEDULES[ix]){SCHEDULES[ix].is_active=e.target.checked;render()} return;
+ }
+ var ss=e.target.dataset.schedStart;
+ if(ss!==undefined){var ix=Number(ss);if(SCHEDULES[ix])SCHEDULES[ix].start_time=e.target.value;return}
+ var se=e.target.dataset.schedEnd;
+ if(se!==undefined){var ix=Number(se);if(SCHEDULES[ix])SCHEDULES[ix].end_time=e.target.value;return}
+
  var psid=e.target.dataset.profService;
  if(psid!==undefined){
   psid=String(psid);
@@ -626,7 +745,7 @@ app.onclick=function(e){
  else if(a==="reset")st=JSON.parse(JSON.stringify(st0));
  else if(a==="nav"){
   if(V==="a")AV=t.dataset.i;
-  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;loadServices();return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";loadProfessionals();return}}
+  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;loadServices();return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";loadProfessionals();return}}
   MO=false
  }
  else if(a==="menu")MO=!MO;
@@ -644,6 +763,13 @@ app.onclick=function(e){
  }
  else if(a==="saveProServices"){saveProfessionalServices();return}
  else if(a==="cancelProServices"){ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";render();return}
+ else if(a==="openProSchedules"){
+  var pid=String(t.dataset.id||"");
+  if(SCHEDULE_PRO_ID===pid){SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";render();return}
+  openProfessionalSchedules(pid);return
+ }
+ else if(a==="saveProSchedules"){saveProfessionalSchedules();return}
+ else if(a==="cancelProSchedules"){SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";render();return}
  else if(a==="apiStatus"){updateAppointmentStatus(t.dataset.id,t.dataset.v);return}
  else if(a==="ast")A.forEach(function(x){if(x.id===i&&x.st!==v){x.st=v;lg(({Confirmada:"Confirmó",Cancelada:"Canceló",Rechazada:"Rechazó",Completada:"Marcó como completada","No asistió":"Marcó como no asistió"})[v]+" la cita de "+x.name)}});
  else if(a==="dsvc"){var sid=SV[i].id;lg('Quitó el servicio "'+SV[i].n+'"');PR.forEach(function(p){p.sv=p.sv.filter(function(x){return x!==sid})});SV.splice(i,1);ES=-1}
@@ -692,6 +818,8 @@ app.onclick=function(e){
  render();if(a==="go"||a==="svc"||a==="back")scrollTo(0,0);if(a==="ted"){var tfm=document.getElementById("tform");if(tfm)tfm.scrollIntoView({behavior:"smooth"})}};
 render();
 loadDashboard();
+
+// CITAGO_PROF_SERVICES_SCHEDULES_V4
 </script>
 </body>
 </html>
