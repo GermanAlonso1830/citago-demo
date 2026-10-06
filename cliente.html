@@ -52,6 +52,10 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .slots button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px}
 .slots button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.bookingNav{display:flex;gap:8px;margin-top:14px;background:var(--sf)}
+.bookingNav .btn{flex:1;min-height:46px}
+@media(max-width:760px){.heroBody{padding-bottom:92px}.bookingNav{position:sticky;bottom:8px;z-index:20;padding:10px;border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(37,28,44,.14)}}
 @media(max-width:760px){.shell{grid-template-columns:1fr}.side{position:sticky;top:0;z-index:5;padding:8px;display:flex;overflow:auto}.side h2{display:none}.side button{white-space:nowrap;width:auto}.main{padding:16px}.g2,.g3{grid-template-columns:1fr}.slots{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
@@ -62,7 +66,7 @@ const API="https://citago-backend.onrender.com";
 const qs=new URLSearchParams(location.search);
 const BUSINESS_SLUG=qs.get("biz")||"colegio-publico";
 let business=null,services=[],professionals=[],step=0;
-let booking={service:null,professional:null,date:"",time:"",name:"",phone:"",email:"",notes:"",reminder:true};
+let booking={service:null,professional:null,date:"",time:"",slotProfessionalId:null,name:"",phone:"",email:"",notes:"",reminder:true};
 let availability=[],message="",error="";
 
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -85,6 +89,7 @@ async function loadBase(){
 }
 async function loadAvailability(){
  if(!booking.service||!booking.date)return;
+ booking.time="";booking.slotProfessionalId=null;
  error="";
  try{
   let u="/availability?business_id="+business.id+"&service_id="+booking.service.id+"&date="+booking.date;
@@ -101,11 +106,11 @@ function eligiblePros(){
 }
 async function book(){
  if(!booking.name.trim()||!booking.phone.trim()){error="Escribe tu nombre y WhatsApp.";render();return}
- const p=booking.professional || (availability.find(x=>x.slots.includes(booking.time))||{});
- if(!p.professional_id){error="Selecciona un horario disponible.";render();return}
+ const professionalId = booking.professional ? booking.professional.id : booking.slotProfessionalId;
+ if(!booking.time || !professionalId){error="Selecciona un horario disponible.";render();return}
  try{
   const x=await api("/appointments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-   business_id:business.id,service_id:booking.service.id,professional_id:p.professional_id,
+   business_id:business.id,service_id:booking.service.id,professional_id:professionalId,
    client_name:booking.name.trim(),client_phone:booking.phone.trim(),client_email:booking.email||null,
    date:booking.date,start_time:booking.time,notes:booking.notes||null,reminder_opt_in:booking.reminder
   })});
@@ -144,7 +149,7 @@ function render(){
    slots.forEach(t=>h+='<button data-a="time" data-v="'+t+'" class="'+(booking.time===t?"on":"")+'">'+t+'</button>');
    h+='</div>';
   }
-  h+='<div class="row" style="margin-top:12px"><button class="btn" data-a="back">← Volver</button><button class="btn p" data-a="next" '+(!booking.time?"disabled":"")+'>Continuar</button></div>';
+  h+='<div class="bookingNav"><button class="btn" data-a="back">← Volver</button><button class="btn p" data-a="next" '+(!booking.time?"disabled":"")+'>Continuar →</button></div>';
  }else if(step===4){
   h+='<h2>Tus datos</h2><div class="card"><b>'+esc(booking.service.name)+'</b><small>'+esc(booking.date)+' · '+esc(booking.time)+'</small></div>';
   h+='<label>Nombre completo</label><input id="name" value="'+esc(booking.name)+'"><label>WhatsApp</label><input id="phone" value="'+esc(booking.phone)+'"><label>Email (opcional)</label><input id="email" value="'+esc(booking.email)+'"><label>Notas</label><textarea id="notes">'+esc(booking.notes)+'</textarea><label><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?"checked":"")+'> Quiero recordatorios</label><div class="row"><button class="btn" data-a="back">← Volver</button><button class="btn p" data-a="book">Confirmar cita</button></div>';
@@ -155,7 +160,7 @@ function render(){
  document.getElementById("app").innerHTML=h;
 }
 document.getElementById("app").addEventListener("change",e=>{
- if(e.target.id==="date"){booking.date=e.target.value;booking.time="";loadAvailability()}
+ if(e.target.id==="date"){booking.date=e.target.value;booking.time="";booking.slotProfessionalId=null;loadAvailability()}
 });
 document.getElementById("app").addEventListener("click",e=>{
  const t=e.target.closest("[data-a]");if(!t)return;
@@ -163,11 +168,11 @@ document.getElementById("app").addEventListener("click",e=>{
  error="";
  if(a==="next"){step++;render()}
  else if(a==="back"){step=Math.max(0,step-1);render()}
- else if(a==="svc"){booking.service=services.find(x=>x.id===t.dataset.id);booking.professional=null;step=2;render()}
- else if(a==="pro"){booking.professional=professionals.find(x=>x.id===t.dataset.id)||null;step=3;render()}
- else if(a==="time"){booking.time=t.dataset.v;render()}
+ else if(a==="svc"){booking.service=services.find(x=>x.id===t.dataset.id);booking.professional=null;booking.date="";booking.time="";booking.slotProfessionalId=null;availability=[];step=2;render()}
+ else if(a==="pro"){booking.professional=professionals.find(x=>x.id===t.dataset.id)||null;booking.date="";booking.time="";booking.slotProfessionalId=null;availability=[];step=3;render()}
+ else if(a==="time"){booking.time=t.dataset.v;const match=availability.find(x=>(x.slots||[]).includes(booking.time));booking.slotProfessionalId=booking.professional?booking.professional.id:(match?match.professional_id:null);render()}
  else if(a==="book"){booking.name=document.getElementById("name").value;booking.phone=document.getElementById("phone").value;booking.email=document.getElementById("email").value;booking.notes=document.getElementById("notes").value;booking.reminder=document.getElementById("rem").checked;book()}
- else if(a==="reset"){booking={service:null,professional:null,date:"",time:"",name:"",phone:"",email:"",notes:"",reminder:true};availability=[];step=0;message="";render()}
+ else if(a==="reset"){booking={service:null,professional:null,date:"",time:"",slotProfessionalId:null,name:"",phone:"",email:"",notes:"",reminder:true};availability=[];step=0;message="";render()}
 });
 loadBase();
 </script></body></html>
