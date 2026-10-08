@@ -50,11 +50,12 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 .heroHead{text-align:center;padding:30px;background:linear-gradient(180deg,#eee9ff,#fff);border-radius:28px 28px 0 0}
 .mark{width:74px;height:74px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;margin:auto;font:700 2rem Georgia,serif;overflow:hidden}
 .mark img{width:100%;height:100%;object-fit:cover}
-.heroBody{padding:18px 18px calc(120px + env(safe-area-inset-bottom))}
+.heroBody{padding:18px 18px calc(150px + env(safe-area-inset-bottom))}
 .choice{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:12px;margin:9px 0;background:#fff}
 .choice .ico{font-size:1.4rem;width:36px}
 .card small{display:block;margin-top:4px;color:var(--mut)}
-.mobileActions{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom));z-index:100;display:flex;gap:10px;align-items:center;width:min(calc(100vw - 32px),484px);padding:10px 8px;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;box-shadow:0 -8px 24px rgba(37,28,44,.12)}
+.mobileActions{position:fixed !important;left:0;right:0;bottom:0;z-index:9999;display:flex;gap:10px;align-items:center;justify-content:center;width:100%;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.97);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(37,28,44,.14);transform:none !important}
+.mobileActions .actionInner{display:flex;gap:10px;width:min(100%,520px)}
 .mobileActions .btn{flex:1;min-height:48px}
 @supports (height:100dvh){body{min-height:100dvh}}
 .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
@@ -175,6 +176,18 @@ function header(){
  const logo=business.logo_url?'<img src="'+esc(business.logo_url)+'">':esc((business.name||"C")[0]);
  return '<div class="heroHead"><div class="mark">'+logo+'</div><h1>'+esc(business.name)+'</h1><p class="muted">'+esc(business.tagline||"Reserva tu cita")+'</p></div>';
 }
+function moveActionBarOut(){
+ document.querySelectorAll("body > .mobileActions").forEach(x=>x.remove());
+ const app=document.getElementById("app");
+ const bar=app.querySelector(".mobileActions");
+ if(!bar)return;
+ const inner=document.createElement("div");
+ inner.className="actionInner";
+ while(bar.firstChild) inner.appendChild(bar.firstChild);
+ bar.appendChild(inner);
+ document.body.appendChild(bar);
+}
+
 function render(){
  let h='<div class="hero">';
  if(error&&!business){document.getElementById("app").innerHTML='<div class="card err">'+esc(error)+'</div>';return}
@@ -211,6 +224,7 @@ function render(){
  }
  h+='</div></div>';
  document.getElementById("app").innerHTML=h;
+ moveActionBarOut();
 }
 document.getElementById("app").addEventListener("change",e=>{
  if(e.target.id==="date"){booking.date=e.target.value;booking.time="";loadAvailability()}
