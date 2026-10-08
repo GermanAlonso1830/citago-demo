@@ -229,7 +229,7 @@ function render(){
 document.getElementById("app").addEventListener("change",e=>{
  if(e.target.id==="date"){booking.date=e.target.value;booking.time="";loadAvailability()}
 });
-document.getElementById("app").addEventListener("click",e=>{
+document.addEventListener("click",e=>{
  const t=e.target.closest("[data-a]");if(!t)return;
  const a=t.dataset.a;
  error="";
