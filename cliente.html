@@ -46,15 +46,15 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 .apptMeta{display:grid;gap:5px;margin-top:8px}.apptMeta span{color:var(--mut);font-size:.86rem}
 .otpCode{letter-spacing:.28em;text-align:center;font-size:1.25rem;font-weight:800}
 @media(max-width:520px){.homeActions{grid-template-columns:1fr}}
-.hero{max-width:520px;margin:28px auto;background:var(--sf);border:1px solid var(--line);border-radius:28px;overflow:hidden;box-shadow:0 20px 60px -35px #6d5bd0}
-.heroHead{text-align:center;padding:30px;background:linear-gradient(180deg,#eee9ff,#fff)}
+.hero{max-width:520px;margin:28px auto;background:var(--sf);border:1px solid var(--line);border-radius:28px;overflow:visible;box-shadow:0 20px 60px -35px #6d5bd0}
+.heroHead{text-align:center;padding:30px;background:linear-gradient(180deg,#eee9ff,#fff);border-radius:28px 28px 0 0}
 .mark{width:74px;height:74px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;margin:auto;font:700 2rem Georgia,serif;overflow:hidden}
 .mark img{width:100%;height:100%;object-fit:cover}
 .heroBody{padding:18px 18px calc(120px + env(safe-area-inset-bottom))}
 .choice{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:12px;margin:9px 0;background:#fff}
 .choice .ico{font-size:1.4rem;width:36px}
 .card small{display:block;margin-top:4px;color:var(--mut)}
-.mobileActions{position:sticky;bottom:calc(10px + env(safe-area-inset-bottom));z-index:30;display:flex;gap:10px;align-items:center;margin:16px -8px -6px;padding:10px 8px;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);border-radius:14px;box-shadow:0 -8px 24px rgba(37,28,44,.06)}
+.mobileActions{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom));z-index:100;display:flex;gap:10px;align-items:center;width:min(calc(100vw - 32px),484px);padding:10px 8px;background:rgba(255,255,255,.97);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;box-shadow:0 -8px 24px rgba(37,28,44,.12)}
 .mobileActions .btn{flex:1;min-height:48px}
 @supports (height:100dvh){body{min-height:100dvh}}
 .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
@@ -67,6 +67,7 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 <div id="app"></div>
 <script>
 const API="https://citago-backend.onrender.com";
+const DEV_MY_APPOINTMENTS=true;
 const qs=new URLSearchParams(location.search);
 const BUSINESS_SLUG=qs.get("biz")||"colegio-publico";
 let business=null,services=[],professionals=[],step=0;
@@ -134,6 +135,14 @@ function fmtAppointmentDate(iso){
 }
 function statusLabel(s){return ({CONFIRMED:"Confirmada",PENDING:"Pendiente",COMPLETED:"Completada",NO_SHOW:"No asistió",CANCELLED:"Cancelada",REJECTED:"Rechazada"})[s]||s;}
 function statusClass(s){return s==="CONFIRMED"||s==="COMPLETED"?"tag":s==="PENDING"?"tag w":"tag x";}
+async function requestDevAccess(){
+ const el=document.getElementById("myPhone");myPhone=(el?el.value:myPhone).trim();
+ if(!myPhone){error="Escribe tu número de WhatsApp.";render();return}
+ myBusy=true;error="";render();
+ try{const x=await api("/public/appointments/dev-access",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({business_id:business.id,phone:myPhone})});myToken=x.access_token;sessionStorage.setItem("citago_my_token",myToken);await loadMyAppointments();myStep="list";message=""}
+ catch(e){error=e.message}finally{myBusy=false;render()}
+}
+
 async function requestOtp(){
  const el=document.getElementById("myPhone");myPhone=(el?el.value:myPhone).trim();
  if(!myPhone){error="Escribe tu número de WhatsApp.";render();return}
@@ -155,7 +164,7 @@ async function loadMyAppointments(){
 }
 function renderMyAppointments(){
  let h='<div class="row" style="justify-content:space-between"><h2 style="margin:0">Mis citas</h2><button class="btn" data-a="home">← Inicio</button></div>';
- if(myStep==="phone"){h+='<p class="muted">Ingresa el WhatsApp que usaste al reservar.</p><label>WhatsApp</label><input id="myPhone" inputmode="tel" autocomplete="tel" value="'+esc(myPhone)+'" placeholder="Ej. 3001234567"><button style="margin-top:12px;width:100%" class="btn p" data-a="otpRequest" '+(myBusy?'disabled':'')+'>'+(myBusy?'Enviando…':'Enviar código')+'</button>';}
+ if(myStep==="phone"){h+='<p class="muted">Ingresa el mismo WhatsApp que usaste al reservar.</p><label>WhatsApp</label><input id="myPhone" inputmode="tel" autocomplete="tel" value="'+esc(myPhone)+'" placeholder="Ej. 3001234567">'+(DEV_MY_APPOINTMENTS?'<p class="muted" style="font-size:.78rem;margin:8px 0 0">Modo de prueba: por ahora no se solicita código de verificación.</p><button style="margin-top:12px;width:100%" class="btn p" data-a="devAccess" '+(myBusy?'disabled':'')+'>'+(myBusy?'Consultando…':'Ver mis citas')+'</button>':'<button style="margin-top:12px;width:100%" class="btn p" data-a="otpRequest" '+(myBusy?'disabled':'')+'>'+(myBusy?'Enviando…':'Enviar código')+'</button>');}
  else if(myStep==="code"){h+='<p class="muted">Escribe el código de 6 dígitos enviado a '+esc(myPhone)+'.</p><label>Código</label><input id="otpCode" class="otpCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000"><button style="margin-top:12px;width:100%" class="btn p" data-a="otpVerify" '+(myBusy?'disabled':'')+'>'+(myBusy?'Verificando…':'Ver mis citas')+'</button><button style="margin-top:8px;width:100%" class="btn" data-a="otpBack">Cambiar número</button>';}
  else{if(!myAppointments.length)h+='<div class="card" style="margin-top:14px"><b>No tienes citas registradas.</b><p class="muted">Cuando reserves una cita aparecerá aquí.</p></div>';myAppointments.forEach(a=>h+='<div class="item"><div class="row" style="justify-content:space-between"><b>'+esc(a.service)+'</b><span class="'+statusClass(a.status)+'">'+esc(statusLabel(a.status))+'</span></div><div class="apptMeta"><span>👤 '+esc(a.professional||"Profesional")+'</span><span>📅 '+esc(fmtAppointmentDate(a.start_at))+'</span><span>⏱️ '+esc(a.duration_minutes)+' min</span><span>💰 '+money(a.price)+'</span></div></div>');h+='<button class="btn p" data-a="newBooking">Reservar otra cita</button> <button class="btn" data-a="myLogout">Salir de Mis citas</button>';}
  return h;
@@ -218,6 +227,7 @@ document.getElementById("app").addEventListener("click",e=>{
  else if(a==="book"){booking.name=document.getElementById("name").value;booking.phone=document.getElementById("phone").value;booking.email=document.getElementById("email").value;booking.notes=document.getElementById("notes").value;booking.reminder=document.getElementById("rem").checked;book()}
  else if(a==="my"){view="my";myStep=myToken?"list":"phone";if(myToken){myBusy=true;loadMyAppointments().then(()=>{myStep="list"}).catch(e=>error=e.message).finally(()=>{myBusy=false;render()})}else render()}
  else if(a==="home"){view="home";error="";message="";render()}
+ else if(a==="devAccess"){requestDevAccess()}
  else if(a==="otpRequest"){requestOtp()}
  else if(a==="otpVerify"){verifyOtp()}
  else if(a==="otpBack"){myStep="phone";message="";error="";render()}
