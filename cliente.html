@@ -44,19 +44,19 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 .loading{opacity:.7}
 .homeActions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
 .apptMeta{display:grid;gap:5px;margin-top:8px}.apptMeta span{color:var(--mut);font-size:.86rem}
-.otpCode{letter-spacing:.28em;text-align:center;font-size:1.25rem;font-weight:800}
 @media(max-width:520px){.homeActions{grid-template-columns:1fr}}
 .hero{max-width:520px;margin:28px auto;background:var(--sf);border:1px solid var(--line);border-radius:28px;overflow:visible;box-shadow:0 20px 60px -35px #6d5bd0}
 .heroHead{text-align:center;padding:30px;background:linear-gradient(180deg,#eee9ff,#fff);border-radius:28px 28px 0 0}
 .mark{width:74px;height:74px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;margin:auto;font:700 2rem Georgia,serif;overflow:hidden}
 .mark img{width:100%;height:100%;object-fit:cover}
-.heroBody{padding:18px 18px calc(150px + env(safe-area-inset-bottom))}
+.heroBody{padding:18px 18px calc(120px + env(safe-area-inset-bottom))}
 .choice{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:14px;padding:12px;margin:9px 0;background:#fff}
 .choice .ico{font-size:1.4rem;width:36px}
 .card small{display:block;margin-top:4px;color:var(--mut)}
-.mobileActions{position:fixed !important;left:0;right:0;bottom:0;z-index:9999;display:flex;gap:10px;align-items:center;justify-content:center;width:100%;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.97);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);box-shadow:0 -8px 24px rgba(37,28,44,.14);transform:none !important}
-.mobileActions .actionInner{display:flex;gap:10px;width:min(100%,520px)}
+.mobileActions{position:sticky;bottom:calc(10px + env(safe-area-inset-bottom));z-index:30;display:flex;gap:10px;align-items:center;margin:16px -8px -6px;padding:10px 8px;background:rgba(255,255,255,.96);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);border-radius:14px;box-shadow:0 -8px 24px rgba(37,28,44,.06)}
 .mobileActions .btn{flex:1;min-height:48px}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.devHint{margin:10px 0 0;padding:9px 10px;border-radius:10px;background:#f6f3ff;color:var(--mut);font-size:.78rem}
 @supports (height:100dvh){body{min-height:100dvh}}
 .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .slots button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px}
@@ -68,16 +68,26 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 <div id="app"></div>
 <script>
 const API="https://citago-backend.onrender.com";
-const DEV_MY_APPOINTMENTS=true;
 const qs=new URLSearchParams(location.search);
-const BUSINESS_SLUG=qs.get("biz")||"colegio-publico";
+const BUSINESS_SLUG=qs.get("biz")||"";
 let business=null,services=[],professionals=[],step=0;
 let booking={service:null,professional:null,date:"",time:"",name:"",phone:"",email:"",notes:"",reminder:true};
-let availability=[],message="",error="";
+let availability=[],message="",error="",bookingBusy=false;
 let view="home",myStep="phone",myPhone="",myToken=sessionStorage.getItem("citago_my_token")||"",myAppointments=[],myBusy=false;
 
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money=n=>"$"+Number(n||0).toLocaleString("es-CO");
+function todayInBusinessTz(){
+ const tz=(business&&business.timezone)||"America/Bogota";
+ const parts=new Intl.DateTimeFormat("en-CA",{timeZone:tz,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
+ const get=t=>parts.find(p=>p.type===t)?.value||"";
+ return get("year")+"-"+get("month")+"-"+get("day");
+}
+function clearAvailabilitySelection({clearDate=true}={}){
+ availability=[];
+ booking.time="";
+ if(clearDate)booking.date="";
+}
 async function api(path,opts={}){
   const r=await fetch(API+path,opts);
   const data=await r.json().catch(()=>({}));
@@ -86,6 +96,7 @@ async function api(path,opts={}){
 }
 async function loadBase(){
  try{
+  if(!BUSINESS_SLUG)throw new Error("Enlace de reserva inválido. Falta identificar el negocio.");
   const catalog=await api("/public/businesses/"+encodeURIComponent(BUSINESS_SLUG)+"/catalog");
   business=catalog.business;
   services=catalog.services||[];
@@ -111,6 +122,7 @@ function eligiblePros(){
  return professionals.filter(p=>Array.isArray(p.service_ids)?p.service_ids.includes(sid):true);
 }
 async function book(){
+ if(bookingBusy)return;
  if(!booking.name.trim()||!booking.phone.trim()){error="Escribe tu nombre y WhatsApp.";render();return}
  let professionalId=booking.professional?.id||null;
  if(!professionalId){
@@ -118,6 +130,11 @@ async function book(){
   professionalId=available?.professional_id||available?.id||null;
  }
  if(!booking.time||!professionalId){error="Selecciona un horario disponible.";render();return}
+
+ bookingBusy=true;
+ error="";
+ render();
+
  try{
   const x=await api("/appointments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
    business_id:business.id,service_id:booking.service.id,professional_id:professionalId,
@@ -126,8 +143,12 @@ async function book(){
   })});
   message="Cita creada correctamente. Estado: "+x.appointment.status;
   step=5;
- }catch(e){error=e.message}
- render();
+ }catch(e){
+  error=e.message;
+ }finally{
+  bookingBusy=false;
+  render();
+ }
 }
 function fmtAppointmentDate(iso){
  const d=new Date(iso);
@@ -136,27 +157,34 @@ function fmtAppointmentDate(iso){
 }
 function statusLabel(s){return ({CONFIRMED:"Confirmada",PENDING:"Pendiente",COMPLETED:"Completada",NO_SHOW:"No asistió",CANCELLED:"Cancelada",REJECTED:"Rechazada"})[s]||s;}
 function statusClass(s){return s==="CONFIRMED"||s==="COMPLETED"?"tag":s==="PENDING"?"tag w":"tag x";}
-async function requestDevAccess(){
- const el=document.getElementById("myPhone");myPhone=(el?el.value:myPhone).trim();
- if(!myPhone){error="Escribe tu número de WhatsApp.";render();return}
- myBusy=true;error="";render();
- try{const x=await api("/public/appointments/dev-access",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({business_id:business.id,phone:myPhone})});myToken=x.access_token;sessionStorage.setItem("citago_my_token",myToken);await loadMyAppointments();myStep="list";message=""}
- catch(e){error=e.message}finally{myBusy=false;render()}
-}
+async function devAccessMyAppointments(){
+ const el=document.getElementById("myPhone");
+ myPhone=(el?el.value:myPhone).trim();
+ const digits=myPhone.replace(/\D/g,"");
+ if(digits.length<7){error="Escribe un número de WhatsApp válido.";render();return}
+ if(myBusy)return;
 
-async function requestOtp(){
- const el=document.getElementById("myPhone");myPhone=(el?el.value:myPhone).trim();
- if(!myPhone){error="Escribe tu número de WhatsApp.";render();return}
- myBusy=true;error="";render();
- try{await api("/public/appointments/otp/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({business_id:business.id,phone:myPhone})});myStep="code";message="Si el número está registrado, recibirás un código de verificación."}
- catch(e){error=e.message}finally{myBusy=false;render()}
-}
-async function verifyOtp(){
- const el=document.getElementById("otpCode");const code=(el?el.value:"").trim();
- if(!/^\d{6}$/.test(code)){error="Escribe el código de 6 dígitos.";render();return}
- myBusy=true;error="";render();
- try{const x=await api("/public/appointments/otp/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({business_id:business.id,phone:myPhone,code})});myToken=x.access_token;sessionStorage.setItem("citago_my_token",myToken);await loadMyAppointments();myStep="list";message=""}
- catch(e){error=e.message}finally{myBusy=false;render()}
+ myBusy=true;
+ error="";
+ message="";
+ render();
+
+ try{
+  const x=await api("/public/appointments/dev-access",{
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({business_id:business.id,phone:myPhone})
+  });
+  myToken=x.access_token;
+  sessionStorage.setItem("citago_my_token",myToken);
+  await loadMyAppointments();
+  myStep="list";
+ }catch(e){
+  error=e.message;
+ }finally{
+  myBusy=false;
+  render();
+ }
 }
 async function loadMyAppointments(){
  if(!myToken)return;
@@ -165,9 +193,20 @@ async function loadMyAppointments(){
 }
 function renderMyAppointments(){
  let h='<div class="row" style="justify-content:space-between"><h2 style="margin:0">Mis citas</h2><button class="btn" data-a="home">← Inicio</button></div>';
- if(myStep==="phone"){h+='<p class="muted">Ingresa el mismo WhatsApp que usaste al reservar.</p><label>WhatsApp</label><input id="myPhone" inputmode="tel" autocomplete="tel" value="'+esc(myPhone)+'" placeholder="Ej. 3001234567">'+(DEV_MY_APPOINTMENTS?'<p class="muted" style="font-size:.78rem;margin:8px 0 0">Modo de prueba: por ahora no se solicita código de verificación.</p><button style="margin-top:12px;width:100%" class="btn p" data-a="devAccess" '+(myBusy?'disabled':'')+'>'+(myBusy?'Consultando…':'Ver mis citas')+'</button>':'<button style="margin-top:12px;width:100%" class="btn p" data-a="otpRequest" '+(myBusy?'disabled':'')+'>'+(myBusy?'Enviando…':'Enviar código')+'</button>');}
- else if(myStep==="code"){h+='<p class="muted">Escribe el código de 6 dígitos enviado a '+esc(myPhone)+'.</p><label>Código</label><input id="otpCode" class="otpCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000"><button style="margin-top:12px;width:100%" class="btn p" data-a="otpVerify" '+(myBusy?'disabled':'')+'>'+(myBusy?'Verificando…':'Ver mis citas')+'</button><button style="margin-top:8px;width:100%" class="btn" data-a="otpBack">Cambiar número</button>';}
- else{if(!myAppointments.length)h+='<div class="card" style="margin-top:14px"><b>No tienes citas registradas.</b><p class="muted">Cuando reserves una cita aparecerá aquí.</p></div>';myAppointments.forEach(a=>h+='<div class="item"><div class="row" style="justify-content:space-between"><b>'+esc(a.service)+'</b><span class="'+statusClass(a.status)+'">'+esc(statusLabel(a.status))+'</span></div><div class="apptMeta"><span>👤 '+esc(a.professional||"Profesional")+'</span><span>📅 '+esc(fmtAppointmentDate(a.start_at))+'</span><span>⏱️ '+esc(a.duration_minutes)+' min</span><span>💰 '+money(a.price)+'</span></div></div>');h+='<button class="btn p" data-a="newBooking">Reservar otra cita</button> <button class="btn" data-a="myLogout">Salir de Mis citas</button>';}
+ if(myStep==="phone"){
+  h+='<p class="muted">Ingresa el WhatsApp que usaste al reservar.</p>'+
+     '<label>WhatsApp</label>'+
+     '<input id="myPhone" inputmode="tel" autocomplete="tel" value="'+esc(myPhone)+'" placeholder="Ej. 3001234567">'+
+     '<button style="margin-top:12px;width:100%" class="btn p" data-a="devAccess" '+(myBusy?'disabled':'')+'>'+
+     (myBusy?'Consultando…':'Ver mis citas')+'</button>'+
+     '<div class="devHint">Acceso temporal de pruebas. La verificación por código de WhatsApp se activará más adelante.</div>';
+ }else{
+  if(!myAppointments.length){
+   h+='<div class="card" style="margin-top:14px"><b>No tienes citas registradas.</b><p class="muted">Cuando reserves una cita aparecerá aquí.</p></div>';
+  }
+  myAppointments.forEach(a=>h+='<div class="item"><div class="row" style="justify-content:space-between"><b>'+esc(a.service)+'</b><span class="'+statusClass(a.status)+'">'+esc(statusLabel(a.status))+'</span></div><div class="apptMeta"><span>👤 '+esc(a.professional||"Profesional")+'</span><span>📅 '+esc(fmtAppointmentDate(a.start_at))+'</span><span>⏱️ '+esc(a.duration_minutes)+' min</span><span>💰 '+money(a.price)+'</span></div></div>');
+  h+='<button class="btn p" data-a="newBooking">Reservar otra cita</button> <button class="btn" data-a="myLogout">Salir de Mis citas</button>';
+ }
  return h;
 }
 
@@ -176,18 +215,6 @@ function header(){
  const logo=business.logo_url?'<img src="'+esc(business.logo_url)+'">':esc((business.name||"C")[0]);
  return '<div class="heroHead"><div class="mark">'+logo+'</div><h1>'+esc(business.name)+'</h1><p class="muted">'+esc(business.tagline||"Reserva tu cita")+'</p></div>';
 }
-function moveActionBarOut(){
- document.querySelectorAll("body > .mobileActions").forEach(x=>x.remove());
- const app=document.getElementById("app");
- const bar=app.querySelector(".mobileActions");
- if(!bar)return;
- const inner=document.createElement("div");
- inner.className="actionInner";
- while(bar.firstChild) inner.appendChild(bar.firstChild);
- bar.appendChild(inner);
- document.body.appendChild(bar);
-}
-
 function render(){
  let h='<div class="hero">';
  if(error&&!business){document.getElementById("app").innerHTML='<div class="card err">'+esc(error)+'</div>';return}
@@ -207,7 +234,7 @@ function render(){
   eligiblePros().forEach(p=>h+='<button class="choice" data-a="pro" data-id="'+p.id+'"><span class="ico">👤</span><span><b>'+esc(p.name)+'</b><small>'+esc(p.specialty||"Profesional")+'</small></span></button>');
   h+='<div class="mobileActions"><button class="btn" data-a="back">← Volver</button></div>';
  }else if(step===3){
-  h+='<h2>Fecha y hora</h2><label>Fecha</label><input type="date" id="date" value="'+esc(booking.date)+'">';
+  h+='<h2>Fecha y hora</h2><label>Fecha</label><input type="date" id="date" min="'+todayInBusinessTz()+'" value="'+esc(booking.date)+'">';
   if(booking.date){
    const slots=[...new Set(availability.flatMap(x=>x.slots||[]))];
    h+='<label>Horarios disponibles</label><div class="slots">';
@@ -218,35 +245,45 @@ function render(){
   h+='<div class="mobileActions"><button class="btn" data-a="back">← Volver</button><button class="btn p" data-a="next" '+(!booking.time?"disabled":"")+'>Continuar</button></div>';
  }else if(step===4){
   h+='<h2>Tus datos</h2><div class="card"><b>'+esc(booking.service.name)+'</b><small>'+esc(booking.date)+' · '+esc(booking.time)+'</small></div>';
-  h+='<label>Nombre completo</label><input id="name" value="'+esc(booking.name)+'"><label>WhatsApp</label><input id="phone" value="'+esc(booking.phone)+'"><label>Email (opcional)</label><input id="email" value="'+esc(booking.email)+'"><label>Notas</label><textarea id="notes">'+esc(booking.notes)+'</textarea><label><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?"checked":"")+'> Quiero recordatorios</label><div class="mobileActions"><button class="btn" data-a="back">← Volver</button><button class="btn p" data-a="book">Confirmar cita</button></div>';
+  h+='<label>Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label>WhatsApp</label><input id="phone" inputmode="tel" autocomplete="tel" value="'+esc(booking.phone)+'"><label>Email (opcional)</label><input id="email" type="email" autocomplete="email" value="'+esc(booking.email)+'"><label>Notas</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea><label><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?"checked":"")+'> Quiero recordatorios</label><div class="mobileActions"><button class="btn" data-a="back" '+(bookingBusy?"disabled":"")+'>← Volver</button><button class="btn p" data-a="book" '+(bookingBusy?"disabled":"")+'>'+(bookingBusy?"Guardando…":"Confirmar cita")+'</button></div>';
  }else{
   h+='<div class="ok">'+esc(message||"Cita creada correctamente.")+'</div><h2>¡Listo! 🎉</h2><p class="muted">El negocio podrá gestionar el estado desde su panel.</p><button class="btn p" data-a="reset">Reservar otra cita</button>';
  }
  h+='</div></div>';
  document.getElementById("app").innerHTML=h;
- moveActionBarOut();
 }
 document.getElementById("app").addEventListener("change",e=>{
- if(e.target.id==="date"){booking.date=e.target.value;booking.time="";loadAvailability()}
+ if(e.target.id==="date"){
+  const selected=e.target.value;
+  if(selected&&selected<todayInBusinessTz()){
+   booking.date="";
+   booking.time="";
+   availability=[];
+   error="Selecciona una fecha de hoy en adelante.";
+   render();
+   return;
+  }
+  booking.date=selected;
+  booking.time="";
+  availability=[];
+  loadAvailability();
+ }
 });
-document.addEventListener("click",e=>{
+document.getElementById("app").addEventListener("click",e=>{
  const t=e.target.closest("[data-a]");if(!t)return;
  const a=t.dataset.a;
  error="";
  if(a==="next"){step++;render()}
  else if(a==="back"){step=Math.max(0,step-1);render()}
- else if(a==="svc"){booking.service=services.find(x=>x.id===t.dataset.id);booking.professional=null;step=2;render()}
- else if(a==="pro"){booking.professional=professionals.find(x=>x.id===t.dataset.id)||null;step=3;render()}
+ else if(a==="svc"){booking.service=services.find(x=>x.id===t.dataset.id);booking.professional=null;clearAvailabilitySelection();step=2;render()}
+ else if(a==="pro"){booking.professional=professionals.find(x=>x.id===t.dataset.id)||null;clearAvailabilitySelection();step=3;render()}
  else if(a==="time"){booking.time=t.dataset.v;render()}
  else if(a==="book"){booking.name=document.getElementById("name").value;booking.phone=document.getElementById("phone").value;booking.email=document.getElementById("email").value;booking.notes=document.getElementById("notes").value;booking.reminder=document.getElementById("rem").checked;book()}
  else if(a==="my"){view="my";myStep=myToken?"list":"phone";if(myToken){myBusy=true;loadMyAppointments().then(()=>{myStep="list"}).catch(e=>error=e.message).finally(()=>{myBusy=false;render()})}else render()}
  else if(a==="home"){view="home";error="";message="";render()}
- else if(a==="devAccess"){requestDevAccess()}
- else if(a==="otpRequest"){requestOtp()}
- else if(a==="otpVerify"){verifyOtp()}
- else if(a==="otpBack"){myStep="phone";message="";error="";render()}
+ else if(a==="devAccess"){devAccessMyAppointments()}
  else if(a==="myLogout"){myToken="";myAppointments=[];myStep="phone";sessionStorage.removeItem("citago_my_token");render()}
- else if(a==="newBooking"){view="home";step=1;error="";message="";render()}
+ else if(a==="newBooking"){view="home";booking={service:null,professional:null,date:"",time:"",name:"",phone:"",email:"",notes:"",reminder:true};availability=[];step=1;error="";message="";render()}
  else if(a==="reset"){booking={service:null,professional:null,date:"",time:"",name:"",phone:"",email:"",notes:"",reminder:true};availability=[];step=0;message="";render()}
 });
 loadBase();
