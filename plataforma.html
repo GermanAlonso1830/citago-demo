@@ -52,6 +52,52 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 </style></head>
 <body><div id="app"></div><script>
 const API="https://citago-backend.onrender.com";
+
+const AUTH_TOKEN_KEY = "citago_access_token";
+const nativeFetch = window.fetch.bind(window);
+window.fetch = function(input, init) {
+  const url = typeof input === "string" ? input : (input && input.url) || "";
+  const opts = Object.assign({}, init || {});
+  if (url.startsWith(API + "/")) {
+    const headers = new Headers(opts.headers || (input instanceof Request ? input.headers : undefined));
+    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    if (token) headers.set("Authorization", "Bearer " + token);
+    opts.headers = headers;
+  }
+  return nativeFetch(input, opts);
+};
+async function authJson(path, opts) {
+  const response = await nativeFetch(API + path, opts || {});
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || ("Error HTTP " + response.status));
+  return data;
+}
+function showPlatformLogin(message) {
+  document.getElementById("app").innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;padding:20px"><section class="card" style="width:min(100%,430px);padding:24px"><h1>CitaGo</h1><h2>Acceso de plataforma</h2>'+(message?'<p class="err">'+esc(message)+'</p>':'')+'<p class="muted">Esta área es exclusiva para administradores de plataforma.</p><form id="platformLogin"><label for="plEmail">Correo</label><input id="plEmail" type="email" autocomplete="username" required><label for="plPassword">Contraseña</label><input id="plPassword" type="password" autocomplete="current-password" required><button class="btn p" style="margin-top:14px;width:100%" type="submit">Iniciar sesión</button></form></section></div>';
+  document.getElementById("platformLogin").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const button = this.querySelector("button"); button.disabled = true; button.textContent = "Verificando…";
+    try {
+      const result = await authJson("/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:document.getElementById("plEmail").value,password:document.getElementById("plPassword").value})});
+      if (!result.user || result.user.global_role !== "SUPER_ADMIN") throw new Error("Esta cuenta no tiene permisos de plataforma.");
+      sessionStorage.setItem(AUTH_TOKEN_KEY,result.access_token);
+      await startPlatformAuth();
+    } catch(err) { sessionStorage.removeItem(AUTH_TOKEN_KEY); showPlatformLogin(err.message); }
+  });
+}
+async function startPlatformAuth() {
+  const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+  if (!token) { showPlatformLogin(""); return; }
+  try {
+    const user = await authJson("/auth/me",{headers:{"Authorization":"Bearer "+token}});
+    if (user.global_role !== "SUPER_ADMIN") throw new Error("Esta cuenta no tiene permisos de plataforma.");
+    load();
+  } catch(err) {
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    showPlatformLogin("No se pudo validar la sesión. Inicia sesión con una cuenta administradora.");
+  }
+}
+
 let view="businesses",businesses=[],types=[],plans=[],error="",loading=false;
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money=n=>"$"+Number(n||0).toLocaleString("es-CO");
@@ -102,5 +148,5 @@ document.getElementById("app").addEventListener("click",e=>{
  const tg=e.target.closest("[data-toggle]");if(tg)toggleBusiness(tg.dataset.toggle,tg.dataset.active==="1");
  const pl=e.target.closest("[data-plan]");if(pl)assignPlan(pl.dataset.plan);
 });
-load();
+startPlatformAuth();
 </script></body></html>
