@@ -137,10 +137,103 @@ var BZ,SV,PR,A,W,BL,CUR=0,REC=[],ES=-1,ET=-1,AF=-1,MO=false,who="Negocio";
 
 // Backend real de CitaGo (desarrollo local)
 const API_BASE = "https://citago-backend.onrender.com";
-const BUSINESS_ID =
-  new URLSearchParams(window.location.search).get("id")
-  || "1f47d94d-55d6-4a5d-88fc-dc93eaaa3958";
+let BUSINESS_ID = new URLSearchParams(window.location.search).get("id") || "";
 var DASH = null, DASH_LOADING = false, DASH_ERROR = "";
+
+const AUTH_TOKEN_KEY = "citago_access_token";
+const AUTH_BUSINESS_KEY = "citago_selected_business";
+const nativeFetch = window.fetch.bind(window);
+window.fetch = function(input, init) {
+  const url = typeof input === "string" ? input : (input && input.url) || "";
+  const opts = Object.assign({}, init || {});
+  if (url.startsWith(API_BASE + "/")) {
+    const headers = new Headers(opts.headers || (input instanceof Request ? input.headers : undefined));
+    const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    if (token && !url.includes("/auth/login")) headers.set("Authorization", "Bearer " + token);
+    opts.headers = headers;
+  }
+  return nativeFetch(input, opts);
+};
+function authShell(title, body) {
+  document.getElementById("app").innerHTML = '<div style="min-height:100vh;display:grid;place-items:center;padding:20px;background:var(--bg)"><section style="width:min(100%,430px);background:var(--sf);border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 18px 50px rgba(0,0,0,.08)"><h1 style="margin:0 0 6px">CitaGo</h1><h2 style="margin:0 0 16px;font-size:1.15rem">'+title+'</h2>'+body+'</section></div>';
+}
+function authMessage(text) {
+  return '<p role="alert" style="color:#B3372A;background:#FBE0DD;border-radius:10px;padding:10px">'+esc(text)+'</p>';
+}
+async function authJson(path, opts) {
+  const response = await nativeFetch(API_BASE + path, opts || {});
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || ("Error HTTP " + response.status));
+  return data;
+}
+function showLogin(message) {
+  authShell("Iniciar sesión", (message ? authMessage(message) : "")+
+    '<form id="citagoLogin"><label for="authEmail">Correo electrónico</label><input id="authEmail" type="email" autocomplete="username" required><label for="authPassword">Contraseña</label><input id="authPassword" type="password" autocomplete="current-password" required><button class="cta" type="submit">Entrar al panel</button></form><p style="color:var(--mute);font-size:.82rem;margin-top:14px">Si aún no tienes una cuenta, el administrador de CitaGo debe habilitar tu acceso.</p>');
+  document.getElementById("citagoLogin").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const button = this.querySelector("button");
+    button.disabled = true; button.textContent = "Verificando…";
+    try {
+      const result = await authJson("/auth/login", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:document.getElementById("authEmail").value,password:document.getElementById("authPassword").value})});
+      sessionStorage.setItem(AUTH_TOKEN_KEY, result.access_token);
+      await startBusinessAuth();
+    } catch (err) { showLogin(err.message); }
+  });
+}
+function showBusinessPicker(businesses, message) {
+  const items = businesses.map(b => '<button class="item" style="width:100%" data-auth-business="'+esc(b.id)+'"><div class="grow"><b>'+esc(b.name)+'</b><small>'+esc(b.slug||"")+' · '+(b.role?esc(b.role):"Plataforma")+'</small></div>›</button>').join("");
+  authShell("Selecciona tu negocio", (message ? authMessage(message) : "")+
+    (items || '<p>No hay negocios asignados a esta cuenta. Solicita al administrador que vincule tu usuario.</p>')+
+    '<button class="lk" id="authLogout">Cerrar sesión</button>');
+  document.querySelectorAll("[data-auth-business]").forEach(function(button) {
+    button.addEventListener("click", function() {
+      BUSINESS_ID = this.getAttribute("data-auth-business");
+      sessionStorage.setItem(AUTH_BUSINESS_KEY, BUSINESS_ID);
+      render();
+      loadDashboard();
+    });
+  });
+  document.getElementById("authLogout").addEventListener("click", logoutBusiness);
+}
+function logoutBusiness() {
+  sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  sessionStorage.removeItem(AUTH_BUSINESS_KEY);
+  BUSINESS_ID = "";
+  showLogin("");
+}
+async function startBusinessAuth() {
+  const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
+  if (!token) { showLogin(""); return; }
+  try {
+    await authJson("/auth/me", {headers:{"Authorization":"Bearer "+token}});
+    const businesses = await authJson("/auth/businesses", {headers:{"Authorization":"Bearer "+token}});
+    const wanted = new URLSearchParams(window.location.search).get("id") || sessionStorage.getItem(AUTH_BUSINESS_KEY);
+    const selected = businesses.find(b => String(b.id) === String(wanted));
+    if (selected) {
+      BUSINESS_ID = String(selected.id);
+      sessionStorage.setItem(AUTH_BUSINESS_KEY, BUSINESS_ID);
+      render();
+      loadDashboard();
+      return;
+    }
+    if (businesses.length === 1) {
+      BUSINESS_ID = String(businesses[0].id);
+      sessionStorage.setItem(AUTH_BUSINESS_KEY, BUSINESS_ID);
+      render();
+      loadDashboard();
+      return;
+    }
+    showBusinessPicker(businesses, "");
+  } catch (err) {
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    sessionStorage.removeItem(AUTH_BUSINESS_KEY);
+    showLogin("Tu sesión venció o no se pudo validar. Inicia sesión de nuevo.");
+  }
+}
+document.getElementById("app").addEventListener("click", function(e) {
+  if (e.target.closest("#citagoLogout")) logoutBusiness();
+});
+
 var APPTS = [], APPTS_LOADING = false, APPTS_ERROR = "";
 var API_SERVICES = [], SERVICES_LOADING = false, SERVICES_ERROR = "";
 var API_PROFESSIONALS = [], PROS_LOADING = false, PROS_ERROR = "";
@@ -826,7 +919,7 @@ app.onclick=function(e){
  else if(a==="anew"){var nm=document.getElementById("nn").value.trim();if(!nm){alert("Escribe el nombre del negocio.");return}var pl=document.getElementById("np").value.split("|");var tpk=document.getElementById("nt").value;REC.push(mk(nm,tpk,pl[0],+pl[1],pl[0]==="Prueba"?"Prueba":"Activo",pl[0]==="Prueba"?trial():"1 nov 2026"));var nr=REC[REC.length-1];nr.sv.length=0;nr.pro.length=0;nr.a.length=0;lg("Creó el negocio con la plantilla "+TPL[tpk].lbl+" (sin servicios ni equipo)","Plataforma",REC.length-1)}
  render();if(a==="go"||a==="svc"||a==="back")scrollTo(0,0);if(a==="ted"){var tfm=document.getElementById("tform");if(tfm)tfm.scrollIntoView({behavior:"smooth"})}};
 render();
-loadDashboard();
+startBusinessAuth();
 
 // CITAGO_NEGOCIO_V5_FIXED
 </script>
