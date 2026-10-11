@@ -167,6 +167,8 @@ async function authJson(path, opts) {
   return data;
 }
 function showLogin(message) {
+  const logoutButton = document.getElementById("citagoLogout");
+  if (logoutButton) logoutButton.hidden = true;
   authShell("Iniciar sesión", (message ? authMessage(message) : "")+
     '<form id="citagoLogin"><label for="authEmail">Correo electrónico</label><input id="authEmail" type="email" autocomplete="username" required><label for="authPassword">Contraseña</label><input id="authPassword" type="password" autocomplete="current-password" required><button class="cta" type="submit">Entrar al panel</button></form><p style="color:var(--mute);font-size:.82rem;margin-top:14px">Si aún no tienes una cuenta, el administrador de CitaGo debe habilitar tu acceso.</p>');
   document.getElementById("citagoLogin").addEventListener("submit", async function(e) {
@@ -202,6 +204,7 @@ function ensureBusinessLogoutButton() {
     button.id = "citagoLogout";
     button.textContent = "Cerrar sesión";
     button.style.cssText = "position:fixed;right:12px;top:12px;z-index:1000;border:1px solid #ddd;border-radius:999px;background:#241B2B;color:white;padding:9px 14px;font:600 13px system-ui;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.16)";
+    button.addEventListener("click", logoutBusiness);
     document.body.appendChild(button);
   }
   button.hidden = false;
