@@ -15,7 +15,7 @@
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "DM Sans",system-ui,sans-serif}
+body{margin:0;background:linear-gradient(rgba(255,250,248,.90),rgba(255,250,248,.90)),var(--site-bg-image,none) center/cover fixed,var(--bg);color:var(--ink);font:16px/1.5 "DM Sans",system-ui,sans-serif}
 button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 a{color:inherit;text-decoration:none}
@@ -25,8 +25,8 @@ body.modalOpen{overflow:hidden}
 .siteHeader{position:sticky;top:0;z-index:40;background:rgba(255,250,248,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(236,228,225,.9)}
 .headerInner{max-width:1180px;margin:auto;padding:14px 22px;display:flex;align-items:center;gap:18px}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
-.brandMark{width:46px;height:46px;border-radius:14px;background:var(--acc);color:#fff;display:grid;place-items:center;font-weight:700;overflow:hidden;flex:0 0 auto;box-shadow:0 8px 18px rgba(70,40,40,.10)}
-.brandMark img{width:100%;height:100%;object-fit:cover}
+ .brandMark{width:46px;height:46px;border-radius:14px;background:#fff;color:var(--acc);display:grid;place-items:center;font-weight:700;overflow:hidden;flex:0 0 auto;box-shadow:0 8px 18px rgba(70,40,40,.10);padding:4px}
+.brandMark img{width:100%;height:100%;object-fit:contain;object-position:center;border-radius:10px}
 .brandName{font-weight:800;font-size:1.08rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .headerSpacer{flex:1}
 .navLinks{display:flex;gap:24px;align-items:center;color:#4e4947;font-size:.95rem}
@@ -46,10 +46,12 @@ body.modalOpen{overflow:hidden}
 .hero p{font-size:1.12rem;line-height:1.8;color:var(--mut);max-width:610px;margin:0 0 30px}
 .heroActions{display:flex;gap:12px;flex-wrap:wrap}
 .heroActions .btn{padding:14px 22px;border-radius:999px}
-.heroImage{min-height:640px;background:linear-gradient(145deg,var(--acc-soft),#efe5e0);position:relative;overflow:hidden}
-.heroImage.hasImage{background-size:cover;background-position:center}
-.heroImage::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,10,10,.02),rgba(20,10,10,.18))}
-.heroImageBadge{position:absolute;right:24px;bottom:24px;z-index:1;width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:var(--acc);color:#fff;font-size:1.55rem;box-shadow:var(--shadow)}
+.heroImage{min-height:640px;background:linear-gradient(145deg,var(--acc-soft),#efe5e0);position:relative;overflow:hidden;isolation:isolate}
+.heroImage.hasImage{background:linear-gradient(145deg,#f8f3f1,#eee7e3)}
+.heroImage.hasImage::before{content:none}
+.heroMainImage{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;z-index:1;background:transparent}
+.heroImage::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,10,10,.02),rgba(20,10,10,.15));z-index:2;pointer-events:none}
+.heroImageBadge{position:absolute;right:24px;bottom:24px;z-index:3;width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:var(--acc);color:#fff;font-size:1.55rem;box-shadow:var(--shadow)}
 
 .section{max-width:1180px;margin:auto;padding:84px 24px}
 .sectionHead{text-align:center;max-width:700px;margin:0 auto 38px}
@@ -64,7 +66,7 @@ body.modalOpen{overflow:hidden}
 .serviceGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 .serviceCard{background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:0 12px 30px rgba(50,35,33,.04)}
 .serviceVisual{height:190px;background:linear-gradient(145deg,var(--acc-soft),#f0ebe9);display:grid;place-items:center;font-size:3rem;overflow:hidden}
-.serviceVisual img{width:100%;height:100%;object-fit:cover}
+.serviceVisual img{width:100%;height:100%;object-fit:cover;object-position:center}
 .serviceBody{padding:18px}
 .serviceBody h3{margin:0 0 6px;font-size:1.05rem}
 .serviceMeta{color:var(--mut);font-size:.91rem;margin-bottom:16px}
@@ -73,7 +75,7 @@ body.modalOpen{overflow:hidden}
 .teamGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
 .person{background:#fff;border-radius:22px;border:1px solid var(--line);overflow:hidden}
 .personPhoto{aspect-ratio:4/4.6;background:linear-gradient(145deg,#f3ece9,var(--acc-soft));display:grid;place-items:center;font-size:3rem;overflow:hidden}
-.personPhoto img{width:100%;height:100%;object-fit:cover}
+.personPhoto img{width:100%;height:100%;object-fit:cover;object-position:center 22%}
 .personBody{padding:18px}.personBody h3{margin:0 0 4px}.personBody p{margin:0;color:var(--mut);font-size:.92rem}
 .contactCard{display:grid;grid-template-columns:1.15fr .85fr;background:#fff;border:1px solid var(--line);border-radius:28px;overflow:hidden;box-shadow:var(--shadow)}
 .contactCopy{padding:38px}.contactCopy h2{font:600 2.5rem/1.1 "Playfair Display",serif;margin:0 0 14px}.contactCopy p{color:var(--mut)}
@@ -92,7 +94,7 @@ body.modalOpen{overflow:hidden}
 .choice{display:flex;gap:14px;align-items:center;border:1px solid var(--line);border-radius:16px;padding:13px;margin:10px 0;background:#fff;width:100%;text-align:left}
 .choice:hover{border-color:color-mix(in srgb,var(--acc) 55%, var(--line));background:#fffdfc}
 .choice .thumb{width:62px;height:62px;border-radius:12px;background:var(--acc-soft);display:grid;place-items:center;font-size:1.5rem;overflow:hidden;flex:0 0 auto}
-.choice .thumb img{width:100%;height:100%;object-fit:cover}.choice b{display:block}.choice small{display:block;color:var(--mut);margin-top:3px}
+.choice .thumb img{width:100%;height:100%;object-fit:cover;object-position:center 22%}.choice b{display:block}.choice small{display:block;color:var(--mut);margin-top:3px}
 .stepTitle{font:600 1.8rem/1.15 "Playfair Display",serif;margin:0 0 8px}.stepSub{color:var(--mut);margin:0 0 20px}
 label{display:block;font-size:.83rem;color:var(--mut);margin:12px 0 5px}
 input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);outline:none}
@@ -112,17 +114,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0
 
 .mobileMenu{display:none}
 @media(max-width:900px){
-  .navLinks{display:none}.menuBtn{display:block}.hero{grid-template-columns:1fr}.heroCopy{padding:58px 24px 44px}.heroImage{min-height:420px}.features{grid-template-columns:1fr;margin-top:20px}.serviceGrid,.teamGrid{grid-template-columns:repeat(2,1fr)}.contactCard{grid-template-columns:1fr}.mobileMenu.open{display:block;position:absolute;top:74px;left:14px;right:14px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:10px}.mobileMenu a,.mobileMenu button{display:block;width:100%;padding:12px;border:0;background:none;text-align:left;font-weight:600}
+  .navLinks{display:none}.menuBtn{display:block}.hero{grid-template-columns:1fr}.heroCopy{padding:58px 24px 44px}.heroImage{min-height:420px}.heroMainImage{padding:0}.features{grid-template-columns:1fr;margin-top:20px}.serviceGrid,.teamGrid{grid-template-columns:repeat(2,1fr)}.contactCard{grid-template-columns:1fr}.mobileMenu.open{display:block;position:absolute;top:74px;left:14px;right:14px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:10px}.mobileMenu a,.mobileMenu button{display:block;width:100%;padding:12px;border:0;background:none;text-align:left;font-weight:600}
 }
 @media(max-width:640px){
-  .headerInner{padding:11px 14px}.brandMark{width:42px;height:42px}.headerReserve{padding:9px 11px}.heroCopy{padding:48px 20px 38px}.hero h1{font-size:3.25rem}.heroImage{min-height:320px}.section{padding:62px 18px}.serviceGrid,.teamGrid{grid-template-columns:1fr}.sectionHead{text-align:left}.sectionHead .eyebrow{align-self:flex-start}.contactCopy,.contactAside{padding:26px}.slots{grid-template-columns:repeat(2,1fr)}.bookingPanel{width:100%}.panelHead{padding:17px 18px}.panelBody{padding:18px}.panelFoot{padding-left:18px;padding-right:18px}
+  .headerInner{padding:11px 14px}.brandMark{width:42px;height:42px}.headerReserve{padding:9px 11px}.heroCopy{padding:48px 20px 38px}.hero h1{font-size:3.25rem}.heroImage{min-height:320px}.heroMainImage{padding:0}.section{padding:62px 18px}.serviceGrid,.teamGrid{grid-template-columns:1fr}.sectionHead{text-align:left}.sectionHead .eyebrow{align-self:flex-start}.contactCopy,.contactAside{padding:26px}.slots{grid-template-columns:repeat(2,1fr)}.bookingPanel{width:100%}.panelHead{padding:17px 18px}.panelBody{padding:18px}.panelFoot{padding-left:18px;padding-right:18px}
 }
 </style>
 </head>
 <body>
 <div id="app"></div>
 <script>
-const API="https://citago-backend.onrender.com";
+const API=(location.hostname==="127.0.0.1"||location.hostname==="localhost")?"http://127.0.0.1:8000":"https://citago-backend.onrender.com";
 const qs=new URLSearchParams(location.search);
 const BUSINESS_SLUG=qs.get("biz")||"";
 let business=null,services=[],professionals=[],step=0;
@@ -156,6 +158,11 @@ async function loadBase(){
     services=catalog.services||[];
     professionals=catalog.professionals||[];
     document.documentElement.style.setProperty("--acc",business.primary_color||"#b98888");
+    if(business.background_image_url){
+      document.documentElement.style.setProperty("--site-bg-image",'url("'+String(business.background_image_url).replace(/"/g,'%22')+'")');
+    }else{
+      document.documentElement.style.setProperty("--site-bg-image","none");
+    }
     if(business.secondary_color)document.documentElement.style.setProperty("--acc-soft",business.secondary_color);
     document.title=(business.name||"Reservas")+" · Reservas";
   }catch(e){error=e.message}
@@ -243,12 +250,13 @@ function publicHeader(){
 function heroSection(){
   const title=business.hero_title||business.tagline||"Tu momento empieza aquí";
   const desc=business.description||"Reserva fácil, elige el servicio que quieres y encuentra el horario que mejor se adapte a ti.";
-  const cover=business.cover_url||business.banner_url||business.hero_image_url||"";
-  const heroStyle=cover?' style="background-image:url(\''+esc(cover)+'\')"':'';
+  const cover=business.cover_image_url||business.cover_url||business.banner_url||business.hero_image_url||"";
+  const heroStyle=cover?' style="--hero-img:url(\''+esc(cover)+'\')"':'';
+  const heroMedia=cover?'<img class="heroMainImage" src="'+esc(cover)+'" alt="Portada de '+esc(business.name)+'">':'';
   return '<main id="inicio"><section class="hero"><div class="heroCopy">'+
     '<span class="eyebrow">Bienestar · Servicios · Reservas</span><h1>'+esc(title).replace(/\b(bienestar|belleza|experiencia|momento)\b/i,'<em>$1</em>')+'</h1><p>'+esc(desc)+'</p>'+
     '<div class="heroActions"><button class="btn p" data-a="openBooking">Reservar cita</button><button class="btn ghost" data-a="my">Ver mis citas</button></div></div>'+
-    '<div class="heroImage '+(cover?'hasImage':'')+'"'+heroStyle+'><div class="heroImageBadge">📅</div></div></section></main>';
+    '<div class="heroImage '+(cover?'hasImage':'')+'"'+heroStyle+'>'+heroMedia+'<div class="heroImageBadge">📅</div></div></section></main>';
 }
 function featureStrip(){
   return '<section class="section" style="padding-top:0"><div class="features">'+

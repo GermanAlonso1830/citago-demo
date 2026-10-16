@@ -147,6 +147,7 @@ var DASH = null, DASH_LOADING = false, DASH_ERROR = "";
 var APPTS = [], APPTS_LOADING = false, APPTS_ERROR = "";
 var API_SERVICES = [], SERVICES_LOADING = false, SERVICES_ERROR = "";
 var EDIT_SERVICE_ID = null, SERVICE_SAVING = false;
+var SERVICE_PHOTO_BUSY = "", SERVICE_LOCAL_PREVIEW = {}, SERVICE_FILE_NAME = {};
 var SETTINGS = null, SETTINGS_LOADING = false, SETTINGS_SAVING = false, SETTINGS_ERROR = "", SETTINGS_MSG = "";
 var MEDIA_BUSY = "", MEDIA_ERROR = "", PRO_PHOTO_BUSY = "";
 var MEDIA_LOCAL_PREVIEW = {logo:"",cover:"",background:""};
@@ -273,12 +274,18 @@ async function loadServices(){
 }
 async function addRealService(){
  var n=document.getElementById("sn")?.value.trim(),d=document.getElementById("sd")?.value.trim()||null,m=+(document.getElementById("sm")?.value||0),p=+(document.getElementById("sp")?.value||0),ic=document.getElementById("si")?.value.trim()||"✨";
+ var photoInput=document.getElementById("sphoto"),photo=photoInput&&photoInput.files?photoInput.files[0]:null;
  if(!n||!m){alert("Escribe el nombre y la duración.");return}
+ if(photo){var perr=validateImageFile(photo);if(perr){alert(perr);return}}
+ SERVICE_SAVING=true;render();
  try{
   var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/services",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:n,description:d,duration_minutes:m,price:p||0,icon:ic})});
   if(!response.ok){var er=await response.json().catch(function(){return{}});throw new Error(er.detail||("Error HTTP "+response.status))}
+  var created=await response.json();
+  if(photo&&created&&created.id)await uploadServicePhoto(created.id,photo);
   await loadServices();
  }catch(error){console.error(error);alert("No se pudo crear el servicio: "+error.message)}
+ finally{SERVICE_SAVING=false;render()}
 }
 function openServiceEdit(id){
  EDIT_SERVICE_ID=EDIT_SERVICE_ID===String(id)?null:String(id);render();
@@ -357,6 +364,53 @@ function validateImageFile(file){
  if(["image/jpeg","image/png","image/webp"].indexOf(file.type)<0)return "Usa una imagen JPG, PNG o WebP.";
  if(file.size>5*1024*1024)return "La imagen supera el límite de 5 MB.";
  return ""
+}
+async function uploadServicePhoto(serviceId,file){
+ var err=validateImageFile(file);if(err){alert(err);return}
+ serviceId=String(serviceId);
+ var fd=new FormData();fd.append("file",file,file.name||"servicio");
+ SERVICE_PHOTO_BUSY=serviceId;SERVICE_FILE_NAME[serviceId]=file.name||"servicio";
+ try{SERVICE_LOCAL_PREVIEW[serviceId]=URL.createObjectURL(file)}catch(_){SERVICE_LOCAL_PREVIEW[serviceId]=""}
+ render();
+ try{
+  var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/services/"+serviceId+"/photo",{method:"POST",body:fd});
+  if(!r.ok){var raw=await r.text();var msg=raw;try{var er=JSON.parse(raw);msg=er.detail||raw}catch(_){}throw new Error(msg||("Error HTTP "+r.status))}
+  var data=await r.json();
+  var svc=API_SERVICES.find(function(x){return String(x.id)===serviceId});
+  if(svc)svc.image_url=data.url;
+ }catch(e){
+  console.error("Error subiendo foto del servicio",e);
+  alert("No se pudo subir la foto del servicio: "+e.message);
+ }finally{
+  SERVICE_PHOTO_BUSY="";
+  if(SERVICE_LOCAL_PREVIEW[serviceId]){try{URL.revokeObjectURL(SERVICE_LOCAL_PREVIEW[serviceId])}catch(_){ }delete SERVICE_LOCAL_PREVIEW[serviceId]}
+  render();
+ }
+}
+function handleServicePhotoInput(input){
+ var serviceId=input&&input.dataset?input.dataset.servicePhoto:"";
+ var file=input&&input.files?input.files[0]:null;
+ if(!serviceId||!file)return;
+ uploadServicePhoto(serviceId,file);
+}
+async function removeServicePhoto(serviceId){
+ serviceId=String(serviceId);
+ if(!confirm("¿Quitar la foto de este servicio?"))return;
+ SERVICE_PHOTO_BUSY=serviceId;render();
+ try{
+  var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/services/"+serviceId+"/photo",{method:"DELETE"});
+  if(!r.ok&&r.status!==204){var raw=await r.text();var msg=raw;try{var er=JSON.parse(raw);msg=er.detail||raw}catch(_){}throw new Error(msg||("Error HTTP "+r.status))}
+  var svc=API_SERVICES.find(function(x){return String(x.id)===serviceId});
+  if(svc)svc.image_url=null;
+ }catch(e){
+  console.error("Error quitando foto del servicio",e);
+  alert("No se pudo quitar la foto del servicio: "+e.message);
+ }finally{SERVICE_PHOTO_BUSY="";render()}
+}
+function serviceThumb(v,size){
+ var px=size||58,id=v?String(v.id||""):"",preview=id&&SERVICE_LOCAL_PREVIEW[id]?SERVICE_LOCAL_PREVIEW[id]:"",url=preview||(v&&v.image_url)||"";
+ if(url)return '<img src="'+esc(url)+'" alt="'+esc((v&&v.name)||"Servicio")+'" style="width:'+px+'px;height:'+px+'px;border-radius:14px;object-fit:cover;object-position:center;border:1px solid var(--line);flex:none">';
+ return '<div class="av" style="width:'+px+'px;height:'+px+'px">'+esc((v&&v.icon)||"✨")+'</div>';
 }
 async function uploadBusinessMedia(kind,file){
  var err=validateImageFile(file);if(err){alert(err);return}
@@ -455,16 +509,21 @@ async function loadProfessionals(){
  finally{PROS_LOADING=false;render()}
 }
 function bizSvc(){
- var h='<h1>Servicios</h1><p style="color:var(--mute);margin:4px 0 0">Crea, edita, pausa o reactiva los servicios que ofreces.</p><div style="margin-top:14px">';
+ var h='<h1>Servicios</h1><p style="color:var(--mute);margin:4px 0 0">Crea, edita, pausa o reactiva los servicios que ofreces. También puedes agregar o cambiar la foto de cada servicio.</p><div style="margin-top:14px">';
  if(SERVICES_LOADING)return h+'<div class="pn"><p>Cargando servicios reales...</p></div></div>';
  if(SERVICES_ERROR)return h+'<div class="pn"><p style="color:#B3372A">'+esc(SERVICES_ERROR)+'</p><button class="btn p" data-a="reloadSvc">Reintentar</button></div></div>';
  if(!API_SERVICES.length)h+='<p style="color:var(--mute)">Todavía no hay servicios.</p>';
- API_SERVICES.forEach(function(v){var sid=String(v.id),editing=EDIT_SERVICE_ID===sid;
-  h+='<div class="pn" style="overflow:visible;'+(!v.is_active?'opacity:.68':'')+'"><div class="rw"><div class="av">'+esc(v.icon||"✨")+'</div><div class="grow"><b>'+esc(v.name)+'</b><small style="display:block;color:var(--mute)">'+v.duration_minutes+' min · '+P(Number(v.price||0))+(v.description?' · '+esc(v.description):'')+'</small>'+(v.is_active?'':'<span class="tg n" style="margin-top:5px">Pausado</span>')+'</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" data-a="apiEditSvc" data-id="'+esc(sid)+'">'+(editing?'Cerrar':'Editar')+'</button>'+(v.is_active?'<button class="btn o" data-a="apiPauseSvc" data-id="'+esc(sid)+'">Pausar</button>':'<button class="btn p" data-a="apiReactivateSvc" data-id="'+esc(sid)+'">Reactivar</button>')+'</div></div>';
-  if(editing)h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><h2>Editar servicio</h2><label>Nombre</label><input id="esn" value="'+esc(v.name)+'"><label>Descripción</label><textarea id="esd" rows="2">'+esc(v.description||"")+'</textarea><div class="g3"><div><label>Duración (min)</label><input id="esm" type="number" min="1" value="'+Number(v.duration_minutes||0)+'"></div><div><label>Precio</label><input id="esp" type="number" min="0" value="'+Number(v.price||0)+'"></div><div><label>Ícono</label><input id="esi" maxlength="20" value="'+esc(v.icon||"✨")+'"></div></div><div class="dn" style="margin-top:10px"><button class="btn p" data-a="apiSaveSvc" data-id="'+esc(sid)+'" '+(SERVICE_SAVING?'disabled':'')+'>'+(SERVICE_SAVING?'Guardando...':'Guardar cambios')+'</button><button class="btn" data-a="apiEditSvc" data-id="'+esc(sid)+'">Cancelar</button></div></div>';
+ API_SERVICES.forEach(function(v){var sid=String(v.id),editing=EDIT_SERVICE_ID===sid,busy=SERVICE_PHOTO_BUSY===sid;
+  h+='<div class="pn" style="overflow:visible;'+(!v.is_active?'opacity:.68':'')+'"><div class="rw">'+serviceThumb(v,64)+'<div class="grow"><b>'+esc(v.name)+'</b><small style="display:block;color:var(--mute)">'+v.duration_minutes+' min · '+P(Number(v.price||0))+(v.description?' · '+esc(v.description):'')+'</small>'+(v.is_active?'':'<span class="tg n" style="margin-top:5px">Pausado</span>')+'</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" data-a="apiEditSvc" data-id="'+esc(sid)+'">'+(editing?'Cerrar':'Editar')+'</button>'+(v.is_active?'<button class="btn o" data-a="apiPauseSvc" data-id="'+esc(sid)+'">Pausar</button>':'<button class="btn p" data-a="apiReactivateSvc" data-id="'+esc(sid)+'">Reactivar</button>')+'</div></div>';
+  if(editing){
+   var currentUrl=(SERVICE_LOCAL_PREVIEW[sid]||v.image_url||"");
+   h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><h2>Editar servicio</h2>'+
+      '<label>Foto del servicio</label><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'+serviceThumb(v,96)+'<div style="flex:1;min-width:220px"><input type="file" accept="image/jpeg,image/png,image/webp" data-service-photo="'+esc(sid)+'" onchange="handleServicePhotoInput(this)" '+(busy?'disabled':'')+'><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB. Al elegir otra imagen se reemplaza la anterior.</small>'+(SERVICE_FILE_NAME[sid]?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo: '+esc(SERVICE_FILE_NAME[sid])+'</small>':'')+(v.image_url?'<button class="lk" data-a="removeSvcPhoto" data-id="'+esc(sid)+'" '+(busy?'disabled':'')+'>Quitar foto</button>':'')+(busy?'<p style="color:var(--mute);margin:6px 0 0">Subiendo foto...</p>':'')+'</div></div>'+
+      '<label>Nombre</label><input id="esn" value="'+esc(v.name)+'"><label>Descripción</label><textarea id="esd" rows="2">'+esc(v.description||"")+'</textarea><div class="g3"><div><label>Duración (min)</label><input id="esm" type="number" min="1" value="'+Number(v.duration_minutes||0)+'"></div><div><label>Precio</label><input id="esp" type="number" min="0" value="'+Number(v.price||0)+'"></div><div><label>Ícono</label><input id="esi" maxlength="20" value="'+esc(v.icon||"✨")+'"></div></div><div class="dn" style="margin-top:10px"><button class="btn p" data-a="apiSaveSvc" data-id="'+esc(sid)+'" '+(SERVICE_SAVING?'disabled':'')+'>'+(SERVICE_SAVING?'Guardando...':'Guardar cambios')+'</button><button class="btn" data-a="apiEditSvc" data-id="'+esc(sid)+'">Cancelar</button></div></div>';
+  }
   h+='</div>';
  });
- h+='</div><div class="pn" style="overflow:visible"><h2>Nuevo servicio</h2><label>Nombre</label><input id="sn" placeholder="Ej. Clase de química"><label>Descripción (opcional)</label><textarea id="sd" rows="2" placeholder="Describe brevemente el servicio"></textarea><div class="g3"><div><label>Duración (min)</label><input id="sm" type="number" min="1" placeholder="60"></div><div><label>Precio</label><input id="sp" type="number" min="0" placeholder="50000"></div><div><label>Ícono</label><input id="si" maxlength="20" value="✨"></div></div><button class="btn p" style="margin-top:10px" data-a="apiAddSvc">Agregar servicio</button></div>';
+ h+='</div><div class="pn" style="overflow:visible"><h2>Nuevo servicio</h2><label>Nombre</label><input id="sn" placeholder="Ej. Clase de química"><label>Descripción (opcional)</label><textarea id="sd" rows="2" placeholder="Describe brevemente el servicio"></textarea><div class="g3"><div><label>Duración (min)</label><input id="sm" type="number" min="1" placeholder="60"></div><div><label>Precio</label><input id="sp" type="number" min="0" placeholder="50000"></div><div><label>Ícono</label><input id="si" maxlength="20" value="✨"></div></div><label>Foto del servicio (opcional)</label><input id="sphoto" type="file" accept="image/jpeg,image/png,image/webp"><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small><button class="btn p" style="margin-top:10px" data-a="apiAddSvc" '+(SERVICE_SAVING?'disabled':'')+'>'+(SERVICE_SAVING?'Guardando...':'Agregar servicio')+'</button></div>';
  return h
 }
 
@@ -953,6 +1012,7 @@ app.onclick=function(e){
  else if(a==="apiSaveSvc"){saveServiceEdit(t.dataset.id);return}
  else if(a==="apiPauseSvc"){deactivateRealService(t.dataset.id);return}
  else if(a==="apiReactivateSvc"){reactivateRealService(t.dataset.id);return}
+ else if(a==="removeSvcPhoto"){removeServicePhoto(t.dataset.id);return}
  else if(a==="reloadCfg"){loadBusinessSettings();return}
  else if(a==="saveCfg"){saveBusinessSettings();return}
  else if(a==="removeMedia"){removeBusinessMedia(t.dataset.kind);return}
