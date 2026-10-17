@@ -61,7 +61,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .sl button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700}
 .sl button:disabled{opacity:.35;text-decoration:line-through;cursor:not-allowed}
 label{display:block;font-size:.82rem;color:var(--mute);margin:12px 0 4px}
-input:not([type=checkbox]),select,textarea{width:100%;padding:11px;border:1.5px solid var(--line);border-radius:10px;background:var(--sf)}
+input:not([type=checkbox]):not([type=radio]),select,textarea{width:100%;padding:11px;border:1.5px solid var(--line);border-radius:10px;background:var(--sf)}
+input[type=radio]{width:20px;height:20px;flex:0 0 20px;margin:0;padding:0;accent-color:var(--acc)}
 input[type=color]{height:44px;padding:3px}
 .sum{display:flex;gap:12px;align-items:center;border:1.5px solid var(--line);border-radius:16px;padding:12px;margin-bottom:6px}
 .ok{text-align:center;font-size:3rem}
@@ -72,7 +73,7 @@ input[type=color]{height:44px;padding:3px}
 .side button{display:block;width:100%;text-align:left;background:none;border:0;color:#fff;opacity:.75;padding:10px 12px;border-radius:10px;cursor:pointer;margin-bottom:2px}
 .side button[aria-pressed=true]{background:rgba(255,255,255,.14);opacity:1;font-weight:700}
 .sh2{display:flex;align-items:center}.side .hb,.cur{display:none}
-@media(max-width:800px){.sh{grid-template-columns:1fr;min-height:0}.side{padding:8px 12px}.sh2{gap:12px}
+@media(max-width:800px){.sh{grid-template-columns:1fr;min-height:0}.side{position:fixed;left:0;right:0;top:0;width:100%;z-index:100;padding:8px 12px;box-shadow:0 1px 0 rgba(255,255,255,.08);max-height:100dvh;overflow-y:auto}.sh2{gap:12px}
 .side h3{margin:0;font-size:.95rem;opacity:.8;order:3}
 .side .hb{display:block;order:0;width:44px;height:44px;padding:0;margin:0;background:rgba(255,255,255,.16);opacity:1;text-align:center;font-size:1.35rem}
 .cur{display:block;order:1;flex:1;font-weight:700}
@@ -193,7 +194,7 @@ body{
   .mn{
     min-height:0;
     overflow:visible;
-    padding:20px 14px calc(96px + env(safe-area-inset-bottom,0px));
+    padding:82px 14px calc(96px + env(safe-area-inset-bottom,0px));
   }
   .pn{max-width:100%}
 }
@@ -215,6 +216,19 @@ body{
   .g3{grid-template-columns:1fr}
   .g3 > :last-child{grid-column:auto}
 }
+
+/* Selectores de imagen con estado propio */
+.file-control{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:7px}
+.file-select{display:inline-flex;align-items:center;justify-content:center;gap:7px;margin:0;padding:9px 13px;border:1.5px solid var(--line);border-radius:10px;background:var(--sf);color:var(--ink);font-size:.86rem;font-weight:700;cursor:pointer;user-select:none}
+.file-select:hover{border-color:var(--acc)}
+.file-select.disabled{opacity:.55;cursor:not-allowed}
+.file-native{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;overflow:hidden!important;pointer-events:none;padding:0!important;border:0!important}
+.file-state{min-width:0;color:var(--mute);font-size:.82rem;line-height:1.35;overflow-wrap:anywhere}
+.file-state.ready{color:var(--ink)}
+.file-state.uploading{color:var(--acc);font-weight:700}
+.file-state.success{color:#16794C;font-weight:700}
+.file-state.error{color:#B3372A;font-weight:700}
+@media(max-width:600px){.file-control{align-items:stretch}.file-select{width:100%}.file-state{width:100%}}
 
 /* Servicios: acciones uniformes en móvil */
 .service-thumb{flex:none;display:flex;align-items:center}
@@ -290,19 +304,35 @@ var APPTS = [], APPTS_LOADING = false, APPTS_ERROR = "";
 var API_SERVICES = [], SERVICES_LOADING = false, SERVICES_ERROR = "";
 var EDIT_SERVICE_ID = null, SERVICE_SAVING = false, SERVICE_ACTION_BUSY = "";
 var SERVICE_MSG = "", SERVICE_UI_ERROR = "";
-var SERVICE_PHOTO_BUSY = "", SERVICE_LOCAL_PREVIEW = {}, SERVICE_FILE_NAME = {};
+var SERVICE_PHOTO_BUSY = "", SERVICE_LOCAL_PREVIEW = {}, SERVICE_FILE_NAME = {}, SERVICE_PHOTO_STATUS = {};
 var SERVICE_CREATE_DRAFT = {name:"",description:"",duration:"",price:"",icon:"✨"};
-var SERVICE_CREATE_PHOTO = null, SERVICE_CREATE_PHOTO_NAME = "", SERVICE_CREATE_PREVIEW = "";
+var SERVICE_CREATE_PHOTO = null, SERVICE_CREATE_PHOTO_NAME = "", SERVICE_CREATE_PREVIEW = "", SERVICE_CREATE_PHOTO_STATUS = "";
 var SETTINGS = null, SETTINGS_LOADING = false, SETTINGS_SAVING = false, SETTINGS_ERROR = "", SETTINGS_MSG = "";
 var MEDIA_BUSY = "", MEDIA_ERROR = "", PRO_PHOTO_BUSY = "";
 var MEDIA_LOCAL_PREVIEW = {logo:"",cover:"",background:""};
 var MEDIA_FILE_NAME = {logo:"",cover:"",background:""};
-var PRO_LOCAL_PREVIEW = {}, PRO_FILE_NAME = {};
+var MEDIA_FILE_STATUS = {logo:"",cover:"",background:""};
+var PRO_LOCAL_PREVIEW = {}, PRO_FILE_NAME = {}, PRO_PHOTO_STATUS = {};
 var API_PROFESSIONALS = [], PROS_LOADING = false, PROS_ERROR = "";
 var ASSIGN_PRO_ID = null, ASSIGN_SERVICE_IDS = [], ASSIGN_LOADING = false, ASSIGN_SAVING = false, ASSIGN_ERROR = "";
 var PRO_CREATE_MSG = "", PRO_CREATE_ERROR = "", PRO_CREATE_SAVING = false, PRO_CREATE_SERVICE_IDS = [];
+var PRO_CREATE_DRAFT = {name:"",specialty:"",phone:"",color:"#4F46E5"};
+var PRO_CREATE_PHOTO = null, PRO_CREATE_PHOTO_NAME = "", PRO_CREATE_PREVIEW = "", PRO_CREATE_PHOTO_STATUS = "";
 var EDIT_PRO_ID=null, EDIT_PRO=null, EDIT_PRO_SAVING=false, EDIT_PRO_ERROR="";
 var SCHEDULE_PRO_ID = null, SCHEDULES = [], SCHEDULE_LOADING = false, SCHEDULE_SAVING = false, SCHEDULE_ERROR = "";
+function fileStatusHtml(status,name,hasImage){
+ var txt="",cls="";
+ if(status==="uploading"){txt="⏳ Subiendo imagen...";cls=" uploading"}
+ else if(status==="success"){txt="✅ Foto cargada"+(name?" · "+esc(name):"");cls=" success"}
+ else if(status==="error"){txt="❌ No se pudo cargar la foto. Intenta nuevamente.";cls=" error"}
+ else if(status==="ready"){txt="📷 Foto lista para subir"+(name?" · "+esc(name):"");cls=" ready"}
+ else if(hasImage){txt="✅ Foto cargada";cls=" success"}
+ else{txt="Ninguna foto seleccionada"}
+ return '<span class="file-state'+cls+'">'+txt+'</span>';
+}
+function filePickerHtml(attrs,status,name,hasImage,buttonText,disabled){
+ return '<div class="file-control"><label class="file-select'+(disabled?' disabled':'')+'">📷 '+esc(buttonText||"Seleccionar foto")+'<input class="file-native" type="file" accept="image/jpeg,image/png,image/webp" '+attrs+'></label>'+fileStatusHtml(status,name,hasImage)+'</div>';
+}
 function slug(n){return n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
 function mk(name,type,pl,price,stt,nx){var t=TPL[type],sv=t.sv.map(function(x,i){return{id:i+1,n:x[0],m:x[1],p:x[2],e:x[3]}}),
  pro=t.pr.map(function(p,i){return{id:i+1,n:p[0],r:p[1],sv:p[2].map(function(k){return k+1}),days:[1,2,3,4,5,6],open:t.open,close:t.close,c:CL[i%CL.length]}}),
@@ -425,7 +455,7 @@ function validateServiceFields(name,duration,price){
 }
 function resetServiceCreateDraft(){
  SERVICE_CREATE_DRAFT={name:"",description:"",duration:"",price:"",icon:"✨"};
- SERVICE_CREATE_PHOTO=null;SERVICE_CREATE_PHOTO_NAME="";
+ SERVICE_CREATE_PHOTO=null;SERVICE_CREATE_PHOTO_NAME="";SERVICE_CREATE_PHOTO_STATUS="";
  if(SERVICE_CREATE_PREVIEW){try{URL.revokeObjectURL(SERVICE_CREATE_PREVIEW)}catch(_){ }}
  SERVICE_CREATE_PREVIEW="";
 }
@@ -442,9 +472,9 @@ function handleNewServicePhotoInput(input){
  var file=input&&input.files?input.files[0]:null;
  if(!file)return;
  var err=validateImageFile(file);
- if(err){SERVICE_UI_ERROR=err;SERVICE_MSG="";render();return}
+ if(err){SERVICE_CREATE_PHOTO_STATUS="error";SERVICE_UI_ERROR=err;SERVICE_MSG="";render();return}
  SERVICE_CREATE_PHOTO=file;
- SERVICE_CREATE_PHOTO_NAME=file.name||"servicio";
+ SERVICE_CREATE_PHOTO_NAME=file.name||"servicio";SERVICE_CREATE_PHOTO_STATUS="ready";
  if(SERVICE_CREATE_PREVIEW){try{URL.revokeObjectURL(SERVICE_CREATE_PREVIEW)}catch(_){ }}
  try{SERVICE_CREATE_PREVIEW=URL.createObjectURL(file)}catch(_){SERVICE_CREATE_PREVIEW=""}
  SERVICE_UI_ERROR="";SERVICE_MSG="";
@@ -474,7 +504,7 @@ async function addRealService(){
  if(verr){SERVICE_UI_ERROR=verr;SERVICE_MSG="";render();return}
  var photo=SERVICE_CREATE_PHOTO;
  if(photo){var perr=validateImageFile(photo);if(perr){SERVICE_UI_ERROR=perr;SERVICE_MSG="";render();return}}
- SERVICE_SAVING=true;SERVICE_UI_ERROR="";SERVICE_MSG="";
+ SERVICE_SAVING=true;if(photo)SERVICE_CREATE_PHOTO_STATUS="uploading";SERVICE_UI_ERROR="";SERVICE_MSG="";render();
  var btn=document.querySelector('[data-a="apiAddSvc"]');
  if(btn){btn.disabled=true;btn.textContent=photo?"Creando y subiendo foto...":"Guardando..."}
  var created=null,photoError=null;
@@ -499,6 +529,7 @@ async function addRealService(){
   }
  }catch(error){
   console.error(error);
+  if(photo)SERVICE_CREATE_PHOTO_STATUS="error";
   SERVICE_UI_ERROR="No se pudo crear el servicio: "+error.message;
  }finally{
   SERVICE_SAVING=false;
@@ -598,18 +629,18 @@ function validateImageFile(file){
  return ""
 }
 async function uploadServicePhoto(serviceId,file){
- var err=validateImageFile(file);if(err){alert(err);return}
  serviceId=String(serviceId);
- SERVICE_PHOTO_BUSY=serviceId;SERVICE_FILE_NAME[serviceId]=file.name||"servicio";
+ var err=validateImageFile(file);if(err){SERVICE_PHOTO_STATUS[serviceId]="error";render();alert(err);return}
+ SERVICE_PHOTO_BUSY=serviceId;SERVICE_FILE_NAME[serviceId]=file.name||"servicio";SERVICE_PHOTO_STATUS[serviceId]="uploading";
  try{SERVICE_LOCAL_PREVIEW[serviceId]=URL.createObjectURL(file)}catch(_){SERVICE_LOCAL_PREVIEW[serviceId]=""}
  render();
  try{
   var data=await uploadServicePhotoRequest(serviceId,file);
   var svc=API_SERVICES.find(function(x){return String(x.id)===serviceId});
-  if(svc)svc.image_url=data.url;
+  if(svc)svc.image_url=data.url;SERVICE_PHOTO_STATUS[serviceId]="success";
  }catch(e){
   console.error("Error subiendo foto del servicio",e);
-  alert("No se pudo subir la foto del servicio: "+e.message);
+  SERVICE_PHOTO_STATUS[serviceId]="error";alert("No se pudo subir la foto del servicio: "+e.message);
  }finally{
   SERVICE_PHOTO_BUSY="";
   if(SERVICE_LOCAL_PREVIEW[serviceId]){try{URL.revokeObjectURL(SERVICE_LOCAL_PREVIEW[serviceId])}catch(_){ }delete SERVICE_LOCAL_PREVIEW[serviceId]}
@@ -630,7 +661,7 @@ async function removeServicePhoto(serviceId){
   var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/services/"+serviceId+"/photo",{method:"DELETE"});
   if(!r.ok&&r.status!==204){var raw=await r.text();var msg=raw;try{var er=JSON.parse(raw);msg=er.detail||raw}catch(_){}throw new Error(msg||("Error HTTP "+r.status))}
   var svc=API_SERVICES.find(function(x){return String(x.id)===serviceId});
-  if(svc)svc.image_url=null;
+  if(svc)svc.image_url=null;SERVICE_PHOTO_STATUS[serviceId]="";delete SERVICE_FILE_NAME[serviceId];
  }catch(e){
   console.error("Error quitando foto del servicio",e);
   alert("No se pudo quitar la foto del servicio: "+e.message);
@@ -644,7 +675,7 @@ function serviceThumb(v,size){
 async function uploadBusinessMedia(kind,file){
  var err=validateImageFile(file);if(err){alert(err);return}
  var fd=new FormData();fd.append("file",file,file.name||"imagen");
- MEDIA_BUSY=kind;MEDIA_ERROR="";SETTINGS_MSG="";MEDIA_FILE_NAME[kind]=file.name||"imagen";
+ MEDIA_BUSY=kind;MEDIA_ERROR="";SETTINGS_MSG="";MEDIA_FILE_NAME[kind]=file.name||"imagen";MEDIA_FILE_STATUS[kind]="uploading";
  try{MEDIA_LOCAL_PREVIEW[kind]=URL.createObjectURL(file)}catch(_){MEDIA_LOCAL_PREVIEW[kind]=""}
  render();
  try{
@@ -656,10 +687,10 @@ async function uploadBusinessMedia(kind,file){
   var vr=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/settings");
   if(vr.ok)SETTINGS=await vr.json();
   applySettingsToView(SETTINGS);
-  SETTINGS_MSG="Imagen actualizada correctamente.";
+  SETTINGS_MSG="Imagen actualizada correctamente.";MEDIA_FILE_STATUS[kind]="success";
  }catch(e){
   console.error("Error subiendo "+kind,e);
-  MEDIA_ERROR="No se pudo subir la imagen: "+e.message;
+  MEDIA_FILE_STATUS[kind]="error";MEDIA_ERROR="No se pudo subir la imagen: "+e.message;
  }finally{
   MEDIA_BUSY="";
   if(MEDIA_LOCAL_PREVIEW[kind]){try{URL.revokeObjectURL(MEDIA_LOCAL_PREVIEW[kind])}catch(_){ }MEDIA_LOCAL_PREVIEW[kind]=""}
@@ -678,24 +709,24 @@ async function removeBusinessMedia(kind){
  try{
   var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/media/"+kind,{method:"DELETE"});
   if(!r.ok)throw new Error("Error HTTP "+r.status);
-  if(!SETTINGS)SETTINGS={};SETTINGS[mediaColumn(kind)]=null;applySettingsToView(SETTINGS);SETTINGS_MSG="Imagen eliminada.";
+  if(!SETTINGS)SETTINGS={};SETTINGS[mediaColumn(kind)]=null;applySettingsToView(SETTINGS);MEDIA_FILE_STATUS[kind]="";MEDIA_FILE_NAME[kind]="";SETTINGS_MSG="Imagen eliminada.";
  }catch(e){console.error(e);MEDIA_ERROR="No se pudo quitar la imagen: "+e.message}
  finally{MEDIA_BUSY="";render()}
 }
 async function uploadProfessionalPhoto(proId,file){
- var err=validateImageFile(file);if(err){alert(err);return}
  proId=String(proId);
+ var err=validateImageFile(file);if(err){PRO_PHOTO_STATUS[proId]="error";render();alert(err);return}
  var fd=new FormData();fd.append("file",file,file.name||"foto");
- PRO_PHOTO_BUSY=proId;PRO_FILE_NAME[proId]=file.name||"foto";
+ PRO_PHOTO_BUSY=proId;PRO_FILE_NAME[proId]=file.name||"foto";PRO_PHOTO_STATUS[proId]="uploading";
  try{PRO_LOCAL_PREVIEW[proId]=URL.createObjectURL(file)}catch(_){PRO_LOCAL_PREVIEW[proId]=""}
  render();
  try{
   var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+proId+"/photo",{method:"POST",body:fd});
   if(!r.ok){var raw=await r.text();var msg=raw;try{var er=JSON.parse(raw);msg=er.detail||raw}catch(_){}throw new Error(msg||("Error HTTP "+r.status))}
-  var data=await r.json(),p=API_PROFESSIONALS.find(function(x){return String(x.id)===proId});if(p)p.photo_url=data.url;
+  var data=await r.json(),p=API_PROFESSIONALS.find(function(x){return String(x.id)===proId});if(p)p.photo_url=data.url;PRO_PHOTO_STATUS[proId]="success";
  }catch(e){
   console.error("Error subiendo foto profesional",e);
-  alert("No se pudo subir la foto: "+e.message);
+  PRO_PHOTO_STATUS[proId]="error";alert("No se pudo subir la foto: "+e.message);
  }finally{
   PRO_PHOTO_BUSY="";
   if(PRO_LOCAL_PREVIEW[proId]){try{URL.revokeObjectURL(PRO_LOCAL_PREVIEW[proId])}catch(_){ }delete PRO_LOCAL_PREVIEW[proId]}
@@ -714,7 +745,7 @@ async function removeProfessionalPhoto(proId){
  try{
   var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+proId+"/photo",{method:"DELETE"});
   if(!r.ok)throw new Error("Error HTTP "+r.status);
-  var p=API_PROFESSIONALS.find(function(x){return String(x.id)===String(proId)});if(p)p.photo_url=null;
+  var p=API_PROFESSIONALS.find(function(x){return String(x.id)===String(proId)});if(p)p.photo_url=null;PRO_PHOTO_STATUS[proId]="";delete PRO_FILE_NAME[proId];
  }catch(e){console.error(e);alert("No se pudo quitar la foto: "+e.message)}
  finally{PRO_PHOTO_BUSY="";render()}
 }
@@ -747,12 +778,12 @@ function bizSvc(){
   if(editing){
    var currentUrl=(SERVICE_LOCAL_PREVIEW[sid]||v.image_url||"");
    h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><h2>Editar servicio</h2>'+
-      '<label>Foto del servicio</label><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'+serviceThumb(v,96)+'<div style="flex:1;min-width:220px"><input type="file" accept="image/jpeg,image/png,image/webp" data-service-photo="'+esc(sid)+'" onchange="handleServicePhotoInput(this)" '+(busy?'disabled':'')+'><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB. Al elegir otra imagen se reemplaza la anterior.</small>'+(SERVICE_FILE_NAME[sid]?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo: '+esc(SERVICE_FILE_NAME[sid])+'</small>':'')+(v.image_url?'<button class="lk" data-a="removeSvcPhoto" data-id="'+esc(sid)+'" '+(busy?'disabled':'')+'>Quitar foto</button>':'')+(busy?'<p style="color:var(--mute);margin:6px 0 0">Subiendo foto...</p>':'')+'</div></div>'+
+      '<label>Foto del servicio</label><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'+serviceThumb(v,96)+'<div style="flex:1;min-width:220px">'+filePickerHtml('data-service-photo="'+esc(sid)+'" onchange="handleServicePhotoInput(this)" '+(busy?'disabled':''),SERVICE_PHOTO_STATUS[sid]||(busy?'uploading':''),SERVICE_FILE_NAME[sid]||"",!!v.image_url,"Seleccionar foto",busy)+'<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB. Al elegir otra imagen se reemplaza la anterior.</small>'+(v.image_url?'<button class="lk" data-a="removeSvcPhoto" data-id="'+esc(sid)+'" '+(busy?'disabled':'')+'>Quitar foto</button>':'')+'</div></div>'+
       '<label>Nombre</label><input id="esn" value="'+esc(v.name)+'"><label>Descripción</label><textarea id="esd" rows="2">'+esc(v.description||"")+'</textarea><div class="g3"><div><label>Duración (min)</label><input id="esm" type="number" min="1" value="'+Number(v.duration_minutes||0)+'"></div><div><label>Precio</label><input id="esp" type="number" min="0" value="'+Number(v.price||0)+'"></div><div><label>Ícono</label><input id="esi" maxlength="20" value="'+esc(v.icon||"✨")+'"></div></div><div class="dn" style="margin-top:10px"><button class="btn p" data-a="apiSaveSvc" data-id="'+esc(sid)+'" '+(SERVICE_SAVING?'disabled':'')+'>'+(SERVICE_SAVING?'Guardando...':'Guardar cambios')+'</button><button class="btn" data-a="apiEditSvc" data-id="'+esc(sid)+'">Cancelar</button></div></div>';
   }
   h+='</div>';
  });
- h+='</div><div class="pn" style="overflow:visible"><h2>Nuevo servicio</h2><label>Nombre</label><input id="sn" data-service-create="name" value="'+esc(SERVICE_CREATE_DRAFT.name||"")+'" placeholder="Ej. Clase de química"><label>Descripción (opcional)</label><textarea id="sd" data-service-create="description" rows="2" placeholder="Describe brevemente el servicio">'+esc(SERVICE_CREATE_DRAFT.description||"")+'</textarea><div class="g3"><div><label>Duración (min)</label><input id="sm" data-service-create="duration" type="number" min="1" value="'+esc(SERVICE_CREATE_DRAFT.duration||"")+'" placeholder="60"></div><div><label>Precio</label><input id="sp" data-service-create="price" type="number" min="0" value="'+esc(SERVICE_CREATE_DRAFT.price||"")+'" placeholder="50000"></div><div><label>Ícono</label><input id="si" data-service-create="icon" maxlength="20" value="'+esc(SERVICE_CREATE_DRAFT.icon||"✨")+'"></div></div><label>Foto del servicio (opcional)</label>'+(SERVICE_CREATE_PREVIEW?'<div style="margin:6px 0 8px"><img src="'+esc(SERVICE_CREATE_PREVIEW)+'" alt="Vista previa del servicio" style="width:120px;height:90px;border-radius:14px;object-fit:cover;border:1px solid var(--line)"></div>':'')+'<input id="sphoto" type="file" accept="image/jpeg,image/png,image/webp" onchange="handleNewServicePhotoInput(this)" '+(SERVICE_SAVING?'disabled':'')+'><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(SERVICE_CREATE_PHOTO_NAME?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo seleccionado: '+esc(SERVICE_CREATE_PHOTO_NAME)+'</small>':'')+'<button class="btn p" style="margin-top:10px" data-a="apiAddSvc" '+(SERVICE_SAVING?'disabled':'')+'>'+(SERVICE_SAVING?'Guardando...':'Agregar servicio')+'</button></div>';
+ h+='</div><div class="pn" style="overflow:visible"><h2>Nuevo servicio</h2><label>Nombre</label><input id="sn" data-service-create="name" value="'+esc(SERVICE_CREATE_DRAFT.name||"")+'" placeholder="Ej. Clase de química"><label>Descripción (opcional)</label><textarea id="sd" data-service-create="description" rows="2" placeholder="Describe brevemente el servicio">'+esc(SERVICE_CREATE_DRAFT.description||"")+'</textarea><div class="g3"><div><label>Duración (min)</label><input id="sm" data-service-create="duration" type="number" min="1" value="'+esc(SERVICE_CREATE_DRAFT.duration||"")+'" placeholder="60"></div><div><label>Precio</label><input id="sp" data-service-create="price" type="number" min="0" value="'+esc(SERVICE_CREATE_DRAFT.price||"")+'" placeholder="50000"></div><div><label>Ícono</label><input id="si" data-service-create="icon" maxlength="20" value="'+esc(SERVICE_CREATE_DRAFT.icon||"✨")+'"></div></div><label>Foto del servicio (opcional)</label>'+(SERVICE_CREATE_PREVIEW?'<div style="margin:6px 0 8px"><img src="'+esc(SERVICE_CREATE_PREVIEW)+'" alt="Vista previa del servicio" style="width:120px;height:90px;border-radius:14px;object-fit:cover;border:1px solid var(--line)"></div>':'')+''+filePickerHtml('id="sphoto" onchange="handleNewServicePhotoInput(this)" '+(SERVICE_SAVING?'disabled':''),SERVICE_CREATE_PHOTO_STATUS,SERVICE_CREATE_PHOTO_NAME,false,"Seleccionar foto",SERVICE_SAVING)+'<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>' +'<button class="btn p" style="margin-top:10px" data-a="apiAddSvc" '+(SERVICE_SAVING?'disabled':'')+'>'+(SERVICE_SAVING?'Guardando...':'Agregar servicio')+'</button></div>';
  return h
 }
 
@@ -814,43 +845,80 @@ async function saveProfessionalServices(){
 }
 
 
+function syncProfessionalCreateDraftFromDom(){
+ var n=document.getElementById("pn"),r=document.getElementById("pr"),p=document.getElementById("pp"),c=document.getElementById("pc");
+ if(n)PRO_CREATE_DRAFT.name=n.value;
+ if(r)PRO_CREATE_DRAFT.specialty=r.value;
+ if(p)PRO_CREATE_DRAFT.phone=p.value;
+ if(c)PRO_CREATE_DRAFT.color=c.value;
+}
+function resetProfessionalCreateDraft(){
+ PRO_CREATE_DRAFT={name:"",specialty:"",phone:"",color:"#4F46E5"};
+ PRO_CREATE_SERVICE_IDS=[];
+ PRO_CREATE_PHOTO=null;PRO_CREATE_PHOTO_NAME="";PRO_CREATE_PHOTO_STATUS="";
+ if(PRO_CREATE_PREVIEW){try{URL.revokeObjectURL(PRO_CREATE_PREVIEW)}catch(_){ }}
+ PRO_CREATE_PREVIEW="";
+}
+function handleNewProfessionalPhotoInput(input){
+ syncProfessionalCreateDraftFromDom();
+ var file=input&&input.files?input.files[0]:null;
+ if(!file)return;
+ var err=validateImageFile(file);if(err){PRO_CREATE_PHOTO_STATUS="error";PRO_CREATE_ERROR=err;render();return}
+ if(PRO_CREATE_PREVIEW){try{URL.revokeObjectURL(PRO_CREATE_PREVIEW)}catch(_){ }}
+ PRO_CREATE_PHOTO=file;PRO_CREATE_PHOTO_NAME=file.name||"foto";PRO_CREATE_PHOTO_STATUS="ready";
+ try{PRO_CREATE_PREVIEW=URL.createObjectURL(file)}catch(_){PRO_CREATE_PREVIEW=""}
+ PRO_CREATE_ERROR="";render();
+}
+async function uploadProfessionalPhotoRequest(proId,file){
+ var fd=new FormData();fd.append("file",file,file.name||"foto");
+ var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+proId+"/photo",{method:"POST",body:fd});
+ if(!r.ok){var raw=await r.text();var msg=raw;try{var er=JSON.parse(raw);msg=er.detail||raw}catch(_){}throw new Error(msg||("Error HTTP "+r.status))}
+ return await r.json();
+}
+
+
 async function addRealProfessional(){
- var n=(document.getElementById("pn")?.value||"").trim();
- var r=(document.getElementById("pr")?.value||"").trim();
- var ph=(document.getElementById("pp")?.value||"").trim();
- var c=document.getElementById("pc")?.value||"#4F46E5";
+ if(PRO_CREATE_SAVING)return;
+ syncProfessionalCreateDraftFromDom();
+ var n=(PRO_CREATE_DRAFT.name||"").trim();
+ var r=(PRO_CREATE_DRAFT.specialty||"").trim();
+ var ph=(PRO_CREATE_DRAFT.phone||"").trim();
+ var c=PRO_CREATE_DRAFT.color||"#4F46E5";
+ var photo=PRO_CREATE_PHOTO;
  PRO_CREATE_MSG="";PRO_CREATE_ERROR="";
  if(!n){PRO_CREATE_ERROR="Escribe el nombre del profesional.";render();return}
  if(!PRO_CREATE_SERVICE_IDS.length){PRO_CREATE_ERROR="Selecciona al menos un servicio.";render();return}
- PRO_CREATE_SAVING=true;render();
+ if(photo){var perr=validateImageFile(photo);if(perr){PRO_CREATE_ERROR=perr;render();return}}
+ PRO_CREATE_SAVING=true;if(photo)PRO_CREATE_PHOTO_STATUS="uploading";render();
+ var created=null,photoError=null;
  try{
   var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals",{
    method:"POST",
    headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({
-    name:n,
-    specialty:r||null,
-    phone:ph||null,
-    color:c
-   })
+   body:JSON.stringify({name:n,specialty:r||null,phone:ph||null,color:c})
   });
   if(!response.ok){
-   var raw=await response.text();
-   var msg=raw;
-   try{
-    var er=JSON.parse(raw);
-    msg=er.detail?JSON.stringify(er.detail):raw;
-   }catch(_){}
+   var raw=await response.text();var msg=raw;
+   try{var er=JSON.parse(raw);msg=er.detail?JSON.stringify(er.detail):raw}catch(_){}
    throw new Error(msg||("Error HTTP "+response.status));
   }
-  var created=await response.json();
+  created=await response.json();
   var assign=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+created.id+"/services",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({service_ids:PRO_CREATE_SERVICE_IDS})});
   if(assign.status===422)assign=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+created.id+"/services",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(PRO_CREATE_SERVICE_IDS)});
   if(!assign.ok)throw new Error("Se creó el profesional, pero falló la asignación de servicios: "+await assign.text());
-  PRO_CREATE_MSG="Profesional agregado con sus servicios."; PRO_CREATE_ERROR=""; PRO_CREATE_SERVICE_IDS=[];
+  if(photo&&created&&created.id){try{await uploadProfessionalPhotoRequest(created.id,photo)}catch(pe){photoError=pe}}
+  resetProfessionalCreateDraft();
   await loadProfessionals();
+  if(photoError){
+   PRO_CREATE_MSG="";
+   PRO_CREATE_ERROR='El profesional "'+n+'" se creó, pero la foto no pudo subirse. Ábrelo en Editar y vuelve a intentar la foto. Detalle: '+photoError.message;
+  }else{
+   PRO_CREATE_ERROR="";
+   PRO_CREATE_MSG='Profesional "'+n+'" agregado correctamente'+(photo?' con su foto.':'.');
+  }
  }catch(error){
   console.error("Error creando profesional",error);
+  if(photo)PRO_CREATE_PHOTO_STATUS="error";
   PRO_CREATE_ERROR="No se pudo agregar el profesional. "+error.message;
  }finally{
   PRO_CREATE_SAVING=false;
@@ -915,12 +983,13 @@ function bizTeam(){
  var h='<h1>Profesionales</h1><p style="color:var(--mute);margin:4px 0 0">Crea tu equipo y modifica en cualquier momento sus servicios y horarios.</p>';
 
  h+='<div class="pn" style="overflow:visible;margin-top:14px"><h2>Agregar profesional</h2>';
- h+='<div class="g2"><div><label>Nombre</label><input id="pn" placeholder="Nombre completo"></div><div><label>Especialidad</label><input id="pr" placeholder="Ej. Colorista, Barbero, Matemáticas"></div></div>';
- h+='<div class="g2"><div><label>WhatsApp / teléfono (opcional)</label><input id="pp" type="tel" placeholder="300 123 4567"></div><div><label>Color identificador</label><input id="pc" type="color" value="#4F46E5"></div></div>';
+ h+='<div class="g2"><div><label>Nombre</label><input id="pn" data-pro-create="name" value="'+esc(PRO_CREATE_DRAFT.name||"")+'" placeholder="Nombre completo"></div><div><label>Especialidad</label><input id="pr" data-pro-create="specialty" value="'+esc(PRO_CREATE_DRAFT.specialty||"")+'" placeholder="Ej. Colorista, Barbero, Matemáticas"></div></div>';
+ h+='<div class="g2"><div><label>WhatsApp / teléfono (opcional)</label><input id="pp" data-pro-create="phone" type="tel" value="'+esc(PRO_CREATE_DRAFT.phone||"")+'" placeholder="300 123 4567"></div><div><label>Color identificador</label><input id="pc" data-pro-create="color" type="color" value="'+esc(PRO_CREATE_DRAFT.color||"#4F46E5")+'"></div></div>';
+ h+='<label>Foto del profesional (opcional)</label>'+(PRO_CREATE_PREVIEW?'<div style="margin:6px 0 8px"><img src="'+esc(PRO_CREATE_PREVIEW)+'" alt="Vista previa del profesional" style="width:96px;height:96px;border-radius:50%;object-fit:cover;border:1px solid var(--line)"></div>':'')+''+filePickerHtml('onchange="handleNewProfessionalPhotoInput(this)" '+(PRO_CREATE_SAVING?'disabled':''),PRO_CREATE_PHOTO_STATUS,PRO_CREATE_PHOTO_NAME,false,"Seleccionar foto",PRO_CREATE_SAVING)+'<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>' ;
  h+='<label>Servicios que realiza *</label>'; if(!API_SERVICES.length)h+='<p style="color:var(--mute)">Primero crea al menos un servicio.</p>'; else API_SERVICES.filter(function(s){return s.is_active!==false}).forEach(function(s){var sid=String(s.id),ck=PRO_CREATE_SERVICE_IDS.indexOf(sid)>-1;h+='<label style="display:flex;gap:10px;align-items:center;margin:7px 0"><input type="checkbox" data-create-service="'+sid+'" '+(ck?'checked':'')+'><span>'+esc(s.name)+'</span></label>'});
  if(PRO_CREATE_ERROR)h+='<p style="color:#B3372A;margin:8px 0 0">'+esc(PRO_CREATE_ERROR)+'</p>';
  if(PRO_CREATE_MSG)h+='<p style="color:#18794E;margin:8px 0 0">'+esc(PRO_CREATE_MSG)+'</p>';
- h+='<button class="btn p" style="margin-top:12px" data-a="apiAddPro" '+(PRO_CREATE_SAVING?'disabled':'')+'>'+(PRO_CREATE_SAVING?'Guardando...':'Agregar profesional')+'</button></div>';
+ h+='<button class="btn p" style="margin-top:12px" data-a="apiAddPro" '+(PRO_CREATE_SAVING?'disabled':'')+'>'+(PRO_CREATE_SAVING?(PRO_CREATE_PHOTO?'Creando y subiendo foto...':'Guardando...'):'Agregar profesional')+'</button></div>';
 
  h+='<div style="margin-top:14px">';
  if(PROS_LOADING){
@@ -946,7 +1015,7 @@ function bizTeam(){
 
    if(EDIT_PRO_ID===pid&&EDIT_PRO){
     h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><h2>Editar profesional</h2>';
-    h+='<div class="rw">'+professionalAvatar(p,76)+'<div class="grow"><label style="margin:0">Foto del profesional</label><input type="file" accept="image/jpeg,image/png,image/webp" data-pro-photo="'+esc(pid)+'" onchange="handleProfessionalPhotoInput(this)" '+(PRO_PHOTO_BUSY===pid?'disabled':'')+'><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(p.photo_url?'<button class="lk" data-a="removeProPhoto" data-id="'+esc(pid)+'">Quitar foto</button>':'')+'</div></div>';
+    h+='<div class="rw">'+professionalAvatar(p,76)+'<div class="grow"><label style="margin:0">Foto del profesional</label>'+filePickerHtml('data-pro-photo="'+esc(pid)+'" onchange="handleProfessionalPhotoInput(this)" '+(PRO_PHOTO_BUSY===pid?'disabled':''),PRO_PHOTO_STATUS[pid]||(PRO_PHOTO_BUSY===pid?'uploading':''),PRO_FILE_NAME[pid]||"",!!p.photo_url,"Seleccionar foto",PRO_PHOTO_BUSY===pid)+'<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(p.photo_url?'<button class="lk" data-a="removeProPhoto" data-id="'+esc(pid)+'">Quitar foto</button>':'')+'</div></div>';
     h+='<div class="g2"><div><label>Nombre</label><input data-edit-pro="name" value="'+esc(EDIT_PRO.name)+'"></div><div><label>Especialidad</label><input data-edit-pro="specialty" value="'+esc(EDIT_PRO.specialty)+'"></div></div><div class="g2"><div><label>WhatsApp / teléfono</label><input data-edit-pro="phone" value="'+esc(EDIT_PRO.phone)+'"></div><div><label>Color</label><input type="color" data-edit-pro="color" value="'+esc(EDIT_PRO.color)+'"></div></div><label style="color:var(--ink)"><input type="checkbox" data-edit-active="1" '+(EDIT_PRO.is_active?'checked':'')+'> Profesional activo</label>';
     if(EDIT_PRO_ERROR)h+='<p style="color:#B3372A">'+esc(EDIT_PRO_ERROR)+'</p>';h+='<div class="dn"><button class="btn p" data-a="saveProEdit" '+(EDIT_PRO_SAVING?'disabled':'')+'>'+(EDIT_PRO_SAVING?'Guardando...':'Guardar cambios')+'</button><button class="btn" data-a="cancelProEdit">Cancelar</button></div></div>';
    }
@@ -1004,7 +1073,7 @@ function imgPreview(url,label,ratio,kind){
 }
 function mediaPicker(kind,label,url,height){
  var busy=MEDIA_BUSY===kind,preview=MEDIA_LOCAL_PREVIEW[kind]||url||"",fname=MEDIA_FILE_NAME[kind]||"";
- return'<div class="media-picker"><label>'+esc(label)+'</label>'+imgPreview(preview,label,height,kind)+'<div style="margin-top:8px"><input type="file" accept="image/jpeg,image/png,image/webp" data-media-kind="'+kind+'" onchange="handleBusinessMediaInput(this)" '+(busy?'disabled':'')+'></div><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(fname?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo: '+esc(fname)+'</small>':'')+(url?'<button class="lk" data-a="removeMedia" data-kind="'+kind+'" '+(busy?'disabled':'')+'>Quitar imagen</button>':'')+(busy?'<p style="color:var(--mute);margin:6px 0 0">Subiendo imagen...</p>':'')+'</div>'
+ return'<div class="media-picker"><label>'+esc(label)+'</label>'+imgPreview(preview,label,height,kind)+filePickerHtml('data-media-kind="'+kind+'" onchange="handleBusinessMediaInput(this)" '+(busy?'disabled':''),MEDIA_FILE_STATUS[kind]||(busy?'uploading':''),fname,!!url,"Seleccionar imagen",busy)+'<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(url?'<button class="lk" data-a="removeMedia" data-kind="'+kind+'" '+(busy?'disabled':'')+'>Quitar imagen</button>':'')+'</div>'
 }
 function bizCfg(){
  var h='<h1>Configuración</h1><p style="color:var(--mute);margin:4px 0 0">Los cambios de esta sección se guardan realmente para este negocio.</p>';
@@ -1176,10 +1245,13 @@ var app=document.getElementById("app");
 app.oninput=function(e){
  var sc=e.target.dataset.serviceCreate;
  if(sc!==undefined){SERVICE_CREATE_DRAFT[sc]=e.target.value;return}
+ var pc=e.target.dataset.proCreate;
+ if(pc!==undefined){PRO_CREATE_DRAFT[pc]=e.target.value;return}
  var k=e.target.dataset.s;if(k)st[k]=e.target.value;
  var ep=e.target.dataset.editPro;if(ep!==undefined&&EDIT_PRO)EDIT_PRO[ep]=e.target.value
 };
 app.onchange=function(e){
+ var pc=e.target.dataset.proCreate;if(pc!==undefined){PRO_CREATE_DRAFT[pc]=e.target.value;return}
  var cs=e.target.dataset.createService;if(cs!==undefined){cs=String(cs);var ci=PRO_CREATE_SERVICE_IDS.indexOf(cs);if(e.target.checked&&ci<0)PRO_CREATE_SERVICE_IDS.push(cs);if(!e.target.checked&&ci>-1)PRO_CREATE_SERVICE_IDS.splice(ci,1);return}
  var ep=e.target.dataset.editPro;if(ep!==undefined&&EDIT_PRO){EDIT_PRO[ep]=e.target.value;return}
  if(e.target.dataset.editActive!==undefined&&EDIT_PRO){EDIT_PRO.is_active=e.target.checked;return}
