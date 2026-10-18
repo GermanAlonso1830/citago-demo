@@ -115,6 +115,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0
 .tag.w{background:#fff0d6;color:var(--warn)}.tag.x{background:#fbe0dd;color:var(--bad)}
 .item{border:1px solid var(--line);background:#fff;border-radius:16px;padding:14px;margin:10px 0}.apptMeta{display:grid;gap:5px;margin-top:8px}.apptMeta span{color:var(--mut);font-size:.9rem}
 .muted{color:var(--mut)}.devHint{margin:10px 0 0;padding:9px 10px;border-radius:10px;background:#faf7ff;color:var(--mut);font-size:.78rem}
+
+/* Teléfono internacional: prefijo de país + número local */
+.phoneField{display:grid;grid-template-columns:minmax(138px,42%) minmax(0,1fr);gap:8px;align-items:center}
+.phoneField select,.phoneField input{margin:0;min-width:0}
+.phoneField select{font-weight:700}
+.phoneHelp{display:block;margin-top:5px;color:var(--mut);font-size:.76rem;line-height:1.35}
+@media(max-width:390px){
+  .phoneField{grid-template-columns:minmax(126px,44%) minmax(0,1fr);gap:7px}
+  .phoneField select,.phoneField input{padding-left:10px;padding-right:10px}
+}
+
 .loadingPage{min-height:100vh;display:grid;place-items:center;color:var(--mut)}
 .empty{padding:22px;text-align:center;border:1px dashed var(--line);border-radius:16px;color:var(--mut)}
 
@@ -225,14 +236,70 @@ const API=(location.hostname==="127.0.0.1"||location.hostname==="localhost")?"ht
 const qs=new URLSearchParams(location.search);
 const BUSINESS_SLUG=qs.get("biz")||"";
 let business=null,services=[],professionals=[],step=0;
-let booking={service:null,professional:null,date:"",time:"",name:"",phone:"",email:"",notes:"",reminder:true};
+let booking={service:null,professional:null,date:"",time:"",name:"",phoneCountry:"+57",phone:"",email:"",notes:"",reminder:true};
 let availability=[],message="",error="",bookingBusy=false;
-let view="home",myStep="phone",myPhone="",myToken=sessionStorage.getItem("booking_my_token")||sessionStorage.getItem("citago_my_token")||"",myAppointments=[],myBusy=false;
+let view="home",myStep="phone",myPhoneCountry="+57",myPhone="",myToken=sessionStorage.getItem("booking_my_token")||sessionStorage.getItem("citago_my_token")||"",myAppointments=[],myBusy=false;
 let menuOpen=false;
 
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money=n=>"$"+Number(n||0).toLocaleString("es-CO");
 const imgOf=obj=>obj?.image_url||obj?.photo_url||obj?.avatar_url||obj?.cover_url||"";
+
+const PHONE_COUNTRIES=[
+  {name:"Colombia",flag:"🇨🇴",code:"+57"},
+  {name:"Perú",flag:"🇵🇪",code:"+51"},
+  {name:"Ecuador",flag:"🇪🇨",code:"+593"},
+  {name:"Venezuela",flag:"🇻🇪",code:"+58"},
+  {name:"México",flag:"🇲🇽",code:"+52"},
+  {name:"Argentina",flag:"🇦🇷",code:"+54"},
+  {name:"Chile",flag:"🇨🇱",code:"+56"},
+  {name:"Bolivia",flag:"🇧🇴",code:"+591"},
+  {name:"Paraguay",flag:"🇵🇾",code:"+595"},
+  {name:"Uruguay",flag:"🇺🇾",code:"+598"},
+  {name:"Brasil",flag:"🇧🇷",code:"+55"},
+  {name:"Panamá",flag:"🇵🇦",code:"+507"},
+  {name:"Costa Rica",flag:"🇨🇷",code:"+506"},
+  {name:"Guatemala",flag:"🇬🇹",code:"+502"},
+  {name:"Honduras",flag:"🇭🇳",code:"+504"},
+  {name:"El Salvador",flag:"🇸🇻",code:"+503"},
+  {name:"Nicaragua",flag:"🇳🇮",code:"+505"},
+  {name:"Rep. Dominicana",flag:"🇩🇴",code:"+1"},
+  {name:"Puerto Rico",flag:"🇵🇷",code:"+1"},
+  {name:"Cuba",flag:"🇨🇺",code:"+53"},
+  {name:"Estados Unidos",flag:"🇺🇸",code:"+1"},
+  {name:"Canadá",flag:"🇨🇦",code:"+1"},
+  {name:"España",flag:"🇪🇸",code:"+34"},
+  {name:"Portugal",flag:"🇵🇹",code:"+351"},
+  {name:"Francia",flag:"🇫🇷",code:"+33"},
+  {name:"Italia",flag:"🇮🇹",code:"+39"},
+  {name:"Alemania",flag:"🇩🇪",code:"+49"},
+  {name:"Reino Unido",flag:"🇬🇧",code:"+44"},
+  {name:"India",flag:"🇮🇳",code:"+91"}
+];
+function countryOptions(selected){
+  return PHONE_COUNTRIES.map(c=>'<option value="'+esc(c.code)+'" '+(c.code===selected?'selected':'')+'>'+c.flag+' '+esc(c.name)+' '+esc(c.code)+'</option>').join('');
+}
+function cleanPhoneDigits(raw){return String(raw||"").replace(/\D/g,"")}
+function normalizePhone(countryCode,raw){
+  const code=cleanPhoneDigits(countryCode||"+57");
+  let digits=cleanPhoneDigits(raw);
+  if(!digits)return "";
+  // Si el usuario escribió el prefijo otra vez en el campo del número, no lo duplicamos.
+  if(code&&digits.startsWith(code)&&digits.length-code.length>=7)digits=digits.slice(code.length);
+  return "+"+code+digits;
+}
+function localPhoneDigits(countryCode,raw){
+  const code=cleanPhoneDigits(countryCode||"+57");
+  let digits=cleanPhoneDigits(raw);
+  if(code&&digits.startsWith(code)&&digits.length-code.length>=7)digits=digits.slice(code.length);
+  return digits;
+}
+function phoneFieldHtml(selectId,inputId,countryCode,localValue,placeholder){
+  return '<div class="phoneField">'+
+    '<select id="'+selectId+'" aria-label="Prefijo del país">'+countryOptions(countryCode||"+57")+'</select>'+
+    '<input id="'+inputId+'" inputmode="tel" autocomplete="tel-national" value="'+esc(localValue||"")+'" placeholder="'+esc(placeholder||"Número")+'">'+
+  '</div><small class="phoneHelp">Selecciona el prefijo del país y escribe solo el número. La aplicación lo guardará en formato internacional.</small>';
+}
 
 function todayInBusinessTz(){
   const tz=(business&&business.timezone)||"America/Bogota";
@@ -291,7 +358,9 @@ function fmtShortDate(date){
 }
 async function book(){
   if(bookingBusy)return;
-  if(!booking.name.trim()||!booking.phone.trim()){error="Escribe tu nombre y WhatsApp.";render();return}
+  const normalizedPhone=normalizePhone(booking.phoneCountry,booking.phone);
+  const localDigits=localPhoneDigits(booking.phoneCountry,booking.phone);
+  if(!booking.name.trim()||localDigits.length<7){error="Escribe tu nombre y un número de WhatsApp válido.";render();return}
   let professionalId=booking.professional?.id||null;
   if(!professionalId){
     const available=availability.find(x=>(x.slots||[]).includes(booking.time));
@@ -302,7 +371,7 @@ async function book(){
   try{
     const x=await api("/appointments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
       business_id:business.id,service_id:booking.service.id,professional_id:professionalId,
-      client_name:booking.name.trim(),client_phone:booking.phone.trim(),client_email:booking.email||null,
+      client_name:booking.name.trim(),client_phone:normalizedPhone,client_email:booking.email||null,
       date:booking.date,start_time:booking.time,notes:booking.notes||null,reminder_opt_in:booking.reminder
     })});
     message="Tu cita quedó registrada correctamente. Estado: "+statusLabel(x.appointment.status)+".";
@@ -317,14 +386,30 @@ function fmtAppointmentDate(iso){
 function statusLabel(s){return ({CONFIRMED:"Confirmada",PENDING:"Pendiente",COMPLETED:"Completada",NO_SHOW:"No asistió",CANCELLED:"Cancelada",REJECTED:"Rechazada"})[s]||s}
 function statusClass(s){return s==="CONFIRMED"||s==="COMPLETED"?"tag":s==="PENDING"?"tag w":"tag x"}
 async function devAccessMyAppointments(){
-  const el=document.getElementById("myPhone");myPhone=(el?el.value:myPhone).trim();
-  const digits=myPhone.replace(/\D/g,"");
-  if(digits.length<7){error="Escribe un número de WhatsApp válido.";render();return}
+  const countryEl=document.getElementById("myPhoneCountry");
+  const phoneEl=document.getElementById("myPhone");
+  myPhoneCountry=(countryEl?countryEl.value:myPhoneCountry)||"+57";
+  myPhone=(phoneEl?phoneEl.value:myPhone).trim();
+  const localDigits=localPhoneDigits(myPhoneCountry,myPhone);
+  if(localDigits.length<7){error="Escribe un número de WhatsApp válido.";render();return}
   if(myBusy)return;
   myBusy=true;error="";message="";render();
   try{
-    const x=await api("/public/appointments/dev-access",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({business_id:business.id,phone:myPhone})});
-    myToken=x.access_token;sessionStorage.setItem("booking_my_token",myToken);await loadMyAppointments();myStep="list";
+    const normalized=normalizePhone(myPhoneCountry,myPhone);
+    // Compatibilidad temporal con citas antiguas que pudieron quedar sin + o sin prefijo.
+    const candidates=[normalized,cleanPhoneDigits(normalized),localDigits].filter((v,i,a)=>v&&a.indexOf(v)===i);
+    let lastError=null,x=null;
+    for(const phone of candidates){
+      try{
+        x=await api("/public/appointments/dev-access",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({business_id:business.id,phone})});
+        if(x&&x.access_token)break;
+      }catch(e){lastError=e}
+    }
+    if(!x||!x.access_token)throw lastError||new Error("No encontramos citas asociadas a ese WhatsApp.");
+    myToken=x.access_token;
+    sessionStorage.setItem("booking_my_token",myToken);
+    await loadMyAppointments();
+    myStep="list";
   }catch(e){error=e.message}
   finally{myBusy=false;render()}
 }
@@ -438,7 +523,7 @@ function bookingStepContent(){
   }else if(step===4){
     h+='<h3 class="stepTitle">Tus datos</h3><p class="stepSub">Revisa la reserva y completa tus datos de contacto.</p>';
     h+='<div class="summary"><div class="summaryRow"><span>Servicio</span><b>'+esc(booking.service?.name||'')+'</b></div><div class="summaryRow"><span>Profesional</span><b>'+esc(currentProfessionalName())+'</b></div><div class="summaryRow"><span>Fecha</span><b>'+esc(fmtShortDate(booking.date))+'</b></div><div class="summaryRow"><span>Hora</span><b>'+esc(booking.time)+'</b></div><div class="summaryRow"><span>Total</span><b>'+money(booking.service?.price)+'</b></div></div>';
-    h+='<label>Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label>WhatsApp</label><input id="phone" inputmode="tel" autocomplete="tel" value="'+esc(booking.phone)+'"><label>Email (opcional)</label><input id="email" type="email" autocomplete="email" value="'+esc(booking.email)+'"><label>Notas (opcional)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea><label style="display:flex;gap:8px;align-items:center"><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?'checked':'')+'> Quiero recordatorios</label>';
+    h+='<label>Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label>WhatsApp</label>'+phoneFieldHtml("phoneCountry","phone",booking.phoneCountry,booking.phone,"Ej. 3001234567")+'<label>Email (opcional)</label><input id="email" type="email" autocomplete="email" value="'+esc(booking.email)+'"><label>Notas (opcional)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea><label style="display:flex;gap:8px;align-items:center"><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?'checked':'')+'> Quiero recordatorios</label>';
   }else if(step===5){
     h+='<div class="ok">'+esc(message||"Cita creada correctamente.")+'</div><h3 class="stepTitle">¡Reserva lista! 🎉</h3><p class="stepSub">Tu cita quedó registrada. Puedes consultar tus citas desde este mismo enlace.</p>';
     h+='<div class="summary"><div class="summaryRow"><span>Servicio</span><b>'+esc(booking.service?.name||'')+'</b></div><div class="summaryRow"><span>Fecha</span><b>'+esc(fmtShortDate(booking.date))+'</b></div><div class="summaryRow"><span>Hora</span><b>'+esc(booking.time)+'</b></div></div>';
@@ -458,7 +543,7 @@ function renderMyAppointments(){
   let h='<h3 class="stepTitle">Mis citas</h3>';
   if(error)h+='<div class="err">'+esc(error)+'</div>';
   if(myStep==="phone"){
-    h+='<p class="stepSub">Ingresa el WhatsApp que usaste al reservar.</p><label>WhatsApp</label><input id="myPhone" inputmode="tel" autocomplete="tel" value="'+esc(myPhone)+'" placeholder="Ej. 3001234567"><button style="margin-top:12px" class="btn p full" data-a="devAccess" '+(myBusy?'disabled':'')+'>'+(myBusy?'Consultando…':'Ver mis citas')+'</button><div class="devHint">Acceso temporal de pruebas. La verificación por código de WhatsApp se activará más adelante.</div>';
+    h+='<p class="stepSub">Ingresa el WhatsApp que usaste al reservar.</p><label>WhatsApp</label>'+phoneFieldHtml("myPhoneCountry","myPhone",myPhoneCountry,myPhone,"Ej. 3001234567")+'<button style="margin-top:12px" class="btn p full" data-a="devAccess" '+(myBusy?'disabled':'')+'>'+(myBusy?'Consultando…':'Ver mis citas')+'</button><div class="devHint">Acceso temporal de pruebas. La verificación por código de WhatsApp se activará más adelante.</div>';
   }else{
     if(!myAppointments.length)h+='<div class="empty">No tienes citas registradas.</div>';
     myAppointments.forEach(a=>h+='<div class="item"><div style="display:flex;justify-content:space-between;gap:10px"><b>'+esc(a.service)+'</b><span class="'+statusClass(a.status)+'">'+esc(statusLabel(a.status))+'</span></div><div class="apptMeta"><span>👤 '+esc(a.professional||"Profesional")+'</span><span>📅 '+esc(fmtAppointmentDate(a.start_at))+'</span><span>⏱️ '+esc(a.duration_minutes)+' min</span><span>💰 '+money(a.price)+'</span></div></div>');
@@ -503,13 +588,13 @@ document.getElementById('app').addEventListener('click',e=>{
   else if(a==='proDirect'){booking.professional=professionals.find(x=>x.id===t.dataset.id)||null;booking.service=null;clearAvailabilitySelection();view='home';step=1;render()}
   else if(a==='pro'){booking.professional=professionals.find(x=>x.id===t.dataset.id)||null;clearAvailabilitySelection();step=3;render()}
   else if(a==='time'){booking.time=t.dataset.v;render()}
-  else if(a==='book'){booking.name=document.getElementById('name').value;booking.phone=document.getElementById('phone').value;booking.email=document.getElementById('email').value;booking.notes=document.getElementById('notes').value;booking.reminder=document.getElementById('rem').checked;book()}
+  else if(a==='book'){booking.name=document.getElementById('name').value;booking.phoneCountry=document.getElementById('phoneCountry').value;booking.phone=document.getElementById('phone').value;booking.email=document.getElementById('email').value;booking.notes=document.getElementById('notes').value;booking.reminder=document.getElementById('rem').checked;book()}
   else if(a==='my'){view='my';step=0;myStep=myToken?'list':'phone';menuOpen=false;if(myToken){myBusy=true;loadMyAppointments().then(()=>{myStep='list'}).catch(e=>error=e.message).finally(()=>{myBusy=false;render()})}else render()}
   else if(a==='home'){view='home';step=0;error='';message='';menuOpen=false;render()}
   else if(a==='devAccess'){devAccessMyAppointments()}
-  else if(a==='myLogout'){myToken='';myAppointments=[];myStep='phone';sessionStorage.removeItem('booking_my_token');sessionStorage.removeItem('citago_my_token');render()}
-  else if(a==='newBooking'){view='home';booking={service:null,professional:null,date:'',time:'',name:'',phone:'',email:'',notes:'',reminder:true};availability=[];step=1;error='';message='';render()}
-  else if(a==='reset'){booking={service:null,professional:null,date:'',time:'',name:'',phone:'',email:'',notes:'',reminder:true};availability=[];view='home';step=1;message='';render()}
+  else if(a==='myLogout'){myToken='';myAppointments=[];myStep='phone';myPhoneCountry='+57';myPhone='';sessionStorage.removeItem('booking_my_token');sessionStorage.removeItem('citago_my_token');render()}
+  else if(a==='newBooking'){view='home';booking={service:null,professional:null,date:'',time:'',name:'',phoneCountry:'+57',phone:'',email:'',notes:'',reminder:true};availability=[];step=1;error='';message='';render()}
+  else if(a==='reset'){booking={service:null,professional:null,date:'',time:'',name:'',phoneCountry:'+57',phone:'',email:'',notes:'',reminder:true};availability=[];view='home';step=1;message='';render()}
   else if(a==='menu'){menuOpen=!menuOpen;render()}
   else if(a==='menuClose'){menuOpen=false;render()}
 });
