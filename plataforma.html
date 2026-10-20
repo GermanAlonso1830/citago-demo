@@ -56,7 +56,59 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .slots button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px}
 .slots button.on{background:var(--acc);color:#fff;border-color:var(--acc)}
-@media(max-width:760px){.shell{grid-template-columns:1fr}.side{position:sticky;top:0;z-index:5;padding:8px;display:flex;overflow:auto}.side h2{display:none}.side button{white-space:nowrap;width:auto}.main{padding:16px}.g2,.g3{grid-template-columns:1fr}.slots{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){
+  .shell{grid-template-columns:1fr}
+  .side{
+    position:sticky;top:0;z-index:20;padding:8px;
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:6px;overflow:visible;align-items:stretch
+  }
+  .side h2,.sideUser{display:none}
+  .side button{
+    width:100%;margin:0;padding:10px 6px;
+    text-align:center;white-space:normal;font-size:.78rem
+  }
+  .main{padding:14px}
+  .wrap{max-width:100%}
+  .card{padding:12px;border-radius:14px}
+  .g2,.g3{grid-template-columns:1fr}
+  .slots{grid-template-columns:repeat(2,1fr)}
+  h1{font-size:1.55rem}
+
+  .businessTable{background:transparent;border:0;padding:0}
+  .businessTable table,
+  .businessTable tbody{display:block;width:100%}
+  .businessTable tr:first-child{display:none}
+  .businessTable tr{
+    display:block;width:100%;background:var(--sf);
+    border:1px solid var(--line);border-radius:16px;
+    padding:12px;margin-bottom:12px
+  }
+  .businessTable td{
+    display:grid;grid-template-columns:92px minmax(0,1fr);
+    gap:10px;align-items:start;width:100%;
+    padding:10px 0;border-bottom:1px solid var(--line)
+  }
+  .businessTable td:last-child{border-bottom:0}
+  .businessTable td::before{
+    content:attr(data-label);color:var(--mut);
+    font-size:.7rem;font-weight:800;text-transform:uppercase;
+    letter-spacing:.03em
+  }
+  .businessTable select{width:100%;min-width:0}
+  .businessTable td .row{
+    display:grid;grid-template-columns:1fr 1fr;
+    gap:8px;width:100%
+  }
+  .businessTable td .row .btn{
+    width:100%;min-height:44px;padding:8px 6px
+  }
+}
+@media(max-width:420px){
+  .side{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .businessTable td{grid-template-columns:1fr;gap:6px}
+  .businessTable td::before{margin-bottom:-2px}
+}
 </style></head>
 <body><div id="app"></div><script>
 const API=(location.hostname==="127.0.0.1"||location.hostname==="localhost")
@@ -215,9 +267,9 @@ function businessPanel(){
   const subStatus=subscriptionLabel(b.subscription_status);
   const trialEnd=b.subscription_status==="TRIAL"&&b.trial_ends_at?" · vence "+dateCO(b.trial_ends_at):"";
   const planMeta=b.plan_name?'<small class="muted" style="display:block;margin-top:6px"><b>'+esc(b.plan_name)+'</b>'+(subStatus?' · '+esc(subStatus):'')+esc(trialEnd)+'</small>':'<small class="muted" style="display:block;margin-top:6px">Sin plan asignado</small>';
-  return '<tr><td><b>'+esc(b.name)+'</b><br><small class="muted">'+esc(b.slug)+'</small></td><td>'+esc(b.business_type_name||b.business_type_id||"—")+'</td><td><span class="tag '+(b.is_active===false?"x":"")+'">'+(b.is_active===false?"Suspendido":"Activo")+'</span></td><td><select id="plan-'+b.id+'">'+planOptions+'</select>'+planMeta+'</td><td><div class="row"><button class="btn" data-open-client="'+esc(b.slug)+'">🌐 Abrir página</button><button class="btn" data-copy-client="'+esc(b.slug)+'">🔗 Copiar enlace</button><button class="btn" data-plan="'+b.id+'">Guardar plan</button><button class="btn '+(b.is_active===false?"p":"bad")+'" data-toggle="'+b.id+'" data-active="'+(b.is_active===false?"1":"0")+'">'+(b.is_active===false?"Activar":"Suspender")+'</button></div></td></tr>';
+  return '<tr><td data-label="Negocio"><b>'+esc(b.name)+'</b><br><small class="muted">'+esc(b.slug)+'</small></td><td data-label="Tipo">'+esc(b.business_type_name||b.business_type_id||"—")+'</td><td data-label="Estado"><span class="tag '+(b.is_active===false?"x":"")+'">'+(b.is_active===false?"Suspendido":"Activo")+'</span></td><td data-label="Plan"><select id="plan-'+b.id+'">'+planOptions+'</select>'+planMeta+'</td><td data-label="Acciones"><div class="row"><button class="btn" data-open-client="'+esc(b.slug)+'">🌐 Abrir página</button><button class="btn" data-copy-client="'+esc(b.slug)+'">🔗 Copiar enlace</button><button class="btn" data-plan="'+b.id+'">Guardar plan</button><button class="btn '+(b.is_active===false?"p":"bad")+'" data-toggle="'+b.id+'" data-active="'+(b.is_active===false?"1":"0")+'">'+(b.is_active===false?"Activar":"Suspender")+'</button></div></td></tr>';
  }).join("");
- return '<h1>Plataforma CitaGo</h1><p class="sub">Administración central</p><div class="card"><table><tr><th>Negocio</th><th>Tipo</th><th>Estado</th><th>Plan</th><th>Acciones</th></tr>'+rows+'</table></div><div class="card"><h3>Nuevo negocio</h3><label>Nombre</label><input id="bn" placeholder="Ej. Colegio Público"><label>Slug</label><input id="bs" placeholder="colegio-publico"><label>Tipo</label><select id="bt"><option value="">Selecciona…</option>'+types.map(t=>'<option value="'+t.id+'">'+esc(t.name)+'</option>').join("")+'</select><button class="btn p" data-a="createBusiness" style="margin-top:10px">Crear negocio</button></div>';
+ return '<h1>Plataforma CitaGo</h1><p class="sub">Administración central</p><div class="card businessTable"><table><tr><th>Negocio</th><th>Tipo</th><th>Estado</th><th>Plan</th><th>Acciones</th></tr>'+rows+'</table></div><div class="card"><h3>Nuevo negocio</h3><label>Nombre</label><input id="bn" placeholder="Ej. Colegio Público"><label>Slug</label><input id="bs" placeholder="colegio-publico"><label>Tipo</label><select id="bt"><option value="">Selecciona…</option>'+types.map(t=>'<option value="'+t.id+'">'+esc(t.name)+'</option>').join("")+'</select><button class="btn p" data-a="createBusiness" style="margin-top:10px">Crear negocio</button></div>';
 }
 
 function typesPanel(){
