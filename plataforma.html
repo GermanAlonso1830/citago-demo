@@ -138,6 +138,29 @@ async function copyClientLink(slug){
  }
 }
 
+const BUSINESS_PANEL_BASE=
+ (location.hostname==="127.0.0.1"||location.hostname==="localhost")
+ ? location.origin+"/negocio.html?id="
+ : "https://citalite.nuvalite.com/negocio.html?id=";
+
+function businessPanelUrl(id){
+ return BUSINESS_PANEL_BASE+encodeURIComponent(id||"");
+}
+
+function openBusinessPanel(id){
+ window.open(businessPanelUrl(id),"_blank","noopener,noreferrer");
+}
+
+async function copyBusinessLink(id){
+ const url=businessPanelUrl(id);
+ try{
+  await navigator.clipboard.writeText(url);
+  alert("Enlace del negocio copiado:\n"+url);
+ }catch(_){
+  prompt("Copia este enlace del negocio:",url);
+ }
+}
+
 let view="businesses",businesses=[],types=[],plans=[],error="",loading=false;
 let authToken=sessionStorage.getItem("citago_platform_token")||"";
 let authUser=null,authLoading=true,loginBusy=false,loginError="",loginEmail="";
@@ -267,7 +290,7 @@ function businessPanel(){
   const subStatus=subscriptionLabel(b.subscription_status);
   const trialEnd=b.subscription_status==="TRIAL"&&b.trial_ends_at?" · vence "+dateCO(b.trial_ends_at):"";
   const planMeta=b.plan_name?'<small class="muted" style="display:block;margin-top:6px"><b>'+esc(b.plan_name)+'</b>'+(subStatus?' · '+esc(subStatus):'')+esc(trialEnd)+'</small>':'<small class="muted" style="display:block;margin-top:6px">Sin plan asignado</small>';
-  return '<tr><td data-label="Negocio"><b>'+esc(b.name)+'</b><br><small class="muted">'+esc(b.slug)+'</small></td><td data-label="Tipo">'+esc(b.business_type_name||b.business_type_id||"—")+'</td><td data-label="Estado"><span class="tag '+(b.is_active===false?"x":"")+'">'+(b.is_active===false?"Suspendido":"Activo")+'</span></td><td data-label="Plan"><select id="plan-'+b.id+'">'+planOptions+'</select>'+planMeta+'</td><td data-label="Acciones"><div class="row"><button class="btn" data-open-client="'+esc(b.slug)+'">🌐 Abrir página</button><button class="btn" data-copy-client="'+esc(b.slug)+'">🔗 Copiar enlace</button><button class="btn" data-plan="'+b.id+'">Guardar plan</button><button class="btn '+(b.is_active===false?"p":"bad")+'" data-toggle="'+b.id+'" data-active="'+(b.is_active===false?"1":"0")+'">'+(b.is_active===false?"Activar":"Suspender")+'</button></div></td></tr>';
+  return '<tr><td data-label="Negocio"><b>'+esc(b.name)+'</b><br><small class="muted">'+esc(b.slug)+'</small></td><td data-label="Tipo">'+esc(b.business_type_name||b.business_type_id||"—")+'</td><td data-label="Estado"><span class="tag '+(b.is_active===false?"x":"")+'">'+(b.is_active===false?"Suspendido":"Activo")+'</span></td><td data-label="Plan"><select id="plan-'+b.id+'">'+planOptions+'</select>'+planMeta+'</td><td data-label="Acciones"><div class="row"><button class="btn" data-open-client="'+esc(b.slug)+'">🌐 Abrir cliente</button><button class="btn" data-copy-client="'+esc(b.slug)+'">🔗 Copiar cliente</button><button class="btn" data-open-business="'+esc(b.id)+'">🏪 Abrir negocio</button><button class="btn" data-copy-business="'+esc(b.id)+'">📋 Copiar negocio</button><button class="btn" data-plan="'+b.id+'">Guardar plan</button><button class="btn '+(b.is_active===false?"p":"bad")+'" data-toggle="'+b.id+'" data-active="'+(b.is_active===false?"1":"0")+'">'+(b.is_active===false?"Activar":"Suspender")+'</button></div></td></tr>';
  }).join("");
  return '<h1>Plataforma CitaGo</h1><p class="sub">Administración central</p><div class="card businessTable"><table><tr><th>Negocio</th><th>Tipo</th><th>Estado</th><th>Plan</th><th>Acciones</th></tr>'+rows+'</table></div><div class="card"><h3>Nuevo negocio</h3><label>Nombre</label><input id="bn" placeholder="Ej. Colegio Público"><label>Slug</label><input id="bs" placeholder="colegio-publico"><label>Tipo</label><select id="bt"><option value="">Selecciona…</option>'+types.map(t=>'<option value="'+t.id+'">'+esc(t.name)+'</option>').join("")+'</select><button class="btn p" data-a="createBusiness" style="margin-top:10px">Crear negocio</button></div>';
 }
@@ -300,6 +323,10 @@ document.getElementById("app").addEventListener("click",e=>{
  if(openClient){openClientPage(openClient.dataset.openClient);return}
  const copyClient=e.target.closest("[data-copy-client]");
  if(copyClient){copyClientLink(copyClient.dataset.copyClient);return}
+ const openBusiness=e.target.closest("[data-open-business]");
+ if(openBusiness){openBusinessPanel(openBusiness.dataset.openBusiness);return}
+ const copyBusiness=e.target.closest("[data-copy-business]");
+ if(copyBusiness){copyBusinessLink(copyBusiness.dataset.copyBusiness);return}
  const tg=e.target.closest("[data-toggle]");if(tg)toggleBusiness(tg.dataset.toggle,tg.dataset.active==="1");
  const pl=e.target.closest("[data-plan]");if(pl)assignPlan(pl.dataset.plan);
 });
