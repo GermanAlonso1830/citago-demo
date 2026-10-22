@@ -61,8 +61,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .sl button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:700}
 .sl button:disabled{opacity:.35;text-decoration:line-through;cursor:not-allowed}
 label{display:block;font-size:.82rem;color:var(--mute);margin:12px 0 4px}
-input:not([type=checkbox]):not([type=radio]),select,textarea{width:100%;padding:11px;border:1.5px solid var(--line);border-radius:10px;background:var(--sf)}
-input[type=radio]{width:20px;height:20px;flex:0 0 20px;margin:0;padding:0;accent-color:var(--acc)}
+input:not([type=checkbox]),select,textarea{width:100%;padding:11px;border:1.5px solid var(--line);border-radius:10px;background:var(--sf)}
 input[type=color]{height:44px;padding:3px}
 .sum{display:flex;gap:12px;align-items:center;border:1.5px solid var(--line);border-radius:16px;padding:12px;margin-bottom:6px}
 .ok{text-align:center;font-size:3rem}
@@ -73,7 +72,7 @@ input[type=color]{height:44px;padding:3px}
 .side button{display:block;width:100%;text-align:left;background:none;border:0;color:#fff;opacity:.75;padding:10px 12px;border-radius:10px;cursor:pointer;margin-bottom:2px}
 .side button[aria-pressed=true]{background:rgba(255,255,255,.14);opacity:1;font-weight:700}
 .sh2{display:flex;align-items:center}.side .hb,.cur{display:none}
-@media(max-width:800px){.sh{grid-template-columns:1fr;min-height:0}.side{position:fixed;left:0;right:0;top:0;width:100%;z-index:100;padding:8px 12px;box-shadow:0 1px 0 rgba(255,255,255,.08);max-height:100dvh;overflow-y:auto}.sh2{gap:12px}
+@media(max-width:800px){.sh{grid-template-columns:1fr;min-height:0}.side{padding:8px 12px}.sh2{gap:12px}
 .side h3{margin:0;font-size:.95rem;opacity:.8;order:3}
 .side .hb{display:block;order:0;width:44px;height:44px;padding:0;margin:0;background:rgba(255,255,255,.16);opacity:1;text-align:center;font-size:1.35rem}
 .cur{display:block;order:1;flex:1;font-weight:700}
@@ -105,161 +104,6 @@ td.t{color:var(--mute);font-size:.75rem;width:56px;white-space:nowrap}
 
 /* Final separated demo: internal prototype switcher is hidden. */
 .bar{display:none!important}
-
-
-/* ===== Ajustes responsive móvil ===== */
-html{
-  min-height:100%;
-  overflow-x:hidden;
-  -webkit-text-size-adjust:100%;
-}
-body{
-  min-height:100vh;
-  min-height:100dvh;
-  overflow-x:hidden;
-  overscroll-behavior-y:auto;
-  -webkit-overflow-scrolling:touch;
-}
-#app{
-  min-height:100vh;
-  min-height:100dvh;
-}
-
-/* Carga de imágenes: previews estables y sin deformaciones */
-.media-grid{
-  display:grid;
-  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
-  gap:14px;
-}
-.media-picker{min-width:0}
-.media-preview,
-.media-empty{
-  width:100%;
-  border:1px solid var(--line);
-  border-radius:14px;
-  background:var(--bg);
-}
-.media-preview{
-  display:block;
-  height:180px;
-  object-fit:cover;
-  object-position:center;
-}
-.media-preview.logo{
-  height:150px;
-  object-fit:contain;
-  padding:12px;
-  background:var(--sf);
-}
-.media-preview.cover{height:190px}
-.media-preview.background{height:220px}
-.media-empty{
-  min-height:140px;
-  display:grid;
-  place-items:center;
-  padding:18px;
-  text-align:center;
-  color:var(--mute);
-  border-style:dashed;
-}
-.media-picker input[type=file]{
-  display:block;
-  width:100%;
-  max-width:100%;
-  min-width:0;
-  padding:8px;
-  overflow:hidden;
-  background:var(--sf);
-}
-.media-picker input[type=file]::file-selector-button{
-  max-width:100%;
-  margin-right:8px;
-  border:1px solid var(--line);
-  border-radius:9px;
-  padding:8px 10px;
-  background:var(--bg);
-  color:var(--ink);
-  font:inherit;
-  font-weight:600;
-}
-.cfg-actions{display:flex;gap:8px;flex-wrap:wrap;padding-bottom:12px}
-
-@media(max-width:800px){
-  .sh{
-    display:block;
-    min-height:100vh;
-    min-height:100dvh;
-    overflow:visible;
-  }
-  .mn{
-    min-height:0;
-    overflow:visible;
-    padding:82px 14px calc(96px + env(safe-area-inset-bottom,0px));
-  }
-  .pn{max-width:100%}
-}
-
-@media(max-width:600px){
-  .g2{grid-template-columns:1fr}
-  .g3{grid-template-columns:1fr 1fr}
-  .g3 > :last-child{grid-column:1 / -1}
-  .media-grid{grid-template-columns:1fr}
-  .media-preview{height:190px}
-  .media-preview.logo{height:150px}
-  .media-preview.cover{height:210px}
-  .media-preview.background{height:210px}
-  .media-empty{min-height:130px}
-  .cfg-actions{padding-bottom:24px}
-}
-
-@media(max-width:420px){
-  .g3{grid-template-columns:1fr}
-  .g3 > :last-child{grid-column:auto}
-}
-
-/* Selectores de imagen con estado propio */
-.file-control{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:7px}
-.file-select{display:inline-flex;align-items:center;justify-content:center;gap:7px;margin:0;padding:9px 13px;border:1.5px solid var(--line);border-radius:10px;background:var(--sf);color:var(--ink);font-size:.86rem;font-weight:700;cursor:pointer;user-select:none}
-.file-select:hover{border-color:var(--acc)}
-.file-select.disabled{opacity:.55;cursor:not-allowed}
-.file-native{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;overflow:hidden!important;pointer-events:none;padding:0!important;border:0!important}
-.file-state{min-width:0;color:var(--mute);font-size:.82rem;line-height:1.35;overflow-wrap:anywhere}
-.file-state.ready{color:var(--ink)}
-.file-state.uploading{color:var(--acc);font-weight:700}
-.file-state.success{color:#16794C;font-weight:700}
-.file-state.error{color:#B3372A;font-weight:700}
-@media(max-width:600px){.file-control{align-items:stretch}.file-select{width:100%}.file-state{width:100%}}
-
-/* Servicios: acciones uniformes en móvil */
-.service-thumb{flex:none;display:flex;align-items:center}
-.service-info{min-width:0}
-.service-actions{display:flex;gap:6px;flex-wrap:wrap;flex:none}
-@media(max-width:600px){
-  .service-row{
-    display:grid;
-    grid-template-columns:72px minmax(0,1fr);
-    grid-template-areas:"thumb info" "actions actions";
-    gap:10px 12px;
-    align-items:start;
-  }
-  .service-row .service-thumb{grid-area:thumb}
-  .service-row .service-info{grid-area:info}
-  .service-row .service-actions{
-    grid-area:actions;
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:8px;
-    width:100%;
-    margin-top:2px;
-  }
-  .service-row .service-actions .btn{
-    width:100%;
-    min-height:42px;
-    padding:9px 10px;
-    text-align:center;
-  }
-}
-
 </style>
 </head>
 <body>
@@ -296,43 +140,103 @@ const API_BASE =
   location.hostname === "127.0.0.1" || location.hostname === "localhost"
     ? "http://127.0.0.1:8000"
     : "https://citago-backend.onrender.com";
-const BUSINESS_ID =
-  new URLSearchParams(window.location.search).get("id")
-  || "1f47d94d-55d6-4a5d-88fc-dc93eaaa3958";
+const BUSINESS_ID = new URLSearchParams(window.location.search).get("id");
+const ACCESS_TOKEN = localStorage.getItem("nuvalite_access_token") || "";
+const _nativeFetch = window.fetch.bind(window);
+let AUTHORIZED_BUSINESS = null;
+
+function goToLogin(){
+  const next = encodeURIComponent(window.location.href);
+  window.location.replace("login.html?next=" + next);
+}
+
+function goToMyAccount(reason){
+  if(reason) sessionStorage.setItem("nuvalite_access_error", reason);
+  window.location.replace("mi-cuenta.html");
+}
+
+async function verifyBusinessSession(){
+  if(!ACCESS_TOKEN){
+    goToLogin();
+    return false;
+  }
+  if(!BUSINESS_ID){
+    goToMyAccount("Selecciona un negocio desde Mi NUVALITE.");
+    return false;
+  }
+
+  try{
+    const response = await _nativeFetch(API_BASE + "/auth/me", {
+      headers:{Authorization:"Bearer " + ACCESS_TOKEN}
+    });
+
+    if(response.status === 401){
+      localStorage.removeItem("nuvalite_access_token");
+      localStorage.removeItem("nuvalite_session");
+      goToLogin();
+      return false;
+    }
+    if(!response.ok){
+      throw new Error("No se pudo validar la sesión.");
+    }
+
+    const me = await response.json();
+    AUTHORIZED_BUSINESS = (me.businesses || []).find(function(b){
+      return String(b.id) === String(BUSINESS_ID);
+    }) || null;
+
+    if(!AUTHORIZED_BUSINESS){
+      goToMyAccount("No tienes acceso a ese negocio.");
+      return false;
+    }
+    return true;
+  }catch(error){
+    console.error("Error validando acceso al negocio:", error);
+    goToLogin();
+    return false;
+  }
+}
+
+window.fetch = async function(input, init){
+  init = init || {};
+  const url = typeof input === "string" ? input : (input && input.url) || "";
+
+  if(url.indexOf(API_BASE) === 0){
+    const headers = new Headers(init.headers || (input instanceof Request ? input.headers : undefined));
+    headers.set("Authorization", "Bearer " + ACCESS_TOKEN);
+    init = Object.assign({}, init, {headers:headers});
+  }
+
+  const response = await _nativeFetch(input, init);
+
+  if(url.indexOf(API_BASE) === 0 && response.status === 401){
+    localStorage.removeItem("nuvalite_access_token");
+    localStorage.removeItem("nuvalite_session");
+    goToLogin();
+  }else if(url.indexOf(API_BASE) === 0 && response.status === 403){
+    goToMyAccount("No tienes permisos para acceder a ese negocio.");
+  }
+
+  return response;
+};
 var DASH = null, DASH_LOADING = false, DASH_ERROR = "";
 var APPTS = [], APPTS_LOADING = false, APPTS_ERROR = "";
 var API_SERVICES = [], SERVICES_LOADING = false, SERVICES_ERROR = "";
 var EDIT_SERVICE_ID = null, SERVICE_SAVING = false, SERVICE_ACTION_BUSY = "";
 var SERVICE_MSG = "", SERVICE_UI_ERROR = "";
-var SERVICE_PHOTO_BUSY = "", SERVICE_LOCAL_PREVIEW = {}, SERVICE_FILE_NAME = {}, SERVICE_PHOTO_STATUS = {};
+var SERVICE_PHOTO_BUSY = "", SERVICE_LOCAL_PREVIEW = {}, SERVICE_FILE_NAME = {};
 var SERVICE_CREATE_DRAFT = {name:"",description:"",duration:"",price:"",icon:"✨"};
-var SERVICE_CREATE_PHOTO = null, SERVICE_CREATE_PHOTO_NAME = "", SERVICE_CREATE_PREVIEW = "", SERVICE_CREATE_PHOTO_STATUS = "";
+var SERVICE_CREATE_PHOTO = null, SERVICE_CREATE_PHOTO_NAME = "", SERVICE_CREATE_PREVIEW = "";
 var SETTINGS = null, SETTINGS_LOADING = false, SETTINGS_SAVING = false, SETTINGS_ERROR = "", SETTINGS_MSG = "";
 var MEDIA_BUSY = "", MEDIA_ERROR = "", PRO_PHOTO_BUSY = "";
 var MEDIA_LOCAL_PREVIEW = {logo:"",cover:"",background:""};
 var MEDIA_FILE_NAME = {logo:"",cover:"",background:""};
-var MEDIA_FILE_STATUS = {logo:"",cover:"",background:""};
-var PRO_LOCAL_PREVIEW = {}, PRO_FILE_NAME = {}, PRO_PHOTO_STATUS = {};
+var PRO_LOCAL_PREVIEW = {}, PRO_FILE_NAME = {};
 var API_PROFESSIONALS = [], PROS_LOADING = false, PROS_ERROR = "";
 var ASSIGN_PRO_ID = null, ASSIGN_SERVICE_IDS = [], ASSIGN_LOADING = false, ASSIGN_SAVING = false, ASSIGN_ERROR = "";
 var PRO_CREATE_MSG = "", PRO_CREATE_ERROR = "", PRO_CREATE_SAVING = false, PRO_CREATE_SERVICE_IDS = [];
-var PRO_CREATE_DRAFT = {name:"",specialty:"",phone:"",color:"#4F46E5"};
-var PRO_CREATE_PHOTO = null, PRO_CREATE_PHOTO_NAME = "", PRO_CREATE_PREVIEW = "", PRO_CREATE_PHOTO_STATUS = "";
 var EDIT_PRO_ID=null, EDIT_PRO=null, EDIT_PRO_SAVING=false, EDIT_PRO_ERROR="";
 var SCHEDULE_PRO_ID = null, SCHEDULES = [], SCHEDULE_LOADING = false, SCHEDULE_SAVING = false, SCHEDULE_ERROR = "";
-function fileStatusHtml(status,name,hasImage){
- var txt="",cls="";
- if(status==="uploading"){txt="⏳ Subiendo imagen...";cls=" uploading"}
- else if(status==="success"){txt="✅ Foto cargada"+(name?" · "+esc(name):"");cls=" success"}
- else if(status==="error"){txt="❌ No se pudo cargar la foto. Intenta nuevamente.";cls=" error"}
- else if(status==="ready"){txt="📷 Foto lista para subir"+(name?" · "+esc(name):"");cls=" ready"}
- else if(hasImage){txt="✅ Foto cargada";cls=" success"}
- else{txt="Ninguna foto seleccionada"}
- return '<span class="file-state'+cls+'">'+txt+'</span>';
-}
-function filePickerHtml(attrs,status,name,hasImage,buttonText,disabled){
- return '<div class="file-control"><label class="file-select'+(disabled?' disabled':'')+'">📷 '+esc(buttonText||"Seleccionar foto")+'<input class="file-native" type="file" accept="image/jpeg,image/png,image/webp" '+attrs+'></label>'+fileStatusHtml(status,name,hasImage)+'</div>';
-}
 function slug(n){return n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
 function mk(name,type,pl,price,stt,nx){var t=TPL[type],sv=t.sv.map(function(x,i){return{id:i+1,n:x[0],m:x[1],p:x[2],e:x[3]}}),
  pro=t.pr.map(function(p,i){return{id:i+1,n:p[0],r:p[1],sv:p[2].map(function(k){return k+1}),days:[1,2,3,4,5,6],open:t.open,close:t.close,c:CL[i%CL.length]}}),
@@ -455,7 +359,7 @@ function validateServiceFields(name,duration,price){
 }
 function resetServiceCreateDraft(){
  SERVICE_CREATE_DRAFT={name:"",description:"",duration:"",price:"",icon:"✨"};
- SERVICE_CREATE_PHOTO=null;SERVICE_CREATE_PHOTO_NAME="";SERVICE_CREATE_PHOTO_STATUS="";
+ SERVICE_CREATE_PHOTO=null;SERVICE_CREATE_PHOTO_NAME="";
  if(SERVICE_CREATE_PREVIEW){try{URL.revokeObjectURL(SERVICE_CREATE_PREVIEW)}catch(_){ }}
  SERVICE_CREATE_PREVIEW="";
 }
@@ -472,9 +376,9 @@ function handleNewServicePhotoInput(input){
  var file=input&&input.files?input.files[0]:null;
  if(!file)return;
  var err=validateImageFile(file);
- if(err){SERVICE_CREATE_PHOTO_STATUS="error";SERVICE_UI_ERROR=err;SERVICE_MSG="";render();return}
+ if(err){SERVICE_UI_ERROR=err;SERVICE_MSG="";render();return}
  SERVICE_CREATE_PHOTO=file;
- SERVICE_CREATE_PHOTO_NAME=file.name||"servicio";SERVICE_CREATE_PHOTO_STATUS="ready";
+ SERVICE_CREATE_PHOTO_NAME=file.name||"servicio";
  if(SERVICE_CREATE_PREVIEW){try{URL.revokeObjectURL(SERVICE_CREATE_PREVIEW)}catch(_){ }}
  try{SERVICE_CREATE_PREVIEW=URL.createObjectURL(file)}catch(_){SERVICE_CREATE_PREVIEW=""}
  SERVICE_UI_ERROR="";SERVICE_MSG="";
@@ -504,7 +408,7 @@ async function addRealService(){
  if(verr){SERVICE_UI_ERROR=verr;SERVICE_MSG="";render();return}
  var photo=SERVICE_CREATE_PHOTO;
  if(photo){var perr=validateImageFile(photo);if(perr){SERVICE_UI_ERROR=perr;SERVICE_MSG="";render();return}}
- SERVICE_SAVING=true;if(photo)SERVICE_CREATE_PHOTO_STATUS="uploading";SERVICE_UI_ERROR="";SERVICE_MSG="";render();
+ SERVICE_SAVING=true;SERVICE_UI_ERROR="";SERVICE_MSG="";
  var btn=document.querySelector('[data-a="apiAddSvc"]');
  if(btn){btn.disabled=true;btn.textContent=photo?"Creando y subiendo foto...":"Guardando..."}
  var created=null,photoError=null;
@@ -529,7 +433,6 @@ async function addRealService(){
   }
  }catch(error){
   console.error(error);
-  if(photo)SERVICE_CREATE_PHOTO_STATUS="error";
   SERVICE_UI_ERROR="No se pudo crear el servicio: "+error.message;
  }finally{
   SERVICE_SAVING=false;
@@ -629,18 +532,18 @@ function validateImageFile(file){
  return ""
 }
 async function uploadServicePhoto(serviceId,file){
+ var err=validateImageFile(file);if(err){alert(err);return}
  serviceId=String(serviceId);
- var err=validateImageFile(file);if(err){SERVICE_PHOTO_STATUS[serviceId]="error";render();alert(err);return}
- SERVICE_PHOTO_BUSY=serviceId;SERVICE_FILE_NAME[serviceId]=file.name||"servicio";SERVICE_PHOTO_STATUS[serviceId]="uploading";
+ SERVICE_PHOTO_BUSY=serviceId;SERVICE_FILE_NAME[serviceId]=file.name||"servicio";
  try{SERVICE_LOCAL_PREVIEW[serviceId]=URL.createObjectURL(file)}catch(_){SERVICE_LOCAL_PREVIEW[serviceId]=""}
  render();
  try{
   var data=await uploadServicePhotoRequest(serviceId,file);
   var svc=API_SERVICES.find(function(x){return String(x.id)===serviceId});
-  if(svc)svc.image_url=data.url;SERVICE_PHOTO_STATUS[serviceId]="success";
+  if(svc)svc.image_url=data.url;
  }catch(e){
   console.error("Error subiendo foto del servicio",e);
-  SERVICE_PHOTO_STATUS[serviceId]="error";alert("No se pudo subir la foto del servicio: "+e.message);
+  alert("No se pudo subir la foto del servicio: "+e.message);
  }finally{
   SERVICE_PHOTO_BUSY="";
   if(SERVICE_LOCAL_PREVIEW[serviceId]){try{URL.revokeObjectURL(SERVICE_LOCAL_PREVIEW[serviceId])}catch(_){ }delete SERVICE_LOCAL_PREVIEW[serviceId]}
@@ -661,7 +564,7 @@ async function removeServicePhoto(serviceId){
   var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/services/"+serviceId+"/photo",{method:"DELETE"});
   if(!r.ok&&r.status!==204){var raw=await r.text();var msg=raw;try{var er=JSON.parse(raw);msg=er.detail||raw}catch(_){}throw new Error(msg||("Error HTTP "+r.status))}
   var svc=API_SERVICES.find(function(x){return String(x.id)===serviceId});
-  if(svc)svc.image_url=null;SERVICE_PHOTO_STATUS[serviceId]="";delete SERVICE_FILE_NAME[serviceId];
+  if(svc)svc.image_url=null;
  }catch(e){
   console.error("Error quitando foto del servicio",e);
   alert("No se pudo quitar la foto del servicio: "+e.message);
@@ -675,7 +578,7 @@ function serviceThumb(v,size){
 async function uploadBusinessMedia(kind,file){
  var err=validateImageFile(file);if(err){alert(err);return}
  var fd=new FormData();fd.append("file",file,file.name||"imagen");
- MEDIA_BUSY=kind;MEDIA_ERROR="";SETTINGS_MSG="";MEDIA_FILE_NAME[kind]=file.name||"imagen";MEDIA_FILE_STATUS[kind]="uploading";
+ MEDIA_BUSY=kind;MEDIA_ERROR="";SETTINGS_MSG="";MEDIA_FILE_NAME[kind]=file.name||"imagen";
  try{MEDIA_LOCAL_PREVIEW[kind]=URL.createObjectURL(file)}catch(_){MEDIA_LOCAL_PREVIEW[kind]=""}
  render();
  try{
@@ -687,10 +590,10 @@ async function uploadBusinessMedia(kind,file){
   var vr=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/settings");
   if(vr.ok)SETTINGS=await vr.json();
   applySettingsToView(SETTINGS);
-  SETTINGS_MSG="Imagen actualizada correctamente.";MEDIA_FILE_STATUS[kind]="success";
+  SETTINGS_MSG="Imagen actualizada correctamente.";
  }catch(e){
   console.error("Error subiendo "+kind,e);
-  MEDIA_FILE_STATUS[kind]="error";MEDIA_ERROR="No se pudo subir la imagen: "+e.message;
+  MEDIA_ERROR="No se pudo subir la imagen: "+e.message;
  }finally{
   MEDIA_BUSY="";
   if(MEDIA_LOCAL_PREVIEW[kind]){try{URL.revokeObjectURL(MEDIA_LOCAL_PREVIEW[kind])}catch(_){ }MEDIA_LOCAL_PREVIEW[kind]=""}
@@ -709,24 +612,24 @@ async function removeBusinessMedia(kind){
  try{
   var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/media/"+kind,{method:"DELETE"});
   if(!r.ok)throw new Error("Error HTTP "+r.status);
-  if(!SETTINGS)SETTINGS={};SETTINGS[mediaColumn(kind)]=null;applySettingsToView(SETTINGS);MEDIA_FILE_STATUS[kind]="";MEDIA_FILE_NAME[kind]="";SETTINGS_MSG="Imagen eliminada.";
+  if(!SETTINGS)SETTINGS={};SETTINGS[mediaColumn(kind)]=null;applySettingsToView(SETTINGS);SETTINGS_MSG="Imagen eliminada.";
  }catch(e){console.error(e);MEDIA_ERROR="No se pudo quitar la imagen: "+e.message}
  finally{MEDIA_BUSY="";render()}
 }
 async function uploadProfessionalPhoto(proId,file){
+ var err=validateImageFile(file);if(err){alert(err);return}
  proId=String(proId);
- var err=validateImageFile(file);if(err){PRO_PHOTO_STATUS[proId]="error";render();alert(err);return}
  var fd=new FormData();fd.append("file",file,file.name||"foto");
- PRO_PHOTO_BUSY=proId;PRO_FILE_NAME[proId]=file.name||"foto";PRO_PHOTO_STATUS[proId]="uploading";
+ PRO_PHOTO_BUSY=proId;PRO_FILE_NAME[proId]=file.name||"foto";
  try{PRO_LOCAL_PREVIEW[proId]=URL.createObjectURL(file)}catch(_){PRO_LOCAL_PREVIEW[proId]=""}
  render();
  try{
   var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+proId+"/photo",{method:"POST",body:fd});
   if(!r.ok){var raw=await r.text();var msg=raw;try{var er=JSON.parse(raw);msg=er.detail||raw}catch(_){}throw new Error(msg||("Error HTTP "+r.status))}
-  var data=await r.json(),p=API_PROFESSIONALS.find(function(x){return String(x.id)===proId});if(p)p.photo_url=data.url;PRO_PHOTO_STATUS[proId]="success";
+  var data=await r.json(),p=API_PROFESSIONALS.find(function(x){return String(x.id)===proId});if(p)p.photo_url=data.url;
  }catch(e){
   console.error("Error subiendo foto profesional",e);
-  PRO_PHOTO_STATUS[proId]="error";alert("No se pudo subir la foto: "+e.message);
+  alert("No se pudo subir la foto: "+e.message);
  }finally{
   PRO_PHOTO_BUSY="";
   if(PRO_LOCAL_PREVIEW[proId]){try{URL.revokeObjectURL(PRO_LOCAL_PREVIEW[proId])}catch(_){ }delete PRO_LOCAL_PREVIEW[proId]}
@@ -745,7 +648,7 @@ async function removeProfessionalPhoto(proId){
  try{
   var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+proId+"/photo",{method:"DELETE"});
   if(!r.ok)throw new Error("Error HTTP "+r.status);
-  var p=API_PROFESSIONALS.find(function(x){return String(x.id)===String(proId)});if(p)p.photo_url=null;PRO_PHOTO_STATUS[proId]="";delete PRO_FILE_NAME[proId];
+  var p=API_PROFESSIONALS.find(function(x){return String(x.id)===String(proId)});if(p)p.photo_url=null;
  }catch(e){console.error(e);alert("No se pudo quitar la foto: "+e.message)}
  finally{PRO_PHOTO_BUSY="";render()}
 }
@@ -774,16 +677,16 @@ function bizSvc(){
  if(SERVICES_ERROR)return h+'<div class="pn"><p style="color:#B3372A">'+esc(SERVICES_ERROR)+'</p><button class="btn p" data-a="reloadSvc">Reintentar</button></div></div>';
  if(!API_SERVICES.length)h+='<p style="color:var(--mute)">Todavía no hay servicios.</p>';
  API_SERVICES.forEach(function(v){var sid=String(v.id),editing=EDIT_SERVICE_ID===sid,busy=SERVICE_PHOTO_BUSY===sid;
-  h+='<div class="pn" style="overflow:visible;'+(!v.is_active?'opacity:.68':'')+'"><div class="rw service-row"><div class="service-thumb">'+serviceThumb(v,64)+'</div><div class="grow service-info"><b>'+esc(v.name)+'</b><small style="display:block;color:var(--mute)">'+v.duration_minutes+' min · '+P(Number(v.price||0))+(v.description?' · '+esc(v.description):'')+'</small>'+(v.is_active?'':'<span class="tg n" style="margin-top:5px">Pausado</span>')+'</div><div class="service-actions"><button class="btn" data-a="apiEditSvc" data-id="'+esc(sid)+'" '+(SERVICE_ACTION_BUSY===sid?'disabled':'')+'>'+ (editing?'Cerrar':'Editar')+'</button>'+(v.is_active?'<button class="btn o" data-a="apiPauseSvc" data-id="'+esc(sid)+'" '+(SERVICE_ACTION_BUSY===sid?'disabled':'')+'>'+(SERVICE_ACTION_BUSY===sid?'Pausando...':'Pausar')+'</button>':'<button class="btn p" data-a="apiReactivateSvc" data-id="'+esc(sid)+'" '+(SERVICE_ACTION_BUSY===sid?'disabled':'')+'>'+(SERVICE_ACTION_BUSY===sid?'Activando...':'Reactivar')+'</button>')+'</div></div>';
+  h+='<div class="pn" style="overflow:visible;'+(!v.is_active?'opacity:.68':'')+'"><div class="rw">'+serviceThumb(v,64)+'<div class="grow"><b>'+esc(v.name)+'</b><small style="display:block;color:var(--mute)">'+v.duration_minutes+' min · '+P(Number(v.price||0))+(v.description?' · '+esc(v.description):'')+'</small>'+(v.is_active?'':'<span class="tg n" style="margin-top:5px">Pausado</span>')+'</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" data-a="apiEditSvc" data-id="'+esc(sid)+'" '+(SERVICE_ACTION_BUSY===sid?'disabled':'')+'>'+ (editing?'Cerrar':'Editar')+'</button>'+(v.is_active?'<button class="btn o" data-a="apiPauseSvc" data-id="'+esc(sid)+'" '+(SERVICE_ACTION_BUSY===sid?'disabled':'')+'>'+(SERVICE_ACTION_BUSY===sid?'Pausando...':'Pausar')+'</button>':'<button class="btn p" data-a="apiReactivateSvc" data-id="'+esc(sid)+'" '+(SERVICE_ACTION_BUSY===sid?'disabled':'')+'>'+(SERVICE_ACTION_BUSY===sid?'Activando...':'Reactivar')+'</button>')+'</div></div>';
   if(editing){
    var currentUrl=(SERVICE_LOCAL_PREVIEW[sid]||v.image_url||"");
    h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><h2>Editar servicio</h2>'+
-      '<label>Foto del servicio</label><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'+serviceThumb(v,96)+'<div style="flex:1;min-width:220px">'+filePickerHtml('data-service-photo="'+esc(sid)+'" onchange="handleServicePhotoInput(this)" '+(busy?'disabled':''),SERVICE_PHOTO_STATUS[sid]||(busy?'uploading':''),SERVICE_FILE_NAME[sid]||"",!!v.image_url,"Seleccionar foto",busy)+'<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB. Al elegir otra imagen se reemplaza la anterior.</small>'+(v.image_url?'<button class="lk" data-a="removeSvcPhoto" data-id="'+esc(sid)+'" '+(busy?'disabled':'')+'>Quitar foto</button>':'')+'</div></div>'+
+      '<label>Foto del servicio</label><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'+serviceThumb(v,96)+'<div style="flex:1;min-width:220px"><input type="file" accept="image/jpeg,image/png,image/webp" data-service-photo="'+esc(sid)+'" onchange="handleServicePhotoInput(this)" '+(busy?'disabled':'')+'><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB. Al elegir otra imagen se reemplaza la anterior.</small>'+(SERVICE_FILE_NAME[sid]?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo: '+esc(SERVICE_FILE_NAME[sid])+'</small>':'')+(v.image_url?'<button class="lk" data-a="removeSvcPhoto" data-id="'+esc(sid)+'" '+(busy?'disabled':'')+'>Quitar foto</button>':'')+(busy?'<p style="color:var(--mute);margin:6px 0 0">Subiendo foto...</p>':'')+'</div></div>'+
       '<label>Nombre</label><input id="esn" value="'+esc(v.name)+'"><label>Descripción</label><textarea id="esd" rows="2">'+esc(v.description||"")+'</textarea><div class="g3"><div><label>Duración (min)</label><input id="esm" type="number" min="1" value="'+Number(v.duration_minutes||0)+'"></div><div><label>Precio</label><input id="esp" type="number" min="0" value="'+Number(v.price||0)+'"></div><div><label>Ícono</label><input id="esi" maxlength="20" value="'+esc(v.icon||"✨")+'"></div></div><div class="dn" style="margin-top:10px"><button class="btn p" data-a="apiSaveSvc" data-id="'+esc(sid)+'" '+(SERVICE_SAVING?'disabled':'')+'>'+(SERVICE_SAVING?'Guardando...':'Guardar cambios')+'</button><button class="btn" data-a="apiEditSvc" data-id="'+esc(sid)+'">Cancelar</button></div></div>';
   }
   h+='</div>';
  });
- h+='</div><div class="pn" style="overflow:visible"><h2>Nuevo servicio</h2><label>Nombre</label><input id="sn" data-service-create="name" value="'+esc(SERVICE_CREATE_DRAFT.name||"")+'" placeholder="Ej. Clase de química"><label>Descripción (opcional)</label><textarea id="sd" data-service-create="description" rows="2" placeholder="Describe brevemente el servicio">'+esc(SERVICE_CREATE_DRAFT.description||"")+'</textarea><div class="g3"><div><label>Duración (min)</label><input id="sm" data-service-create="duration" type="number" min="1" value="'+esc(SERVICE_CREATE_DRAFT.duration||"")+'" placeholder="60"></div><div><label>Precio</label><input id="sp" data-service-create="price" type="number" min="0" value="'+esc(SERVICE_CREATE_DRAFT.price||"")+'" placeholder="50000"></div><div><label>Ícono</label><input id="si" data-service-create="icon" maxlength="20" value="'+esc(SERVICE_CREATE_DRAFT.icon||"✨")+'"></div></div><label>Foto del servicio (opcional)</label>'+(SERVICE_CREATE_PREVIEW?'<div style="margin:6px 0 8px"><img src="'+esc(SERVICE_CREATE_PREVIEW)+'" alt="Vista previa del servicio" style="width:120px;height:90px;border-radius:14px;object-fit:cover;border:1px solid var(--line)"></div>':'')+''+filePickerHtml('id="sphoto" onchange="handleNewServicePhotoInput(this)" '+(SERVICE_SAVING?'disabled':''),SERVICE_CREATE_PHOTO_STATUS,SERVICE_CREATE_PHOTO_NAME,false,"Seleccionar foto",SERVICE_SAVING)+'<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>' +'<button class="btn p" style="margin-top:10px" data-a="apiAddSvc" '+(SERVICE_SAVING?'disabled':'')+'>'+(SERVICE_SAVING?'Guardando...':'Agregar servicio')+'</button></div>';
+ h+='</div><div class="pn" style="overflow:visible"><h2>Nuevo servicio</h2><label>Nombre</label><input id="sn" data-service-create="name" value="'+esc(SERVICE_CREATE_DRAFT.name||"")+'" placeholder="Ej. Clase de química"><label>Descripción (opcional)</label><textarea id="sd" data-service-create="description" rows="2" placeholder="Describe brevemente el servicio">'+esc(SERVICE_CREATE_DRAFT.description||"")+'</textarea><div class="g3"><div><label>Duración (min)</label><input id="sm" data-service-create="duration" type="number" min="1" value="'+esc(SERVICE_CREATE_DRAFT.duration||"")+'" placeholder="60"></div><div><label>Precio</label><input id="sp" data-service-create="price" type="number" min="0" value="'+esc(SERVICE_CREATE_DRAFT.price||"")+'" placeholder="50000"></div><div><label>Ícono</label><input id="si" data-service-create="icon" maxlength="20" value="'+esc(SERVICE_CREATE_DRAFT.icon||"✨")+'"></div></div><label>Foto del servicio (opcional)</label>'+(SERVICE_CREATE_PREVIEW?'<div style="margin:6px 0 8px"><img src="'+esc(SERVICE_CREATE_PREVIEW)+'" alt="Vista previa del servicio" style="width:120px;height:90px;border-radius:14px;object-fit:cover;border:1px solid var(--line)"></div>':'')+'<input id="sphoto" type="file" accept="image/jpeg,image/png,image/webp" onchange="handleNewServicePhotoInput(this)" '+(SERVICE_SAVING?'disabled':'')+'><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(SERVICE_CREATE_PHOTO_NAME?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo seleccionado: '+esc(SERVICE_CREATE_PHOTO_NAME)+'</small>':'')+'<button class="btn p" style="margin-top:10px" data-a="apiAddSvc" '+(SERVICE_SAVING?'disabled':'')+'>'+(SERVICE_SAVING?'Guardando...':'Agregar servicio')+'</button></div>';
  return h
 }
 
@@ -845,80 +748,43 @@ async function saveProfessionalServices(){
 }
 
 
-function syncProfessionalCreateDraftFromDom(){
- var n=document.getElementById("pn"),r=document.getElementById("pr"),p=document.getElementById("pp"),c=document.getElementById("pc");
- if(n)PRO_CREATE_DRAFT.name=n.value;
- if(r)PRO_CREATE_DRAFT.specialty=r.value;
- if(p)PRO_CREATE_DRAFT.phone=p.value;
- if(c)PRO_CREATE_DRAFT.color=c.value;
-}
-function resetProfessionalCreateDraft(){
- PRO_CREATE_DRAFT={name:"",specialty:"",phone:"",color:"#4F46E5"};
- PRO_CREATE_SERVICE_IDS=[];
- PRO_CREATE_PHOTO=null;PRO_CREATE_PHOTO_NAME="";PRO_CREATE_PHOTO_STATUS="";
- if(PRO_CREATE_PREVIEW){try{URL.revokeObjectURL(PRO_CREATE_PREVIEW)}catch(_){ }}
- PRO_CREATE_PREVIEW="";
-}
-function handleNewProfessionalPhotoInput(input){
- syncProfessionalCreateDraftFromDom();
- var file=input&&input.files?input.files[0]:null;
- if(!file)return;
- var err=validateImageFile(file);if(err){PRO_CREATE_PHOTO_STATUS="error";PRO_CREATE_ERROR=err;render();return}
- if(PRO_CREATE_PREVIEW){try{URL.revokeObjectURL(PRO_CREATE_PREVIEW)}catch(_){ }}
- PRO_CREATE_PHOTO=file;PRO_CREATE_PHOTO_NAME=file.name||"foto";PRO_CREATE_PHOTO_STATUS="ready";
- try{PRO_CREATE_PREVIEW=URL.createObjectURL(file)}catch(_){PRO_CREATE_PREVIEW=""}
- PRO_CREATE_ERROR="";render();
-}
-async function uploadProfessionalPhotoRequest(proId,file){
- var fd=new FormData();fd.append("file",file,file.name||"foto");
- var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+proId+"/photo",{method:"POST",body:fd});
- if(!r.ok){var raw=await r.text();var msg=raw;try{var er=JSON.parse(raw);msg=er.detail||raw}catch(_){}throw new Error(msg||("Error HTTP "+r.status))}
- return await r.json();
-}
-
-
 async function addRealProfessional(){
- if(PRO_CREATE_SAVING)return;
- syncProfessionalCreateDraftFromDom();
- var n=(PRO_CREATE_DRAFT.name||"").trim();
- var r=(PRO_CREATE_DRAFT.specialty||"").trim();
- var ph=(PRO_CREATE_DRAFT.phone||"").trim();
- var c=PRO_CREATE_DRAFT.color||"#4F46E5";
- var photo=PRO_CREATE_PHOTO;
+ var n=(document.getElementById("pn")?.value||"").trim();
+ var r=(document.getElementById("pr")?.value||"").trim();
+ var ph=(document.getElementById("pp")?.value||"").trim();
+ var c=document.getElementById("pc")?.value||"#4F46E5";
  PRO_CREATE_MSG="";PRO_CREATE_ERROR="";
  if(!n){PRO_CREATE_ERROR="Escribe el nombre del profesional.";render();return}
  if(!PRO_CREATE_SERVICE_IDS.length){PRO_CREATE_ERROR="Selecciona al menos un servicio.";render();return}
- if(photo){var perr=validateImageFile(photo);if(perr){PRO_CREATE_ERROR=perr;render();return}}
- PRO_CREATE_SAVING=true;if(photo)PRO_CREATE_PHOTO_STATUS="uploading";render();
- var created=null,photoError=null;
+ PRO_CREATE_SAVING=true;render();
  try{
   var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals",{
    method:"POST",
    headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({name:n,specialty:r||null,phone:ph||null,color:c})
+   body:JSON.stringify({
+    name:n,
+    specialty:r||null,
+    phone:ph||null,
+    color:c
+   })
   });
   if(!response.ok){
-   var raw=await response.text();var msg=raw;
-   try{var er=JSON.parse(raw);msg=er.detail?JSON.stringify(er.detail):raw}catch(_){}
+   var raw=await response.text();
+   var msg=raw;
+   try{
+    var er=JSON.parse(raw);
+    msg=er.detail?JSON.stringify(er.detail):raw;
+   }catch(_){}
    throw new Error(msg||("Error HTTP "+response.status));
   }
-  created=await response.json();
+  var created=await response.json();
   var assign=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+created.id+"/services",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({service_ids:PRO_CREATE_SERVICE_IDS})});
   if(assign.status===422)assign=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+created.id+"/services",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(PRO_CREATE_SERVICE_IDS)});
   if(!assign.ok)throw new Error("Se creó el profesional, pero falló la asignación de servicios: "+await assign.text());
-  if(photo&&created&&created.id){try{await uploadProfessionalPhotoRequest(created.id,photo)}catch(pe){photoError=pe}}
-  resetProfessionalCreateDraft();
+  PRO_CREATE_MSG="Profesional agregado con sus servicios."; PRO_CREATE_ERROR=""; PRO_CREATE_SERVICE_IDS=[];
   await loadProfessionals();
-  if(photoError){
-   PRO_CREATE_MSG="";
-   PRO_CREATE_ERROR='El profesional "'+n+'" se creó, pero la foto no pudo subirse. Ábrelo en Editar y vuelve a intentar la foto. Detalle: '+photoError.message;
-  }else{
-   PRO_CREATE_ERROR="";
-   PRO_CREATE_MSG='Profesional "'+n+'" agregado correctamente'+(photo?' con su foto.':'.');
-  }
  }catch(error){
   console.error("Error creando profesional",error);
-  if(photo)PRO_CREATE_PHOTO_STATUS="error";
   PRO_CREATE_ERROR="No se pudo agregar el profesional. "+error.message;
  }finally{
   PRO_CREATE_SAVING=false;
@@ -983,13 +849,12 @@ function bizTeam(){
  var h='<h1>Profesionales</h1><p style="color:var(--mute);margin:4px 0 0">Crea tu equipo y modifica en cualquier momento sus servicios y horarios.</p>';
 
  h+='<div class="pn" style="overflow:visible;margin-top:14px"><h2>Agregar profesional</h2>';
- h+='<div class="g2"><div><label>Nombre</label><input id="pn" data-pro-create="name" value="'+esc(PRO_CREATE_DRAFT.name||"")+'" placeholder="Nombre completo"></div><div><label>Especialidad</label><input id="pr" data-pro-create="specialty" value="'+esc(PRO_CREATE_DRAFT.specialty||"")+'" placeholder="Ej. Colorista, Barbero, Matemáticas"></div></div>';
- h+='<div class="g2"><div><label>WhatsApp / teléfono (opcional)</label><input id="pp" data-pro-create="phone" type="tel" value="'+esc(PRO_CREATE_DRAFT.phone||"")+'" placeholder="300 123 4567"></div><div><label>Color identificador</label><input id="pc" data-pro-create="color" type="color" value="'+esc(PRO_CREATE_DRAFT.color||"#4F46E5")+'"></div></div>';
- h+='<label>Foto del profesional (opcional)</label>'+(PRO_CREATE_PREVIEW?'<div style="margin:6px 0 8px"><img src="'+esc(PRO_CREATE_PREVIEW)+'" alt="Vista previa del profesional" style="width:96px;height:96px;border-radius:50%;object-fit:cover;border:1px solid var(--line)"></div>':'')+''+filePickerHtml('onchange="handleNewProfessionalPhotoInput(this)" '+(PRO_CREATE_SAVING?'disabled':''),PRO_CREATE_PHOTO_STATUS,PRO_CREATE_PHOTO_NAME,false,"Seleccionar foto",PRO_CREATE_SAVING)+'<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>' ;
+ h+='<div class="g2"><div><label>Nombre</label><input id="pn" placeholder="Nombre completo"></div><div><label>Especialidad</label><input id="pr" placeholder="Ej. Colorista, Barbero, Matemáticas"></div></div>';
+ h+='<div class="g2"><div><label>WhatsApp / teléfono (opcional)</label><input id="pp" type="tel" placeholder="300 123 4567"></div><div><label>Color identificador</label><input id="pc" type="color" value="#4F46E5"></div></div>';
  h+='<label>Servicios que realiza *</label>'; if(!API_SERVICES.length)h+='<p style="color:var(--mute)">Primero crea al menos un servicio.</p>'; else API_SERVICES.filter(function(s){return s.is_active!==false}).forEach(function(s){var sid=String(s.id),ck=PRO_CREATE_SERVICE_IDS.indexOf(sid)>-1;h+='<label style="display:flex;gap:10px;align-items:center;margin:7px 0"><input type="checkbox" data-create-service="'+sid+'" '+(ck?'checked':'')+'><span>'+esc(s.name)+'</span></label>'});
  if(PRO_CREATE_ERROR)h+='<p style="color:#B3372A;margin:8px 0 0">'+esc(PRO_CREATE_ERROR)+'</p>';
  if(PRO_CREATE_MSG)h+='<p style="color:#18794E;margin:8px 0 0">'+esc(PRO_CREATE_MSG)+'</p>';
- h+='<button class="btn p" style="margin-top:12px" data-a="apiAddPro" '+(PRO_CREATE_SAVING?'disabled':'')+'>'+(PRO_CREATE_SAVING?(PRO_CREATE_PHOTO?'Creando y subiendo foto...':'Guardando...'):'Agregar profesional')+'</button></div>';
+ h+='<button class="btn p" style="margin-top:12px" data-a="apiAddPro" '+(PRO_CREATE_SAVING?'disabled':'')+'>'+(PRO_CREATE_SAVING?'Guardando...':'Agregar profesional')+'</button></div>';
 
  h+='<div style="margin-top:14px">';
  if(PROS_LOADING){
@@ -1015,7 +880,7 @@ function bizTeam(){
 
    if(EDIT_PRO_ID===pid&&EDIT_PRO){
     h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><h2>Editar profesional</h2>';
-    h+='<div class="rw">'+professionalAvatar(p,76)+'<div class="grow"><label style="margin:0">Foto del profesional</label>'+filePickerHtml('data-pro-photo="'+esc(pid)+'" onchange="handleProfessionalPhotoInput(this)" '+(PRO_PHOTO_BUSY===pid?'disabled':''),PRO_PHOTO_STATUS[pid]||(PRO_PHOTO_BUSY===pid?'uploading':''),PRO_FILE_NAME[pid]||"",!!p.photo_url,"Seleccionar foto",PRO_PHOTO_BUSY===pid)+'<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(p.photo_url?'<button class="lk" data-a="removeProPhoto" data-id="'+esc(pid)+'">Quitar foto</button>':'')+'</div></div>';
+    h+='<div class="rw">'+professionalAvatar(p,76)+'<div class="grow"><label style="margin:0">Foto del profesional</label><input type="file" accept="image/jpeg,image/png,image/webp" data-pro-photo="'+esc(pid)+'" onchange="handleProfessionalPhotoInput(this)" '+(PRO_PHOTO_BUSY===pid?'disabled':'')+'><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(p.photo_url?'<button class="lk" data-a="removeProPhoto" data-id="'+esc(pid)+'">Quitar foto</button>':'')+'</div></div>';
     h+='<div class="g2"><div><label>Nombre</label><input data-edit-pro="name" value="'+esc(EDIT_PRO.name)+'"></div><div><label>Especialidad</label><input data-edit-pro="specialty" value="'+esc(EDIT_PRO.specialty)+'"></div></div><div class="g2"><div><label>WhatsApp / teléfono</label><input data-edit-pro="phone" value="'+esc(EDIT_PRO.phone)+'"></div><div><label>Color</label><input type="color" data-edit-pro="color" value="'+esc(EDIT_PRO.color)+'"></div></div><label style="color:var(--ink)"><input type="checkbox" data-edit-active="1" '+(EDIT_PRO.is_active?'checked':'')+'> Profesional activo</label>';
     if(EDIT_PRO_ERROR)h+='<p style="color:#B3372A">'+esc(EDIT_PRO_ERROR)+'</p>';h+='<div class="dn"><button class="btn p" data-a="saveProEdit" '+(EDIT_PRO_SAVING?'disabled':'')+'>'+(EDIT_PRO_SAVING?'Guardando...':'Guardar cambios')+'</button><button class="btn" data-a="cancelProEdit">Cancelar</button></div></div>';
    }
@@ -1066,25 +931,24 @@ function bizTeam(){
  });
  return h+'</div>'
 }
-function imgPreview(url,label,ratio,kind){
- var cls="media-preview "+(kind||"");
- if(!url)return'<div class="media-empty '+(kind||'')+'">'+esc(label)+' sin imagen</div>';
- return'<img src="'+esc(url)+'" alt="'+esc(label)+'" class="'+cls+'" onerror="this.style.display=\'none\'">'
+function imgPreview(url,label,ratio){
+ if(!url)return'<div style="border:1px dashed var(--line);border-radius:12px;padding:18px;text-align:center;color:var(--mute);background:var(--bg)">'+esc(label)+' sin imagen</div>';
+ return'<img src="'+esc(url)+'" alt="'+esc(label)+'" style="display:block;width:100%;max-height:'+(ratio||180)+'px;object-fit:cover;border-radius:12px;border:1px solid var(--line)" onerror="this.style.display=\'none\'">'
 }
 function mediaPicker(kind,label,url,height){
  var busy=MEDIA_BUSY===kind,preview=MEDIA_LOCAL_PREVIEW[kind]||url||"",fname=MEDIA_FILE_NAME[kind]||"";
- return'<div class="media-picker"><label>'+esc(label)+'</label>'+imgPreview(preview,label,height,kind)+filePickerHtml('data-media-kind="'+kind+'" onchange="handleBusinessMediaInput(this)" '+(busy?'disabled':''),MEDIA_FILE_STATUS[kind]||(busy?'uploading':''),fname,!!url,"Seleccionar imagen",busy)+'<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(url?'<button class="lk" data-a="removeMedia" data-kind="'+kind+'" '+(busy?'disabled':'')+'>Quitar imagen</button>':'')+'</div>'
+ return'<div><label>'+esc(label)+'</label>'+imgPreview(preview,label,height)+'<div style="margin-top:8px"><input type="file" accept="image/jpeg,image/png,image/webp" data-media-kind="'+kind+'" onchange="handleBusinessMediaInput(this)" '+(busy?'disabled':'')+'></div><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(fname?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo: '+esc(fname)+'</small>':'')+(url?'<button class="lk" data-a="removeMedia" data-kind="'+kind+'" '+(busy?'disabled':'')+'>Quitar imagen</button>':'')+(busy?'<p style="color:var(--mute);margin:6px 0 0">Subiendo imagen...</p>':'')+'</div>'
 }
 function bizCfg(){
  var h='<h1>Configuración</h1><p style="color:var(--mute);margin:4px 0 0">Los cambios de esta sección se guardan realmente para este negocio.</p>';
  if(SETTINGS_LOADING&&!SETTINGS)return h+'<div class="pn" style="margin-top:14px"><p>Cargando configuración...</p></div>';
  if(SETTINGS_ERROR&&!SETTINGS)return h+'<div class="pn" style="margin-top:14px"><p style="color:#B3372A">'+esc(SETTINGS_ERROR)+'</p><button class="btn p" data-a="reloadCfg">Reintentar</button></div>';
  var x=SETTINGS||{name:BZ.name,tagline:BZ.tag,logo_url:BZ.logo,cover_image_url:BZ.cover,background_image_url:BZ.background,primary_color:BZ.color,whatsapp:BZ.wa,email:"",address:"",timezone:"America/Bogota",booking_mode:BZ.auto?"AUTO":"MANUAL",default_open_time:BZ.open,default_close_time:BZ.close,slot_minutes:BZ.step,slug:""};
- h+='<div class="pn" style="margin-top:14px;overflow:visible"><h2>Marca e imágenes</h2><p style="color:var(--mute);margin:0 0 12px;font-size:.88rem">Selecciona las imágenes desde tu computador o celular. CitaGo las guarda automáticamente.</p><div class="media-grid">'+mediaPicker("logo","Logo",x.logo_url,140)+mediaPicker("cover","Foto principal / portada",x.cover_image_url,180)+'</div><div style="margin-top:12px">'+mediaPicker("background","Imagen de fondo",x.background_image_url,220)+'</div>'+(MEDIA_ERROR?'<p style="color:#B3372A;font-weight:600">'+esc(MEDIA_ERROR)+'</p>':'')+'<label>Nombre del negocio</label><input id="cfg-name" value="'+esc(x.name||"")+'"><label>Frase</label><input id="cfg-tag" value="'+esc(x.tagline||"")+'"><div class="g2"><div><label>WhatsApp</label><input id="cfg-wa" value="'+esc(x.whatsapp||"")+'"></div><div><label>Correo</label><input id="cfg-email" type="email" value="'+esc(x.email||"")+'"></div></div><label>Dirección</label><input id="cfg-address" value="'+esc(x.address||"")+'"><div class="g2"><div><label>Color de marca</label><input id="cfg-color" type="color" value="'+esc(x.primary_color||"#4F46E5")+'"></div><div><label>Zona horaria</label><input id="cfg-timezone" value="'+esc(x.timezone||"America/Bogota")+'"></div></div></div>';
+ h+='<div class="pn" style="margin-top:14px;overflow:visible"><h2>Marca e imágenes</h2><p style="color:var(--mute);margin:0 0 12px;font-size:.88rem">Selecciona las imágenes desde tu computador o celular. CitaGo las guarda automáticamente.</p><div class="g2">'+mediaPicker("logo","Logo",x.logo_url,140)+mediaPicker("cover","Foto principal / portada",x.cover_image_url,180)+'</div><div style="margin-top:12px">'+mediaPicker("background","Imagen de fondo",x.background_image_url,220)+'</div>'+(MEDIA_ERROR?'<p style="color:#B3372A;font-weight:600">'+esc(MEDIA_ERROR)+'</p>':'')+'<label>Nombre del negocio</label><input id="cfg-name" value="'+esc(x.name||"")+'"><label>Frase</label><input id="cfg-tag" value="'+esc(x.tagline||"")+'"><div class="g2"><div><label>WhatsApp</label><input id="cfg-wa" value="'+esc(x.whatsapp||"")+'"></div><div><label>Correo</label><input id="cfg-email" type="email" value="'+esc(x.email||"")+'"></div></div><label>Dirección</label><input id="cfg-address" value="'+esc(x.address||"")+'"><div class="g2"><div><label>Color de marca</label><input id="cfg-color" type="color" value="'+esc(x.primary_color||"#4F46E5")+'"></div><div><label>Zona horaria</label><input id="cfg-timezone" value="'+esc(x.timezone||"America/Bogota")+'"></div></div></div>';
  h+='<div class="pn" style="overflow:visible"><h2>Reservas</h2><p style="color:var(--mute);margin:0 0 8px;font-size:.9rem">Automático confirma inmediatamente. Manual deja la cita pendiente hasta que el negocio la apruebe.</p><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="radio" name="cfg-booking" value="AUTO" '+((x.booking_mode||"AUTO")==="AUTO"?'checked':'')+'> ⚡ Confirmación automática</label><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="radio" name="cfg-booking" value="MANUAL" '+((x.booking_mode||"AUTO")==="MANUAL"?'checked':'')+'> ✋ Aprobación manual</label></div>';
  h+='<div class="pn" style="overflow:visible"><h2>Horario general</h2><div class="g2"><div><label>Apertura</label><input id="cfg-open" type="time" value="'+esc(trimTime(x.default_open_time)||"08:00")+'"></div><div><label>Cierre</label><input id="cfg-close" type="time" value="'+esc(trimTime(x.default_close_time)||"17:00")+'"></div></div><label>Duración de cada bloque</label><select id="cfg-slot">'+[15,30,45,60,90,120].map(function(m){return'<option value="'+m+'"'+(Number(x.slot_minutes||30)===m?' selected':'')+'>'+m+' min</option>'}).join("")+'</select><p style="color:var(--mute);font-size:.82rem">Los días y horarios específicos de cada integrante se configuran en Profesionales → Horarios.</p></div>';
  if(SETTINGS_ERROR)h+='<p style="color:#B3372A;font-weight:600">'+esc(SETTINGS_ERROR)+'</p>';if(SETTINGS_MSG)h+='<p style="color:#16794C;font-weight:600">'+esc(SETTINGS_MSG)+'</p>';
- h+='<div class="cfg-actions"><button class="cta" data-a="saveCfg" style="max-width:340px" '+(SETTINGS_SAVING?'disabled':'')+'>'+(SETTINGS_SAVING?'Guardando...':'Guardar configuración')+'</button><button class="btn" data-a="seec">Ver página del cliente ↗</button></div>';
+ h+='<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cta" data-a="saveCfg" style="max-width:340px" '+(SETTINGS_SAVING?'disabled':'')+'>'+(SETTINGS_SAVING?'Guardando...':'Guardar configuración')+'</button><button class="btn" data-a="seec">Ver página del cliente ↗</button></div>';
  return h
 }
 function biz(){var s=NV==="home"?bizHome():NV==="cit"?bizCitas():NV==="svc"?bizSvc():NV==="team"?bizTeam():NV==="blk"?bizBlk():NV==="rem"?bizRem():NV==="rep"?bizRep():NV==="plan"?bizPlan():bizCfg();
@@ -1245,13 +1109,10 @@ var app=document.getElementById("app");
 app.oninput=function(e){
  var sc=e.target.dataset.serviceCreate;
  if(sc!==undefined){SERVICE_CREATE_DRAFT[sc]=e.target.value;return}
- var pc=e.target.dataset.proCreate;
- if(pc!==undefined){PRO_CREATE_DRAFT[pc]=e.target.value;return}
  var k=e.target.dataset.s;if(k)st[k]=e.target.value;
  var ep=e.target.dataset.editPro;if(ep!==undefined&&EDIT_PRO)EDIT_PRO[ep]=e.target.value
 };
 app.onchange=function(e){
- var pc=e.target.dataset.proCreate;if(pc!==undefined){PRO_CREATE_DRAFT[pc]=e.target.value;return}
  var cs=e.target.dataset.createService;if(cs!==undefined){cs=String(cs);var ci=PRO_CREATE_SERVICE_IDS.indexOf(cs);if(e.target.checked&&ci<0)PRO_CREATE_SERVICE_IDS.push(cs);if(!e.target.checked&&ci>-1)PRO_CREATE_SERVICE_IDS.splice(ci,1);return}
  var ep=e.target.dataset.editPro;if(ep!==undefined&&EDIT_PRO){EDIT_PRO[ep]=e.target.value;return}
  if(e.target.dataset.editActive!==undefined&&EDIT_PRO){EDIT_PRO.is_active=e.target.checked;return}
@@ -1390,11 +1251,17 @@ app.onclick=function(e){
  else if(a==="anew"){var nm=document.getElementById("nn").value.trim();if(!nm){alert("Escribe el nombre del negocio.");return}var pl=document.getElementById("np").value.split("|");var tpk=document.getElementById("nt").value;REC.push(mk(nm,tpk,pl[0],+pl[1],pl[0]==="Prueba"?"Prueba":"Activo",pl[0]==="Prueba"?trial():"1 nov 2026"));var nr=REC[REC.length-1];nr.sv.length=0;nr.pro.length=0;nr.a.length=0;lg("Creó el negocio con la plantilla "+TPL[tpk].lbl+" (sin servicios ni equipo)","Plataforma",REC.length-1)}
  render();if(a==="go"||a==="svc"||a==="back")scrollTo(0,0);if(a==="ted"){var tfm=document.getElementById("tform");if(tfm)tfm.scrollIntoView({behavior:"smooth"})}};
 console.info("CitaGo negocio Etapa 3 R2 FIX V2 cargado");
-render();
-loadBusinessSettings();
-loadDashboard();
 
-// CITAGO_NEGOCIO_V8_R2_MEDIA_FIX_V2
+async function bootBusinessPanel(){
+  const allowed = await verifyBusinessSession();
+  if(!allowed) return;
+  render();
+  await Promise.all([loadBusinessSettings(), loadDashboard()]);
+}
+
+bootBusinessPanel();
+
+// CITAGO_NEGOCIO_V8_R2_MEDIA_FIX_V2_AUTH
 </script>
 </body>
 </html>
