@@ -16,80 +16,45 @@
 <form id="regForm" novalidate>
 <div class="step on" data-step="1"><div class="step-kicker">Paso 1 de 3</div><h2>Cuéntanos sobre tu negocio</h2><p>Empecemos con la información básica que usaremos para crear el perfil de tu negocio.</p><label>Nombre del negocio</label><input id="business" autocomplete="organization" placeholder="Ej. Barbería Leo"><div class="row"><div><label>Tu nombre</label><input id="owner" autocomplete="name" placeholder="Nombre del propietario"></div><div><label>Tipo de negocio</label><select id="type"><option value="">Selecciona…</option></select></div></div><label>WhatsApp</label><div class="phone-row"><select id="country" aria-label="País del WhatsApp"><option value="+57" selected>🇨🇴 +57</option><option value="+51">🇵🇪 +51</option><option value="+52">🇲🇽 +52</option><option value="+54">🇦🇷 +54</option><option value="+56">🇨🇱 +56</option><option value="+593">🇪🇨 +593</option><option value="+58">🇻🇪 +58</option><option value="+507">🇵🇦 +507</option><option value="+506">🇨🇷 +506</option><option value="+502">🇬🇹 +502</option><option value="+503">🇸🇻 +503</option><option value="+504">🇭🇳 +504</option><option value="+505">🇳🇮 +505</option><option value="+1">🇺🇸 +1</option><option value="+34">🇪🇸 +34</option></select><input id="phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="300 000 0000"></div><div class="field-hint">Selecciona el país y escribe el número sin el indicativo.</div><button class="btn primary" type="button" id="step1Next" style="width:100%;margin-top:22px" disabled>Continuar →</button></div>
 <div class="step" data-step="2"><div class="step-kicker">Paso 2 de 3</div><h2>Crea tu acceso</h2><p>Este correo será tu usuario para entrar a NUVALITE y administrar las aplicaciones de tu negocio.</p><label>Correo</label><input id="email" type="email" autocomplete="email" placeholder="correo@negocio.com"><label>Crear contraseña</label><input id="password" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres"><label>Confirmar contraseña</label><input id="password2" type="password" autocomplete="new-password" placeholder="Repite la contraseña"><label style="display:flex;gap:10px;align-items:flex-start;font-weight:600"><input id="terms" type="checkbox" style="width:auto;margin-top:3px">Acepto los términos y la política de tratamiento de datos de NUVALITE.</label><div class="actions"><button class="btn light" type="button" data-back="1">← Atrás</button><button class="btn primary" type="button" id="step2Next" disabled>Crear acceso →</button></div></div>
-<div class="step" data-step="3"><div class="step-kicker">Paso 3 de 3</div><h2>Verifica tu correo</h2><p>Confirma que el correo te pertenece. En producción enviaremos este código automáticamente.</p><div class="demo-code">Código demo: 123456</div><label>Código de 6 dígitos</label><input id="otp" class="code" inputmode="numeric" maxlength="6" placeholder="••••••"><button class="btn primary" type="submit" id="verifyBtn" style="width:100%;margin-top:22px" disabled>Verificar y crear mi cuenta</button></div>
-<div id="msg"></div></form><p class="note">Prototipo: los datos se guardan únicamente en este navegador para probar el flujo. No uses una contraseña real que utilices en otros servicios.</p><p class="center muted">¿Ya tienes cuenta? <a class="link" href="login.html">Iniciar sesión</a></p></section></div></main>
+<div class="step" data-step="3"><div class="step-kicker">Paso 3 de 3</div><h2>Verifica tu correo</h2><p id="verifyText">Te enviaremos un código de 6 dígitos para confirmar que el correo te pertenece.</p><label>Código de 6 dígitos</label><input id="otp" class="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••"><button class="btn primary" type="submit" id="verifyBtn" style="width:100%;margin-top:22px" disabled>Verificar y crear mi cuenta</button><button class="btn light" type="button" id="resendBtn" style="width:100%;margin-top:10px">Reenviar código</button></div>
+<div id="msg"></div></form><p class="note">Tu contraseña se procesa en el backend y se almacena únicamente como hash seguro.</p><p class="center muted">¿Ya tienes cuenta? <a class="link" href="login.html">Iniciar sesión</a></p></section></div></main>
 
 <footer><div class="wrap">NUVALITE · conecta y crece</div></footer><script>
+const API_BASE='https://citago-backend.onrender.com';
 const CFG={
- citalite:{name:'CitaLite',icon:'📅',available:true,types:['Barbería','Odontología','Salón de belleza','Spa','Uñas y estética','Psicología','Fisioterapia','Consultorio','Otro profesional']},
- storelite:{name:'StoreLite',icon:'📦',available:false,types:['Tienda','Droguería','Ferretería','Minimercado','Boutique','Otro comercio']},
- domilite:{name:'DomiLite',icon:'🛵',available:false,types:['Restaurante','Tienda','Droguería','Floristería','Mensajería','Otro negocio']}
+ citalite:{name:'CitaLite',icon:'📅',available:true,types:[
+  ['Barbería','barberia'],['Odontología','odontologia'],['Salón de belleza','salon-de-belleza'],['Spa','spa'],['Uñas y estética','unas-estetica'],['Psicología','psicologia'],['Fisioterapia','fisioterapia'],['Consultorio','consultorio'],['Otro profesional','otro-profesional']
+ ]},
+ storelite:{name:'StoreLite',icon:'📦',available:false,types:[]},
+ domilite:{name:'DomiLite',icon:'🛵',available:false,types:[]}
 };
-const q=new URLSearchParams(location.search);const key=(q.get('app')||'citalite').toLowerCase();const app=CFG[key]||CFG.citalite;let step=1;
-const $=s=>document.querySelector(s);const msg=(t,ok=false)=>$('#msg').innerHTML=`<div class="${ok?'success':'error'}">${t}</div>`;
-$('#heroApp').textContent=app.name;$('#appPill').textContent=`${app.icon} ${app.name}${app.available?' · 14 días gratis':' · Próximamente'}`;$('#type').innerHTML='<option value="">Selecciona…</option>'+app.types.map(x=>`<option>${x}</option>`).join('');
-if(!app.available)$('#heroText').textContent=`Crea tu cuenta NUVALITE y deja registrado tu interés en ${app.name}. Cuando esté disponible podrás activarla desde la misma cuenta.`;
-
+const q=new URLSearchParams(location.search);
+const key=(q.get('app')||'citalite').toLowerCase();
+const app=CFG[key]||CFG.citalite;
+let registeredEmail=sessionStorage.getItem('nuvalite_pending_email')||'';
+const $=s=>document.querySelector(s);
+const escapeHtml=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const detailText=data=>Array.isArray(data?.detail)?data.detail.map(x=>x.msg||'Dato inválido').join('. '):(data?.detail||'Ocurrió un error. Intenta nuevamente.');
+const msg=(t,ok=false)=>$('#msg').innerHTML=`<div class="${ok?'success':'error'}">${escapeHtml(t)}</div>`;
+const clearMsg=()=>$('#msg').innerHTML='';
+$('#heroApp').textContent=app.name;
+$('#appPill').textContent=`${app.icon} ${app.name}${app.available?' · 14 días gratis':' · Próximamente'}`;
+$('#type').innerHTML='<option value="">Selecciona…</option>'+app.types.map(([label,slug])=>`<option value="${slug}">${label}</option>`).join('');
+if(!app.available) $('#heroText').textContent=`Crea tu cuenta NUVALITE y deja registrado tu interés en ${app.name}.`;
 const emailOk=v=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.trim());
 const phoneDigits=()=>$('#phone').value.replace(/\D/g,'');
 const fullPhone=()=>`${$('#country').value}${phoneDigits()}`;
-
-function updateStep1(){
- const valid=$('#business').value.trim() && $('#owner').value.trim() && $('#type').value && phoneDigits().length>=7;
- $('#step1Next').disabled=!valid;
-}
-function updateStep2(){
- const p=$('#password').value;
- const valid=emailOk($('#email').value) && p.length>=8 && p===$('#password2').value && $('#terms').checked;
- $('#step2Next').disabled=!valid;
-}
-function updateStep3(){
- $('#otp').value=$('#otp').value.replace(/\D/g,'').slice(0,6);
- $('#verifyBtn').disabled=$('#otp').value.length!==6;
-}
-function smoothFocusStep(n){
- const active=document.querySelector(`.step[data-step="${n}"]`);
- if(!active)return;
- requestAnimationFrame(()=>{
-   const top=active.getBoundingClientRect().top+window.scrollY-92;
-   window.scrollTo({top:Math.max(0,top),behavior:'smooth'});
- });
-}
-function show(n){
- step=n;
- document.querySelectorAll('.step').forEach(x=>x.classList.toggle('on',Number(x.dataset.step)===n));
- document.querySelectorAll('.steps i').forEach((x,i)=>x.classList.toggle('on',i<n));
- $('#msg').innerHTML='';
- smoothFocusStep(n);
-}
-
+function updateStep1(){ $('#step1Next').disabled=!($('#business').value.trim()&&$('#owner').value.trim()&&$('#type').value&&phoneDigits().length>=7); }
+function updateStep2(){ const p=$('#password').value; $('#step2Next').disabled=!(emailOk($('#email').value)&&p.length>=8&&p===$('#password2').value&&$('#terms').checked); }
+function updateStep3(){ $('#otp').value=$('#otp').value.replace(/\D/g,'').slice(0,6); $('#verifyBtn').disabled=$('#otp').value.length!==6; }
+function show(n){ document.querySelectorAll('.step').forEach(x=>x.classList.toggle('on',Number(x.dataset.step)===n)); document.querySelectorAll('.steps i').forEach((x,i)=>x.classList.toggle('on',i<n)); clearMsg(); const active=document.querySelector(`.step[data-step="${n}"]`); requestAnimationFrame(()=>{const top=active.getBoundingClientRect().top+scrollY-92;scrollTo({top:Math.max(0,top),behavior:'smooth'});}); }
+async function api(path,options={}){ const r=await fetch(`${API_BASE}${path}`,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}}); let data={}; try{data=await r.json()}catch{} if(!r.ok) throw new Error(detailText(data)); return data; }
 document.querySelectorAll('[data-back]').forEach(b=>b.onclick=()=>show(Number(b.dataset.back)));
-['business','owner','type','phone','country'].forEach(id=>$('#'+id).addEventListener('input',updateStep1));
-['business','owner','type','phone','country'].forEach(id=>$('#'+id).addEventListener('change',updateStep1));
-['email','password','password2'].forEach(id=>$('#'+id).addEventListener('input',updateStep2));
-$('#terms').addEventListener('change',updateStep2);
-$('#otp').addEventListener('input',updateStep3);
-
-$('#step1Next').onclick=()=>{
- if($('#step1Next').disabled)return;
- show(2);
-};
-$('#step2Next').onclick=()=>{
- if($('#step2Next').disabled)return;
- show(3);
-};
-
-async function hash(v){const b=new TextEncoder().encode(v);const h=await crypto.subtle.digest('SHA-256',b);return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('')}
-$('#regForm').onsubmit=async e=>{
- e.preventDefault();
- if($('#verifyBtn').disabled)return;
- if($('#otp').value.trim()!=='123456')return msg('El código no es correcto. Para el prototipo usa 123456.');
- const account={owner:$('#owner').value.trim(),business:$('#business').value.trim(),type:$('#type').value,email:$('#email').value.trim().toLowerCase(),phone:fullPhone(),phoneCountry:$('#country').value,passwordHash:await hash($('#password').value),createdAt:new Date().toISOString(),apps:{}};
- if(app.available){account.apps[key]={status:'trial',plan:'Pro',trialStart:new Date().toISOString(),trialDays:14}}else{account.apps[key]={status:'interest'}};
- localStorage.setItem('nuvalite_account',JSON.stringify(account));
- localStorage.setItem('nuvalite_session','1');
- msg('Cuenta creada. Entrando a Mi NUVALITE…',true);
- setTimeout(()=>location.href='mi-cuenta.html',500)
-};
+['business','owner','type','phone','country'].forEach(id=>{ $('#'+id).addEventListener('input',updateStep1); $('#'+id).addEventListener('change',updateStep1); });
+['email','password','password2'].forEach(id=>$('#'+id).addEventListener('input',updateStep2)); $('#terms').addEventListener('change',updateStep2); $('#otp').addEventListener('input',updateStep3);
+$('#step1Next').onclick=()=>{ if(!$('#step1Next').disabled&&app.available) show(2); };
+$('#step2Next').onclick=async()=>{ if($('#step2Next').disabled)return; clearMsg(); const btn=$('#step2Next'),label=btn.textContent; btn.disabled=true;btn.textContent='Enviando código…'; try{ const data=await api('/auth/register',{method:'POST',body:JSON.stringify({full_name:$('#owner').value.trim(),email:$('#email').value.trim().toLowerCase(),password:$('#password').value,phone:fullPhone(),business_name:$('#business').value.trim(),business_type_slug:$('#type').value,app_slug:key,terms_accepted:$('#terms').checked})}); registeredEmail=$('#email').value.trim().toLowerCase(); sessionStorage.setItem('nuvalite_pending_email',registeredEmail); $('#verifyText').textContent=`Enviamos un código de 6 dígitos a ${data.email}. Revisa también Spam o No deseado.`; show(3); msg('Código enviado. Vence en 10 minutos.',true); }catch(e){msg(e.message);}finally{btn.textContent=label;updateStep2();} };
+$('#resendBtn').onclick=async()=>{ registeredEmail=registeredEmail||$('#email').value.trim().toLowerCase(); if(!registeredEmail)return msg('Primero crea tu acceso.'); const btn=$('#resendBtn'),label=btn.textContent; btn.disabled=true;btn.textContent='Reenviando…';clearMsg(); try{await api('/auth/resend-verification',{method:'POST',body:JSON.stringify({email:registeredEmail})});msg('Te enviamos un nuevo código.',true);}catch(e){msg(e.message);}finally{setTimeout(()=>{btn.disabled=false;btn.textContent=label},1000);} };
+$('#regForm').onsubmit=async e=>{ e.preventDefault(); if($('#verifyBtn').disabled)return; const btn=$('#verifyBtn'),label=btn.textContent;btn.disabled=true;btn.textContent='Verificando…';clearMsg(); try{const data=await api('/auth/verify-email',{method:'POST',body:JSON.stringify({email:registeredEmail||$('#email').value.trim().toLowerCase(),code:$('#otp').value})}); localStorage.setItem('nuvalite_access_token',data.access_token); localStorage.setItem('nuvalite_session','1'); sessionStorage.removeItem('nuvalite_pending_email'); msg('Correo verificado. Tu prueba de CitaLite ya está activa.',true); setTimeout(()=>location.href='mi-cuenta.html',450);}catch(e){msg(e.message);updateStep3();}finally{btn.textContent=label;} };
 updateStep1();updateStep2();updateStep3();
 </script></body></html>
