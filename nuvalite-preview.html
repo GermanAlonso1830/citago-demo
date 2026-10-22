@@ -391,7 +391,7 @@ footer{padding:34px 0 44px;background:#0d1027;color:#c7cce0}
       <button data-go="home">Inicio</button>
       <button data-scroll="apps">Aplicaciones</button>
       <button data-scroll="about">Nosotros</button>
-      <button data-go="account">Mi cuenta</button>
+      <button data-go="account">Iniciar sesión</button>
     </nav>
     <button class="menu" id="menuBtn" aria-label="Abrir menú">☰</button>
   </div>
@@ -436,7 +436,7 @@ const APPS={
 };
 const HOME_SHOWCASE=[
  {name:"CitaLite",icon:"📅",color:"linear-gradient(145deg,#ff56d8,#7a67ff)",title:"Citas que fluyen",caption:"Agenda y reservas online en una experiencia moderna.",image:"https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1600&q=88"},
- {name:"StoreLite",icon:"📦",color:"linear-gradient(145deg,#20c878,#21b8d8)",title:"Todos tus pedidos organizados",caption:"Recepción, proceso y envio de tus pedidos de una forma agil.",image:"https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1600&q=88"},
+ {name:"StoreLite",icon:"📦",color:"linear-gradient(145deg,#20c878,#21b8d8)",title:"Todo tu inventario, claro",caption:"Productos, stock y ventas desde un solo lugar.",image:"https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1600&q=88"},
  {name:"DomiLite",icon:"🛵",color:"linear-gradient(145deg,#ff8b42,#ff5f6d)",title:"Entregas sin enredos",caption:"Pedidos, rutas y seguimiento para tus domicilios.",image:"https://images.unsplash.com/photo-1526367790999-0150786686a2?auto=format&fit=crop&w=1600&q=88"},
  {name:"Próximas apps",icon:"✨",color:"linear-gradient(145deg,#5ec8ff,#8b7dff)",title:"El ecosistema sigue creciendo",caption:"Nuevas soluciones digitales llegarán muy pronto.",image:"https://images.unsplash.com/photo-1516321165247-4aa89a48be28?auto=format&fit=crop&w=1600&q=88"}
 ];
@@ -850,7 +850,19 @@ function openApp(key){S.current=key;S.view="portal";render();}
 
 document.addEventListener("click",e=>{
  const app=e.target.closest("[data-open-app]"); if(app){openApp(app.dataset.openApp);return}
- const goEl=e.target.closest("[data-go]"); if(goEl){go(goEl.dataset.go);return}
+ const goEl=e.target.closest("[data-go]"); if(goEl){
+   const target=goEl.dataset.go;
+   if(target==="register"){
+     window.location.href=`registro.html?app=${encodeURIComponent(S.current)}`;
+     return;
+   }
+   if(target==="account"){
+     const active=localStorage.getItem("nuvalite_session")==="1";
+     window.location.href=active?"mi-cuenta.html":"login.html";
+     return;
+   }
+   go(target);return
+ }
  const sc=e.target.closest("[data-scroll]"); if(sc){
    const act=()=>document.getElementById(sc.dataset.scroll)?.scrollIntoView({behavior:"smooth"});
    if(S.view!=="home"){S.view="home";render();setTimeout(act,50)}else act(); return;
@@ -866,7 +878,7 @@ document.addEventListener("click",e=>{
  const day=e.target.closest("[data-day]"); if(day){document.querySelectorAll("[data-day]").forEach(x=>x.classList.remove("on"));day.classList.add("on");return}
  const tp=e.target.closest("[data-demo-type]"); if(tp){alert(`Demo seleccionado: ${tp.dataset.demoType}\nEn la siguiente etapa conectaremos cada tarjeta con un demo real por tipo de negocio.`);return}
  const sub=e.target.closest("[data-sub]"); if(sub){$("#sub"+sub.dataset.sub).style.display="block";return}
- if(e.target.id==="menuBtn"){alert("En móvil el menú final abrirá: Inicio · Aplicaciones · Nosotros · Mi cuenta.");}
+ if(e.target.id==="menuBtn"){alert("En móvil el menú final abrirá: Inicio · Aplicaciones · Nosotros · Iniciar sesión.");}
 });
 document.addEventListener("input",e=>{
  if(e.target.id==="simRange"){S.elapsed=Number(e.target.value);render();}
