@@ -39,6 +39,48 @@ img{max-width:100%;display:block}
 .btn.ghost{background:transparent;border:1px solid currentColor}
 .btn.sm{padding:10px 15px;border-radius:13px;font-size:.9rem}
 .menu{display:none;border:0;background:#f1f3fb;width:42px;height:42px;border-radius:13px;font-size:1.4rem}
+.menu[aria-expanded="true"]{background:#e9e7ff;color:#4d43bd}
+.mobile-menu-backdrop{
+  display:none;position:fixed;inset:0;z-index:79;
+  background:rgba(13,16,39,.30);backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px)
+}
+.mobile-menu-backdrop.open{display:block}
+.mobile-menu-panel{
+  display:none;position:fixed;z-index:80;top:78px;right:18px;
+  width:min(330px,calc(100% - 36px));padding:10px;
+  border:1px solid rgba(231,234,244,.96);border-radius:22px;
+  background:rgba(255,255,255,.97);backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  box-shadow:0 24px 70px rgba(20,27,66,.22);
+  transform:translateY(-8px);opacity:0;pointer-events:none;
+  transition:opacity .18s ease,transform .18s ease
+}
+.mobile-menu-panel.open{
+  display:block;transform:translateY(0);opacity:1;pointer-events:auto
+}
+.mobile-menu-panel button{
+  width:100%;border:0;background:transparent;color:#303753;
+  padding:13px 14px;border-radius:14px;text-align:left;
+  font-weight:800;display:flex;align-items:center;justify-content:space-between;
+  gap:12px
+}
+.mobile-menu-panel button:hover,.mobile-menu-panel button:active{background:#f2f3fb}
+.mobile-menu-panel button.primary-mobile{
+  margin-top:5px;color:#fff;
+  background:linear-gradient(100deg,var(--pink),var(--violet),#1ca8ff)
+}
+.mobile-menu-panel .mobile-menu-sep{
+  height:1px;background:var(--line);margin:6px 4px
+}
+body.mobile-menu-open{overflow:hidden}
+@media(min-width:901px){
+  .mobile-menu-panel,.mobile-menu-backdrop{display:none!important}
+}
+@media(max-width:620px){
+  .mobile-menu-panel{top:68px;right:12px;width:calc(100% - 24px)}
+}
+
 
 .page{min-height:70vh}
 .eyebrow{text-transform:uppercase;letter-spacing:.19em;font-weight:800;font-size:.72rem;color:#6b75a0}
@@ -393,9 +435,21 @@ footer{padding:34px 0 44px;background:#0d1027;color:#c7cce0}
       <button data-scroll="about">Nosotros</button>
       <button data-go="account">Iniciar sesión</button>
     </nav>
-    <button class="menu" id="menuBtn" aria-label="Abrir menú">☰</button>
+    <button class="menu" id="menuBtn" aria-label="Abrir menú" aria-expanded="false" aria-controls="mobileMenu">☰</button>
   </div>
 </header>
+
+<div class="mobile-menu-backdrop" id="mobileMenuBackdrop" aria-hidden="true"></div>
+<nav class="mobile-menu-panel" id="mobileMenu" aria-label="Menú móvil" aria-hidden="true">
+  <button type="button" data-go="home"><span>Inicio</span><span>⌂</span></button>
+  <button type="button" data-scroll="apps"><span>Aplicaciones</span><span>↗</span></button>
+  <button type="button" data-scroll="about"><span>Nosotros</span><span>◎</span></button>
+  <div class="mobile-menu-sep"></div>
+  <button type="button" class="primary-mobile" data-go="account">
+    <span data-mobile-account-label>Iniciar sesión</span><span>→</span>
+  </button>
+</nav>
+
 
 
 <div class="citalite-floatbar" id="citaliteFloatBar" hidden>
@@ -486,7 +540,7 @@ function home(){
  return `<section>
  <div class="wrap hero-home">
    <div>
-     <div class="eyebrow">CONECTA Y CRECE</div>
+     <div class="eyebrow">Tecnología que impulsa negocios</div>
      <h1>NUVA<span class="gradient-text">LITE</span></h1>
      <p class="lead">Creamos aplicaciones simples, modernas y especializadas para resolver necesidades reales de pequeños y medianos negocios.</p>
      <div class="hero-actions">
@@ -848,9 +902,51 @@ function render(){
 function go(view){S.view=view;render();}
 function openApp(key){S.current=key;S.view="portal";render();}
 
+
+function mobileMenuEls(){
+ return{
+  btn:document.getElementById("menuBtn"),
+  menu:document.getElementById("mobileMenu"),
+  backdrop:document.getElementById("mobileMenuBackdrop")
+ };
+}
+function openMobileMenu(){
+ const {btn,menu,backdrop}=mobileMenuEls();
+ if(!btn||!menu||!backdrop)return;
+ const active=localStorage.getItem("nuvalite_session")==="1";
+ const label=menu.querySelector("[data-mobile-account-label]");
+ if(label)label.textContent=active?"Mi NUVALITE":"Iniciar sesión";
+ btn.textContent="✕";
+ btn.setAttribute("aria-expanded","true");
+ btn.setAttribute("aria-label","Cerrar menú");
+ menu.classList.add("open");
+ menu.setAttribute("aria-hidden","false");
+ backdrop.classList.add("open");
+ backdrop.setAttribute("aria-hidden","false");
+ document.body.classList.add("mobile-menu-open");
+}
+function closeMobileMenu(){
+ const {btn,menu,backdrop}=mobileMenuEls();
+ if(!btn||!menu||!backdrop)return;
+ btn.textContent="☰";
+ btn.setAttribute("aria-expanded","false");
+ btn.setAttribute("aria-label","Abrir menú");
+ menu.classList.remove("open");
+ menu.setAttribute("aria-hidden","true");
+ backdrop.classList.remove("open");
+ backdrop.setAttribute("aria-hidden","true");
+ document.body.classList.remove("mobile-menu-open");
+}
+function toggleMobileMenu(){
+ const {menu}=mobileMenuEls();
+ if(menu&&menu.classList.contains("open"))closeMobileMenu();
+ else openMobileMenu();
+}
+
 document.addEventListener("click",e=>{
  const app=e.target.closest("[data-open-app]"); if(app){openApp(app.dataset.openApp);return}
  const goEl=e.target.closest("[data-go]"); if(goEl){
+   if(goEl.closest("#mobileMenu"))closeMobileMenu();
    const target=goEl.dataset.go;
    if(target==="register"){
      window.location.href=`registro.html?app=${encodeURIComponent(S.current)}`;
@@ -864,6 +960,7 @@ document.addEventListener("click",e=>{
    go(target);return
  }
  const sc=e.target.closest("[data-scroll]"); if(sc){
+   if(sc.closest("#mobileMenu"))closeMobileMenu();
    const act=()=>document.getElementById(sc.dataset.scroll)?.scrollIntoView({behavior:"smooth"});
    if(S.view!=="home"){S.view="home";render();setTimeout(act,50)}else act(); return;
  }
@@ -878,8 +975,13 @@ document.addEventListener("click",e=>{
  const day=e.target.closest("[data-day]"); if(day){document.querySelectorAll("[data-day]").forEach(x=>x.classList.remove("on"));day.classList.add("on");return}
  const tp=e.target.closest("[data-demo-type]"); if(tp){alert(`Demo seleccionado: ${tp.dataset.demoType}\nEn la siguiente etapa conectaremos cada tarjeta con un demo real por tipo de negocio.`);return}
  const sub=e.target.closest("[data-sub]"); if(sub){$("#sub"+sub.dataset.sub).style.display="block";return}
- if(e.target.id==="menuBtn"){alert("En móvil el menú final abrirá: Inicio · Aplicaciones · Nosotros · Iniciar sesión.");}
+ if(e.target.id==="menuBtn"){toggleMobileMenu();return}
 });
+
+document.getElementById("mobileMenuBackdrop")?.addEventListener("click",closeMobileMenu);
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMobileMenu()});
+window.addEventListener("resize",()=>{if(window.innerWidth>900)closeMobileMenu()});
+
 document.addEventListener("input",e=>{
  if(e.target.id==="simRange"){S.elapsed=Number(e.target.value);render();}
 });
