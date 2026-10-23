@@ -891,7 +891,7 @@ async function saveBusinessSettings(){
   whatsapp:document.getElementById("cfg-wa")?.value.trim()||null,
   email:document.getElementById("cfg-email")?.value.trim()||null,
   address:document.getElementById("cfg-address")?.value.trim()||null,
-  timezone:document.getElementById("cfg-timezone")?.value.trim()||"America/Bogota",
+  timezone:isAllowedTimezone(document.getElementById("cfg-timezone")?.value)?document.getElementById("cfg-timezone").value:"America/Bogota",
   booking_mode:document.querySelector('[name="cfg-booking"]:checked')?.value||"AUTO",
   default_open_time:open||null,
   default_close_time:close||null,
@@ -1334,12 +1334,40 @@ function mediaPicker(kind,label,url,height){
  var busy=MEDIA_BUSY===kind,preview=MEDIA_LOCAL_PREVIEW[kind]||url||"",fname=MEDIA_FILE_NAME[kind]||"";
  return'<div><label>'+esc(label)+'</label>'+imgPreview(preview,label,height)+'<div style="margin-top:8px"><input type="file" accept="image/jpeg,image/png,image/webp" data-media-kind="'+kind+'" onchange="handleBusinessMediaInput(this)" '+(busy?'disabled':'')+'></div><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(fname?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo: '+esc(fname)+'</small>':'')+(url?'<button class="lk" data-a="removeMedia" data-kind="'+kind+'" '+(busy?'disabled':'')+'>Quitar imagen</button>':'')+(busy?'<p style="color:var(--mute);margin:6px 0 0">Subiendo imagen...</p>':'')+'</div>'
 }
+
+var TIMEZONE_OPTIONS=[
+ ["America/Bogota","Colombia — Bogotá (GMT-5)"],
+ ["America/Lima","Perú — Lima (GMT-5)"],
+ ["America/Guayaquil","Ecuador — Quito / Guayaquil (GMT-5)"],
+ ["America/Panama","Panamá — Ciudad de Panamá (GMT-5)"],
+ ["America/Mexico_City","México — Ciudad de México"],
+ ["America/Santiago","Chile — Santiago"],
+ ["America/Argentina/Buenos_Aires","Argentina — Buenos Aires"],
+ ["America/Sao_Paulo","Brasil — São Paulo"],
+ ["America/New_York","EE. UU. — Nueva York / Miami"],
+ ["Europe/Madrid","España — Madrid"]
+];
+function isAllowedTimezone(v){
+ return TIMEZONE_OPTIONS.some(function(x){return x[0]===v});
+}
+function timezoneField(current){
+ var original=String(current||"").trim();
+ var selected=isAllowedTimezone(original)?original:"America/Bogota";
+ var options=TIMEZONE_OPTIONS.map(function(x){
+  return '<option value="'+x[0]+'"'+(x[0]===selected?' selected':'')+'>'+esc(x[1])+'</option>';
+ }).join("");
+ var warning=(original&&!isAllowedTimezone(original))
+  ?'<small style="display:block;color:#B36A00;margin-top:5px">El valor anterior no era una zona horaria válida. Al guardar se corregirá a Colombia — Bogotá (GMT-5).</small>'
+  :'';
+ return '<select id="cfg-timezone">'+options+'</select>'+warning;
+}
+
 function bizCfg(){
  var h='<h1>Configuración</h1><p style="color:var(--mute);margin:4px 0 0">Los cambios de esta sección se guardan realmente para este negocio.</p>';
  if(SETTINGS_LOADING&&!SETTINGS)return h+'<div class="pn" style="margin-top:14px"><p>Cargando configuración...</p></div>';
  if(SETTINGS_ERROR&&!SETTINGS)return h+'<div class="pn" style="margin-top:14px"><p style="color:#B3372A">'+esc(SETTINGS_ERROR)+'</p><button class="btn p" data-a="reloadCfg">Reintentar</button></div>';
  var x=SETTINGS||{name:BZ.name,tagline:BZ.tag,logo_url:BZ.logo,cover_image_url:BZ.cover,background_image_url:BZ.background,primary_color:BZ.color,whatsapp:BZ.wa,email:"",address:"",timezone:"America/Bogota",booking_mode:BZ.auto?"AUTO":"MANUAL",default_open_time:BZ.open,default_close_time:BZ.close,slot_minutes:BZ.step,slug:""};
- h+='<div class="pn" style="margin-top:14px;overflow:visible"><h2>Marca e imágenes</h2><p style="color:var(--mute);margin:0 0 12px;font-size:.88rem">Selecciona las imágenes desde tu computador o celular. CitaGo las guarda automáticamente.</p><div class="g2">'+mediaPicker("logo","Logo",x.logo_url,140)+mediaPicker("cover","Foto principal / portada",x.cover_image_url,180)+'</div><div style="margin-top:12px">'+mediaPicker("background","Imagen de fondo",x.background_image_url,220)+'</div>'+(MEDIA_ERROR?'<p style="color:#B3372A;font-weight:600">'+esc(MEDIA_ERROR)+'</p>':'')+'<label>Nombre del negocio</label><input id="cfg-name" value="'+esc(x.name||"")+'"><label>Frase</label><input id="cfg-tag" value="'+esc(x.tagline||"")+'"><div class="g2"><div><label>WhatsApp</label><input id="cfg-wa" value="'+esc(x.whatsapp||"")+'"></div><div><label>Correo</label><input id="cfg-email" type="email" value="'+esc(x.email||"")+'"></div></div><label>Dirección</label><input id="cfg-address" value="'+esc(x.address||"")+'"><div class="g2"><div><label>Color de marca</label><input id="cfg-color" type="color" value="'+esc(x.primary_color||"#4F46E5")+'"></div><div><label>Zona horaria</label><input id="cfg-timezone" value="'+esc(x.timezone||"America/Bogota")+'"></div></div></div>';
+ h+='<div class="pn" style="margin-top:14px;overflow:visible"><h2>Marca e imágenes</h2><p style="color:var(--mute);margin:0 0 12px;font-size:.88rem">Selecciona las imágenes desde tu computador o celular. CitaGo las guarda automáticamente.</p><div class="g2">'+mediaPicker("logo","Logo",x.logo_url,140)+mediaPicker("cover","Foto principal / portada",x.cover_image_url,180)+'</div><div style="margin-top:12px">'+mediaPicker("background","Imagen de fondo",x.background_image_url,220)+'</div>'+(MEDIA_ERROR?'<p style="color:#B3372A;font-weight:600">'+esc(MEDIA_ERROR)+'</p>':'')+'<label>Nombre del negocio</label><input id="cfg-name" value="'+esc(x.name||"")+'"><label>Frase</label><input id="cfg-tag" value="'+esc(x.tagline||"")+'"><div class="g2"><div><label>WhatsApp</label><input id="cfg-wa" value="'+esc(x.whatsapp||"")+'"></div><div><label>Correo</label><input id="cfg-email" type="email" value="'+esc(x.email||"")+'"></div></div><label>Dirección</label><input id="cfg-address" value="'+esc(x.address||"")+'"><div class="g2"><div><label>Color de marca</label><input id="cfg-color" type="color" value="'+esc(x.primary_color||"#4F46E5")+'"></div><div><label>Zona horaria</label>'+timezoneField(x.timezone)+'</div></div></div>';
  h+='<div class="pn" style="overflow:visible"><h2>Reservas</h2><p style="color:var(--mute);margin:0 0 8px;font-size:.9rem">Automático confirma inmediatamente. Manual deja la cita pendiente hasta que el negocio la apruebe.</p><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="radio" name="cfg-booking" value="AUTO" '+((x.booking_mode||"AUTO")==="AUTO"?'checked':'')+'> ⚡ Confirmación automática</label><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="radio" name="cfg-booking" value="MANUAL" '+((x.booking_mode||"AUTO")==="MANUAL"?'checked':'')+'> ✋ Aprobación manual</label></div>';
  h+='<div class="pn" style="overflow:visible"><h2>Horario general</h2><div class="g2"><div><label>Apertura</label><input id="cfg-open" type="time" value="'+esc(trimTime(x.default_open_time)||"08:00")+'"></div><div><label>Cierre</label><input id="cfg-close" type="time" value="'+esc(trimTime(x.default_close_time)||"17:00")+'"></div></div><label>Duración de cada bloque</label><select id="cfg-slot">'+[15,30,45,60,90,120].map(function(m){return'<option value="'+m+'"'+(Number(x.slot_minutes||30)===m?' selected':'')+'>'+m+' min</option>'}).join("")+'</select><p style="color:var(--mute);font-size:.82rem">Los días y horarios específicos de cada integrante se configuran en Profesionales → Horarios.</p></div>';
  if(SETTINGS_ERROR)h+='<p style="color:#B3372A;font-weight:600">'+esc(SETTINGS_ERROR)+'</p>';if(SETTINGS_MSG)h+='<p style="color:#16794C;font-weight:600">'+esc(SETTINGS_MSG)+'</p>';
