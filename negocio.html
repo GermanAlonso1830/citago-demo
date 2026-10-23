@@ -413,6 +413,78 @@ input:not([type=checkbox]),select,textarea{
   }
 }
 
+
+/* =========================================================
+   FIX MOBILE · radios, configuración y recordatorios
+   ========================================================= */
+input[type="radio"]{
+  width:20px!important;
+  min-width:20px!important;
+  height:20px;
+  padding:0!important;
+  margin:0;
+  flex:0 0 20px;
+  accent-color:var(--acc);
+}
+.pn label:has(input[type="radio"]){
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+.wa{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow:hidden;
+}
+.bub{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+.bub span,
+.bub small{
+  max-width:100%;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+}
+.wb{
+  width:100%;
+  min-width:0;
+}
+.wb button{
+  width:100%;
+  max-width:100%;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.pn{
+  max-width:100%;
+  min-width:0;
+}
+@media(max-width:520px){
+  .g2,.g3{
+    grid-template-columns:1fr!important;
+  }
+  .pn label:has(input[type="radio"]){
+    display:grid!important;
+    grid-template-columns:20px minmax(0,1fr);
+    align-items:start!important;
+    gap:10px!important;
+    line-height:1.35;
+  }
+  .wa{
+    padding:10px;
+  }
+  .bub{
+    padding:10px;
+    font-size:.86rem;
+  }
+}
+
 </style>
 </head>
 <body>
