@@ -549,6 +549,65 @@ input[type="radio"]{
   .mn.module-with-fab h1{padding-right:160px;min-height:44px}
 }
 
+
+/* ===== FIX UX · MODALES, BOTONES Y SCROLL ===== */
+.create-modal{
+  display:grid!important;
+  grid-template-rows:auto minmax(0,1fr) auto;
+  overflow:hidden!important;
+  padding:0!important;
+}
+.create-modal-head{
+  padding:18px 20px 10px;
+  margin:0!important;
+  background:rgba(255,255,255,.98);
+  border-bottom:1px solid var(--line);
+  z-index:3;
+}
+.create-modal-body{
+  min-height:0;
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  padding:10px 20px 18px;
+  scroll-padding-bottom:24px;
+}
+.create-modal-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  padding:12px 20px calc(12px + env(safe-area-inset-bottom,0px));
+  border-top:1px solid var(--line);
+  background:rgba(255,255,255,.99);
+  z-index:4;
+}
+.create-modal-actions .btn{
+  min-height:44px;
+}
+.create-modal-actions .btn.p:disabled{
+  opacity:.42;
+  filter:saturate(.65);
+  cursor:not-allowed;
+  box-shadow:none;
+}
+@media(max-width:800px){
+  .create-modal{
+    top:calc(env(safe-area-inset-top,0px) + 82px)!important;
+    bottom:calc(env(safe-area-inset-bottom,0px) + 10px)!important;
+    max-height:none!important;
+    height:auto!important;
+    transform:translateX(-50%)!important;
+  }
+  .create-modal-head{padding:14px 16px 9px}
+  .create-modal-body{padding:8px 16px 18px}
+  .create-modal-actions{
+    padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px));
+  }
+  .create-modal-actions .btn{
+    flex:1 1 140px;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -681,6 +740,7 @@ var PRO_LOCAL_PREVIEW = {}, PRO_FILE_NAME = {};
 var API_PROFESSIONALS = [], PROS_LOADING = false, PROS_ERROR = "";
 var ASSIGN_PRO_ID = null, ASSIGN_SERVICE_IDS = [], ASSIGN_LOADING = false, ASSIGN_SAVING = false, ASSIGN_ERROR = "";
 var PRO_CREATE_MSG = "", PRO_CREATE_ERROR = "", PRO_CREATE_SAVING = false, PRO_CREATE_SERVICE_IDS = [], PRO_CREATE_OPEN = false, PRO_CREATE_PHOTO = null, PRO_CREATE_PHOTO_NAME = "", PRO_CREATE_PHOTO_PREVIEW = "";
+var PRO_CREATE_DRAFT={name:"",specialty:"",phone:"",color:"#4F46E5"};
 var EDIT_PRO_ID=null, EDIT_PRO=null, EDIT_PRO_SAVING=false, EDIT_PRO_ERROR="";
 var SCHEDULE_PRO_ID = null, SCHEDULES = [], SCHEDULE_LOADING = false, SCHEDULE_SAVING = false, SCHEDULE_ERROR = "";
 function slug(n){return n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
@@ -803,6 +863,38 @@ function validateServiceFields(name,duration,price){
  if(!Number.isFinite(price)||price<0)return "El precio no puede ser negativo.";
  return "";
 }
+
+function serviceCreateReady(){
+ var n=(SERVICE_CREATE_DRAFT.name||"").trim();
+ var d=Number(SERVICE_CREATE_DRAFT.duration);
+ var pRaw=String(SERVICE_CREATE_DRAFT.price??"").trim();
+ var p=Number(pRaw);
+ return !!n && Number.isFinite(d) && d>0 && pRaw!=="" && Number.isFinite(p) && p>=0;
+}
+function professionalCreateReady(){
+ return !!(PRO_CREATE_DRAFT.name||"").trim() && PRO_CREATE_SERVICE_IDS.length>0;
+}
+function resetProfessionalCreateDraft(){
+ PRO_CREATE_DRAFT={name:"",specialty:"",phone:"",color:"#4F46E5"};
+}
+function updateCreateButtonStates(){
+ var sb=document.querySelector('[data-a="apiAddSvc"]');
+ if(sb)sb.disabled=SERVICE_SAVING||!serviceCreateReady();
+ var pb=document.querySelector('[data-a="apiAddPro"]');
+ if(pb)pb.disabled=PRO_CREATE_SAVING||!professionalCreateReady();
+}
+function resetPanelScroll(){
+ try{window.scrollTo({top:0,left:0,behavior:"auto"})}catch(_){window.scrollTo(0,0)}
+ if(document.scrollingElement)document.scrollingElement.scrollTop=0;
+}
+function afterCreateModalOpen(){
+ requestAnimationFrame(function(){
+  var b=document.querySelector(".create-modal-body");
+  if(b)b.scrollTop=0;
+  updateCreateButtonStates();
+ });
+}
+
 function resetServiceCreateDraft(){
  SERVICE_CREATE_DRAFT={name:"",description:"",duration:"",price:"",icon:"✨"};
  SERVICE_CREATE_PHOTO=null;SERVICE_CREATE_PHOTO_NAME="";
@@ -1174,7 +1266,7 @@ function bizSvc(){
  h+='</div>';
  if(SERVICE_CREATE_OPEN){
   h+='<div class="create-modal-backdrop" data-a="closeSvcCreate"></div><section class="create-modal" role="dialog" aria-modal="true" aria-label="Crear nuevo servicio">'+
-  '<div class="create-modal-head"><h2>Nuevo servicio</h2><button class="create-modal-x" data-a="closeSvcCreate" aria-label="Cerrar">×</button></div>'+
+  '<div class="create-modal-head"><h2>Nuevo servicio</h2><button class="create-modal-x" data-a="closeSvcCreate" aria-label="Cerrar">×</button></div><div class="create-modal-body">'+
   '<label>Nombre</label><input id="sn" data-service-create="name" value="'+esc(SERVICE_CREATE_DRAFT.name||"")+'" placeholder="Ej. Corte clásico">'+
   '<label>Descripción (opcional)</label><textarea id="sd" data-service-create="description" rows="2" placeholder="Describe brevemente el servicio">'+esc(SERVICE_CREATE_DRAFT.description||"")+'</textarea>'+
   '<div class="g3"><div><label>Duración (min)</label><input id="sm" data-service-create="duration" type="number" min="1" value="'+esc(SERVICE_CREATE_DRAFT.duration||"")+'" placeholder="30"></div>'+
@@ -1186,7 +1278,7 @@ function bizSvc(){
   '<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+
   (SERVICE_CREATE_PHOTO_NAME?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo seleccionado: '+esc(SERVICE_CREATE_PHOTO_NAME)+'</small>':'')+
   (SERVICE_UI_ERROR?'<p style="color:#B3372A;margin:10px 0 0;font-weight:600">'+esc(SERVICE_UI_ERROR)+'</p>':'')+
-  '<div class="dn" style="margin-top:14px"><button class="btn p" data-a="apiAddSvc" '+(SERVICE_SAVING?'disabled':'')+'>'+(SERVICE_SAVING?'Guardando...':'Crear servicio')+'</button>'+
+  '</div><div class="create-modal-actions"><button class="btn p" data-a="apiAddSvc" '+((SERVICE_SAVING||!serviceCreateReady())?'disabled':'')+'>'+(SERVICE_SAVING?'Guardando...':'Crear servicio')+'</button>'+
   '<button class="btn" data-a="closeSvcCreate" '+(SERVICE_SAVING?'disabled':'')+'>Cancelar</button></div></section>';
  }
  return h
@@ -1256,13 +1348,14 @@ async function goCreateServiceFromProfessional(){
  NV="svc";MO=false;
  SERVICE_CREATE_OPEN=true;SERVICE_UI_ERROR="";SERVICE_MSG="";
  await loadServices();
+ afterCreateModalOpen();
 }
 
 async function addRealProfessional(){
- var n=(document.getElementById("pn")?.value||"").trim();
- var r=(document.getElementById("pr")?.value||"").trim();
- var ph=(document.getElementById("pp")?.value||"").trim();
- var c=document.getElementById("pc")?.value||"#4F46E5";
+ var n=(PRO_CREATE_DRAFT.name||"").trim();
+ var r=(PRO_CREATE_DRAFT.specialty||"").trim();
+ var ph=(PRO_CREATE_DRAFT.phone||"").trim();
+ var c=PRO_CREATE_DRAFT.color||"#4F46E5";
  var photo=PRO_CREATE_PHOTO;
  PRO_CREATE_MSG="";PRO_CREATE_ERROR="";
  if(!n){PRO_CREATE_ERROR="Escribe el nombre del profesional.";render();return}
@@ -1303,6 +1396,7 @@ async function addRealProfessional(){
 
   PRO_CREATE_SERVICE_IDS=[];
   resetProfessionalCreatePhoto();
+  resetProfessionalCreateDraft();
   PRO_CREATE_OPEN=false;
   PRO_CREATE_ERROR="";
   PRO_CREATE_MSG=photoError
@@ -1449,15 +1543,15 @@ function bizTeam(){
 
  if(PRO_CREATE_OPEN){
   h+='<div class="create-modal-backdrop" data-a="closeProCreate"></div><section class="create-modal" role="dialog" aria-modal="true" aria-label="Crear nuevo profesional">'+
-  '<div class="create-modal-head"><h2>Nuevo profesional</h2><button class="create-modal-x" data-a="closeProCreate" aria-label="Cerrar">×</button></div>'+
+  '<div class="create-modal-head"><h2>Nuevo profesional</h2><button class="create-modal-x" data-a="closeProCreate" aria-label="Cerrar">×</button></div><div class="create-modal-body">'+
   '<label>Foto del profesional (opcional)</label>'+
   '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:6px 0 12px">'+
   (PRO_CREATE_PHOTO_PREVIEW?'<img class="create-photo-preview" src="'+esc(PRO_CREATE_PHOTO_PREVIEW)+'" alt="Vista previa del profesional">':'<div class="create-photo-preview" style="display:grid;place-items:center;color:var(--mute);font-size:1.6rem">👤</div>')+
   '<div style="flex:1;min-width:210px"><input type="file" accept="image/jpeg,image/png,image/webp" onchange="handleNewProfessionalPhotoInput(this)" '+(PRO_CREATE_SAVING?'disabled':'')+'>'+
   '<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+
   (PRO_CREATE_PHOTO_NAME?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo seleccionado: '+esc(PRO_CREATE_PHOTO_NAME)+'</small>':'')+'</div></div>'+
-  '<div class="g2"><div><label>Nombre</label><input id="pn" placeholder="Nombre completo"></div><div><label>Especialidad</label><input id="pr" placeholder="Ej. Colorista, Barbero, Matemáticas"></div></div>'+
-  '<div class="g2"><div><label>WhatsApp / teléfono (opcional)</label><input id="pp" type="tel" placeholder="300 123 4567"></div><div><label>Color identificador</label><input id="pc" type="color" value="#4F46E5"></div></div>'+
+  '<div class="g2"><div><label>Nombre</label><input id="pn" data-pro-create="name" value="'+esc(PRO_CREATE_DRAFT.name||"")+'" placeholder="Nombre completo"></div><div><label>Especialidad</label><input id="pr" data-pro-create="specialty" value="'+esc(PRO_CREATE_DRAFT.specialty||"")+'" placeholder="Ej. Colorista, Barbero, Matemáticas"></div></div>'+
+  '<div class="g2"><div><label>WhatsApp / teléfono (opcional)</label><input id="pp" data-pro-create="phone" type="tel" value="'+esc(PRO_CREATE_DRAFT.phone||"")+'" placeholder="300 123 4567"></div><div><label>Color identificador</label><input id="pc" data-pro-create="color" type="color" value="'+esc(PRO_CREATE_DRAFT.color||"#4F46E5")+'"></div></div>'+
   '<label>Servicios que realiza *</label>';
   if(!API_SERVICES.length){
    h+='<div style="margin-top:8px;padding:14px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--acc) 7%,var(--sf))"><p style="color:var(--mute);margin:0 0 10px">Primero crea al menos un servicio para poder asignarlo al profesional.</p><button class="btn p" type="button" data-a="goCreateService">Crear servicio ahora</button></div>';
@@ -1468,7 +1562,7 @@ function bizTeam(){
    });
   }
   if(PRO_CREATE_ERROR)h+='<p style="color:#B3372A;margin:8px 0 0">'+esc(PRO_CREATE_ERROR)+'</p>';
-  h+='<div class="dn" style="margin-top:14px"><button class="btn p" data-a="apiAddPro" '+((PRO_CREATE_SAVING||!API_SERVICES.length)?'disabled':'')+'>'+(PRO_CREATE_SAVING?'Guardando...':'Crear profesional')+'</button>'+
+  h+='</div><div class="create-modal-actions"><button class="btn p" data-a="apiAddPro" '+((PRO_CREATE_SAVING||!professionalCreateReady())?'disabled':'')+'>'+(PRO_CREATE_SAVING?'Guardando...':'Crear profesional')+'</button>'+
   '<button class="btn" data-a="closeProCreate" '+(PRO_CREATE_SAVING?'disabled':'')+'>Cancelar</button></div></section>';
  }
  return h+'</div>'
@@ -1781,12 +1875,16 @@ document.querySelector(".bar").onclick=function(e){};
 var app=document.getElementById("app");
 app.oninput=function(e){
  var sc=e.target.dataset.serviceCreate;
- if(sc!==undefined){SERVICE_CREATE_DRAFT[sc]=e.target.value;return}
+ if(sc!==undefined){SERVICE_CREATE_DRAFT[sc]=e.target.value;updateCreateButtonStates();return}
+ var pc=e.target.dataset.proCreate;
+ if(pc!==undefined){PRO_CREATE_DRAFT[pc]=e.target.value;updateCreateButtonStates();return}
  var k=e.target.dataset.s;if(k)st[k]=e.target.value;
- var ep=e.target.dataset.editPro;if(ep!==undefined&&EDIT_PRO)EDIT_PRO[ep]=e.target.value
+ var ep=e.target.dataset.editPro;if(ep!==undefined&&EDIT_PRO)EDIT_PRO[ep]=e.target.value;
+ updateCreateButtonStates();
 };
 app.onchange=function(e){
- var cs=e.target.dataset.createService;if(cs!==undefined){cs=String(cs);var ci=PRO_CREATE_SERVICE_IDS.indexOf(cs);if(e.target.checked&&ci<0)PRO_CREATE_SERVICE_IDS.push(cs);if(!e.target.checked&&ci>-1)PRO_CREATE_SERVICE_IDS.splice(ci,1);return}
+ var cs=e.target.dataset.createService;if(cs!==undefined){cs=String(cs);var ci=PRO_CREATE_SERVICE_IDS.indexOf(cs);if(e.target.checked&&ci<0)PRO_CREATE_SERVICE_IDS.push(cs);if(!e.target.checked&&ci>-1)PRO_CREATE_SERVICE_IDS.splice(ci,1);updateCreateButtonStates();return}
+ var pc=e.target.dataset.proCreate;if(pc!==undefined){PRO_CREATE_DRAFT[pc]=e.target.value;updateCreateButtonStates();return}
  var ep=e.target.dataset.editPro;if(ep!==undefined&&EDIT_PRO){EDIT_PRO[ep]=e.target.value;return}
  if(e.target.dataset.editActive!==undefined&&EDIT_PRO){EDIT_PRO.is_active=e.target.checked;return}
  var sa=e.target.dataset.schedActive;
@@ -1838,9 +1936,9 @@ app.onclick=function(e){
   st.pro=pid;st.done={id:nid++,pro:pid,svc:s.n,m:s.m,date:st.date,time:st.time,name:st.name.trim(),phone:st.phone.trim(),notes:st.notes.trim(),cf:false,st:BZ.auto?"Confirmada":"Pendiente"};A.push(st.done);st.s=5}
  else if(a==="reset")st=JSON.parse(JSON.stringify(st0));
  else if(a==="nav"){
-  SERVICE_CREATE_OPEN=false;PRO_CREATE_OPEN=false;resetProfessionalCreatePhoto();
+  SERVICE_CREATE_OPEN=false;PRO_CREATE_OPEN=false;resetProfessionalCreatePhoto();resetProfessionalCreateDraft();resetPanelScroll();
   if(V==="a")AV=t.dataset.i;
-  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;loadServices();return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";loadProfessionals();return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
+  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
   MO=false
  }
  else if(a==="copyBookingLink"){copyBookingLink();return}
@@ -1853,10 +1951,10 @@ app.onclick=function(e){
  else if(a==="reloadAppts"){loadAppointments();return}
  else if(a==="reloadSvc"){loadServices();return}
  else if(a==="reloadPros"){loadProfessionals();return}
- else if(a==="openSvcCreate"){resetServiceCreateDraft();SERVICE_UI_ERROR="";SERVICE_MSG="";SERVICE_CREATE_OPEN=true;render();return}
+ else if(a==="openSvcCreate"){resetServiceCreateDraft();SERVICE_UI_ERROR="";SERVICE_MSG="";SERVICE_CREATE_OPEN=true;render();afterCreateModalOpen();return}
  else if(a==="closeSvcCreate"){if(!SERVICE_SAVING){resetServiceCreateDraft();SERVICE_UI_ERROR="";SERVICE_CREATE_OPEN=false;render()}return}
- else if(a==="openProCreate"){PRO_CREATE_SERVICE_IDS=[];PRO_CREATE_ERROR="";PRO_CREATE_MSG="";resetProfessionalCreatePhoto();PRO_CREATE_OPEN=true;render();return}
- else if(a==="closeProCreate"){if(!PRO_CREATE_SAVING){PRO_CREATE_SERVICE_IDS=[];PRO_CREATE_ERROR="";resetProfessionalCreatePhoto();PRO_CREATE_OPEN=false;render()}return}
+ else if(a==="openProCreate"){PRO_CREATE_SERVICE_IDS=[];PRO_CREATE_ERROR="";PRO_CREATE_MSG="";resetProfessionalCreatePhoto();resetProfessionalCreateDraft();PRO_CREATE_OPEN=true;render();afterCreateModalOpen();return}
+ else if(a==="closeProCreate"){if(!PRO_CREATE_SAVING){PRO_CREATE_SERVICE_IDS=[];PRO_CREATE_ERROR="";resetProfessionalCreatePhoto();resetProfessionalCreateDraft();PRO_CREATE_OPEN=false;render()}return}
  else if(a==="goCreateService"){goCreateServiceFromProfessional();return}
  else if(a==="apiAddSvc"){addRealService();return}
  else if(a==="apiEditSvc"){openServiceEdit(t.dataset.id);return}
