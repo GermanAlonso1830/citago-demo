@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>CitaGo · Panel del negocio</title>
+<title>CitaLite · Panel Moderna Llamativa</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
 <style>
@@ -104,6 +104,314 @@ td.t{color:var(--mute);font-size:.75rem;width:56px;white-space:nowrap}
 
 /* Final separated demo: internal prototype switcher is hidden. */
 .bar{display:none!important}
+
+/* =========================================================
+   CONCEPTO B · MODERNA LLAMATIVA
+   Visual-only redesign. Business logic/security unchanged.
+   ========================================================= */
+:root{
+  --bg:#F5F5FF;
+  --sf:#FFFFFF;
+  --ink:#17152B;
+  --mute:#72758A;
+  --line:#E8E7F3;
+  --acc:#7C4DFF;
+  --side:#1E1741;
+}
+body{
+  background:
+    radial-gradient(circle at 85% 0%,rgba(34,184,255,.12),transparent 28rem),
+    radial-gradient(circle at 15% 8%,rgba(233,43,207,.11),transparent 24rem),
+    var(--bg);
+}
+.sh{
+  grid-template-columns:228px minmax(0,1fr);
+  min-height:100vh;
+}
+.side{
+  position:sticky;
+  top:0;
+  height:100vh;
+  padding:24px 14px;
+  color:#fff;
+  background:
+    radial-gradient(circle at 20% 0%,rgba(63,179,255,.22),transparent 18rem),
+    linear-gradient(160deg,#201845 0%,#2E1A58 55%,#191633 100%);
+  box-shadow:18px 0 55px rgba(32,22,66,.08);
+}
+.side h3{
+  margin:0 10px 26px;
+  font:800 1rem/1.25 "Plus Jakarta Sans",system-ui,sans-serif;
+  letter-spacing:-.025em;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.side button{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:11px;
+  color:rgba(255,255,255,.72);
+  opacity:1;
+  padding:11px 12px;
+  margin:4px 0;
+  border-radius:14px;
+  font-size:.88rem;
+  font-weight:650;
+}
+.side .sl2 button::before{
+  width:30px;
+  height:30px;
+  flex:none;
+  display:grid;
+  place-items:center;
+  border-radius:10px;
+  background:rgba(255,255,255,.09);
+  color:#fff;
+  font-size:1rem;
+  font-weight:800;
+}
+.side .sl2 button[data-i="home"]::before{content:"⌂"}
+.side .sl2 button[data-i="cit"]::before{content:"◷"}
+.side .sl2 button[data-i="svc"]::before{content:"✦"}
+.side .sl2 button[data-i="team"]::before{content:"◎"}
+.side .sl2 button[data-i="blk"]::before{content:"⊘"}
+.side .sl2 button[data-i="rem"]::before{content:"◌"}
+.side .sl2 button[data-i="rep"]::before{content:"▥"}
+.side .sl2 button[data-i="cfg"]::before{content:"⚙"}
+.side .sl2 button[data-i="plan"]::before{content:"◇"}
+.side button[aria-pressed=true]{
+  color:#fff;
+  opacity:1;
+  background:linear-gradient(100deg,rgba(223,39,212,.28),rgba(58,169,255,.25));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.10);
+}
+.side button[aria-pressed=true]::before{
+  background:linear-gradient(135deg,#E62AD1,#7A55FF 52%,#24AFFF);
+  box-shadow:0 8px 18px rgba(118,77,255,.28);
+}
+.mn{
+  width:min(100%,1200px);
+  margin:0 auto;
+  padding:38px 30px 76px;
+}
+.mn h1{
+  font-size:2.05rem;
+  line-height:1.12;
+  letter-spacing:-.05em;
+  font-weight:800;
+  background:linear-gradient(100deg,#18152A,#6E40F1 55%,#159ED9);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+.kp{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin:24px 0;
+}
+.kc{
+  position:relative;
+  overflow:hidden;
+  min-height:112px;
+  padding:18px;
+  border:1px solid rgba(255,255,255,.8);
+  border-radius:22px;
+  background:rgba(255,255,255,.82);
+  box-shadow:0 18px 45px rgba(61,50,120,.075);
+  backdrop-filter:blur(14px);
+}
+.kc::after{
+  content:"";
+  position:absolute;
+  right:-22px;
+  top:-24px;
+  width:88px;
+  height:88px;
+  border-radius:50%;
+  background:linear-gradient(135deg,rgba(230,42,209,.12),rgba(36,175,255,.13));
+}
+.kc:nth-child(1){
+  color:#fff;
+  border:0;
+  background:linear-gradient(135deg,#7A50F8 0%,#A747EF 48%,#23AFFF 100%);
+}
+.kc:nth-child(1) span{color:rgba(255,255,255,.78)}
+.kc:nth-child(2){background:linear-gradient(145deg,#FFF,#F1EEFF)}
+.kc:nth-child(3){background:linear-gradient(145deg,#FFF,#EAF9FF)}
+.kc b{
+  position:relative;
+  z-index:1;
+  font-size:2.05rem;
+  letter-spacing:-.045em;
+}
+.kc span{
+  position:relative;
+  z-index:1;
+  display:block;
+  margin-top:9px;
+  font-size:.78rem;
+  font-weight:700;
+}
+.pn{
+  border:1px solid rgba(255,255,255,.85);
+  border-radius:24px;
+  padding:18px;
+  background:rgba(255,255,255,.86);
+  box-shadow:0 18px 50px rgba(61,50,120,.065);
+  backdrop-filter:blur(14px);
+}
+.pn h2{
+  font-size:1rem;
+  letter-spacing:-.025em;
+}
+.btn{
+  border:1px solid #E5E4F0;
+  border-radius:13px;
+  padding:9px 13px;
+  background:rgba(255,255,255,.9);
+}
+.btn.p,.cta{
+  border-color:transparent;
+  color:#fff;
+  background:linear-gradient(100deg,#E32AD2,#8151FF 52%,#22ABF4);
+  box-shadow:0 10px 24px rgba(123,78,245,.18);
+}
+.cta{border-radius:15px}
+input:not([type=checkbox]),select,textarea{
+  border:1px solid #E4E3F1;
+  border-radius:14px;
+  padding:12px 13px;
+  background:rgba(255,255,255,.94);
+}
+.item,.sum{
+  border:1px solid #E5E4F1;
+  border-radius:18px;
+  background:rgba(255,255,255,.9);
+}
+.tg{
+  padding:4px 10px;
+}
+@media(max-width:800px){
+  .sh{display:block;min-height:100vh}
+  .side{
+    position:sticky;
+    top:0;
+    z-index:40;
+    height:auto;
+    padding:10px 14px;
+    border:0;
+    background:
+      radial-gradient(circle at 80% 0%,rgba(42,181,255,.28),transparent 16rem),
+      linear-gradient(120deg,#211747,#30165A 70%,#1B1838);
+    box-shadow:0 12px 38px rgba(32,22,66,.12);
+  }
+  .sh2{
+    height:54px;
+    display:grid;
+    grid-template-columns:46px minmax(0,1fr) auto;
+    gap:10px;
+    align-items:center;
+  }
+  .side .hb{
+    display:grid;
+    place-items:center;
+    grid-column:1;
+    grid-row:1;
+    width:42px;
+    height:42px;
+    margin:0;
+    padding:0;
+    border:1px solid rgba(255,255,255,.15);
+    border-radius:14px;
+    color:#fff;
+    background:rgba(255,255,255,.10);
+    font-size:1.15rem;
+  }
+  .cur{
+    display:block;
+    grid-column:2;
+    grid-row:1;
+    color:#fff;
+    font-weight:800;
+    font-size:.98rem;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .side h3{
+    display:block;
+    grid-column:3;
+    grid-row:1;
+    margin:0;
+    max-width:150px;
+    color:rgba(255,255,255,.72);
+    font-size:.75rem;
+    font-weight:700;
+    text-align:right;
+  }
+  .sl2{
+    display:none;
+    position:fixed;
+    top:calc(env(safe-area-inset-top,0px) + 76px);
+    left:12px;
+    right:12px;
+    z-index:60;
+    padding:10px;
+    border:1px solid rgba(255,255,255,.10);
+    border-radius:24px;
+    background:
+      radial-gradient(circle at 90% 0%,rgba(35,174,255,.18),transparent 18rem),
+      linear-gradient(155deg,#211846,#2D1956 65%,#1C1739);
+    box-shadow:0 28px 70px rgba(27,20,60,.30);
+    grid-template-columns:1fr 1fr;
+    gap:7px;
+    max-height:72vh;
+    overflow:auto;
+  }
+  .side.open .sl2{display:grid}
+  .side .sl2 button{
+    display:flex;
+    min-height:52px;
+    margin:0;
+    padding:9px 10px;
+    color:rgba(255,255,255,.76);
+    border:1px solid rgba(255,255,255,.06);
+    background:rgba(255,255,255,.055);
+    font-size:.82rem;
+  }
+  .side .sl2 button[aria-pressed=true]{
+    color:#fff;
+    background:linear-gradient(100deg,rgba(226,42,210,.25),rgba(36,174,255,.22));
+  }
+  .mn{
+    padding:25px 16px 92px;
+  }
+  .mn h1{
+    font-size:1.72rem;
+  }
+  .kp{
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin:18px 0;
+  }
+  .kc{
+    min-height:102px;
+    padding:15px;
+    border-radius:20px;
+  }
+  .kc:first-child{
+    grid-column:span 2;
+    min-height:118px;
+  }
+  .kc b{font-size:1.85rem}
+  .pn{
+    padding:16px;
+    border-radius:21px;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -748,6 +1056,19 @@ async function saveProfessionalServices(){
 }
 
 
+async function goCreateServiceFromProfessional(){
+ NV="svc";
+ MO=false;
+ await loadServices();
+ setTimeout(function(){
+  var el=document.getElementById("sn");
+  if(el){
+   try{el.scrollIntoView({behavior:"smooth",block:"center"})}catch(_){el.scrollIntoView()}
+   el.focus();
+  }
+ },80);
+}
+
 async function addRealProfessional(){
  var n=(document.getElementById("pn")?.value||"").trim();
  var r=(document.getElementById("pr")?.value||"").trim();
@@ -851,10 +1172,10 @@ function bizTeam(){
  h+='<div class="pn" style="overflow:visible;margin-top:14px"><h2>Agregar profesional</h2>';
  h+='<div class="g2"><div><label>Nombre</label><input id="pn" placeholder="Nombre completo"></div><div><label>Especialidad</label><input id="pr" placeholder="Ej. Colorista, Barbero, Matemáticas"></div></div>';
  h+='<div class="g2"><div><label>WhatsApp / teléfono (opcional)</label><input id="pp" type="tel" placeholder="300 123 4567"></div><div><label>Color identificador</label><input id="pc" type="color" value="#4F46E5"></div></div>';
- h+='<label>Servicios que realiza *</label>'; if(!API_SERVICES.length)h+='<p style="color:var(--mute)">Primero crea al menos un servicio.</p>'; else API_SERVICES.filter(function(s){return s.is_active!==false}).forEach(function(s){var sid=String(s.id),ck=PRO_CREATE_SERVICE_IDS.indexOf(sid)>-1;h+='<label style="display:flex;gap:10px;align-items:center;margin:7px 0"><input type="checkbox" data-create-service="'+sid+'" '+(ck?'checked':'')+'><span>'+esc(s.name)+'</span></label>'});
+ h+='<label>Servicios que realiza *</label>'; if(!API_SERVICES.length)h+='<div style="margin-top:8px;padding:14px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--acc) 7%,var(--sf))"><p style="color:var(--mute);margin:0 0 10px">Primero crea al menos un servicio para poder asignarlo al profesional.</p><button class="btn p" type="button" data-a="goCreateService">Crear servicio ahora</button></div>'; else API_SERVICES.filter(function(s){return s.is_active!==false}).forEach(function(s){var sid=String(s.id),ck=PRO_CREATE_SERVICE_IDS.indexOf(sid)>-1;h+='<label style="display:flex;gap:10px;align-items:center;margin:7px 0"><input type="checkbox" data-create-service="'+sid+'" '+(ck?'checked':'')+'><span>'+esc(s.name)+'</span></label>'});
  if(PRO_CREATE_ERROR)h+='<p style="color:#B3372A;margin:8px 0 0">'+esc(PRO_CREATE_ERROR)+'</p>';
  if(PRO_CREATE_MSG)h+='<p style="color:#18794E;margin:8px 0 0">'+esc(PRO_CREATE_MSG)+'</p>';
- h+='<button class="btn p" style="margin-top:12px" data-a="apiAddPro" '+(PRO_CREATE_SAVING?'disabled':'')+'>'+(PRO_CREATE_SAVING?'Guardando...':'Agregar profesional')+'</button></div>';
+ h+='<button class="btn p" style="margin-top:12px" data-a="apiAddPro" '+((PRO_CREATE_SAVING||!API_SERVICES.length)?'disabled':'')+'>'+(PRO_CREATE_SAVING?'Guardando...':'Agregar profesional')+'</button></div>';
 
  h+='<div style="margin-top:14px">';
  if(PROS_LOADING){
@@ -952,7 +1273,7 @@ function bizCfg(){
  return h
 }
 function biz(){var s=NV==="home"?bizHome():NV==="cit"?bizCitas():NV==="svc"?bizSvc():NV==="team"?bizTeam():NV==="blk"?bizBlk():NV==="rem"?bizRem():NV==="rep"?bizRep():NV==="plan"?bizPlan():bizCfg();
- return'<div class="sh">'+nav([["home","🏠 Inicio"],["cit","📋 Citas"+(pc()?" ("+pc()+")":"")],["svc","✂️ Servicios"],["team","👥 "+W.pros],["blk","⛔ Bloqueos"],["rem",(lvl()<2?"🔐":"💬")+" Recordatorios"],["rep",(lvl()<2?"🔐":"📊")+" Reportes"],["cfg","⚙️ Configuración"],["plan","💎 Mi plan"]],NV,esc(BZ.name))+'<main class="mn">'+(who==="Plataforma"?'<span class="tg w">Editando como plataforma</span>':'')+s+'</main></div>'}
+ return'<div class="sh">'+nav([["home","Inicio"],["cit","Citas"+(pc()?" ("+pc()+")":"")],["svc","Servicios"],["team",W.pros],["blk","Bloqueos"],["rem","Recordatorios"],["rep","Reportes"],["cfg","Configuración"],["plan","Mi plan"]],NV,esc(BZ.name))+'<main class="mn">'+(who==="Plataforma"?'<span class="tg w">Editando como plataforma</span>':'')+s+'</main></div>'}
 function canBook(){return SV.some(function(v){return!v.off&&PR.some(function(p){return p.sv.indexOf(v.id)>-1})})}
 function sugg(){var t=TPL[BZ.type].sv,c=t.map(function(x,i){return SV.some(function(v){return v.n===x[0]})?'':'<button data-a="sug" data-i="'+i+'">+ '+esc(x[0])+' · '+P(x[2])+'</button>'}).join("");
  return c?'<div class="pn" style="overflow:visible"><h2>Sugerencias para tu tipo de negocio</h2><p style="color:var(--mute);margin:0 0 8px;font-size:.88rem">Toca para agregar y luego ajusta el precio y la duración.</p><div class="chips">'+c+'</div></div>':''}
@@ -1175,6 +1496,7 @@ app.onclick=function(e){
  else if(a==="reloadAppts"){loadAppointments();return}
  else if(a==="reloadSvc"){loadServices();return}
  else if(a==="reloadPros"){loadProfessionals();return}
+ else if(a==="goCreateService"){goCreateServiceFromProfessional();return}
  else if(a==="apiAddSvc"){addRealService();return}
  else if(a==="apiEditSvc"){openServiceEdit(t.dataset.id);return}
  else if(a==="apiSaveSvc"){saveServiceEdit(t.dataset.id);return}
@@ -1250,7 +1572,7 @@ app.onclick=function(e){
  else if(a==="lnk"){pick(i);V="c";st=JSON.parse(JSON.stringify(st0))}
  else if(a==="anew"){var nm=document.getElementById("nn").value.trim();if(!nm){alert("Escribe el nombre del negocio.");return}var pl=document.getElementById("np").value.split("|");var tpk=document.getElementById("nt").value;REC.push(mk(nm,tpk,pl[0],+pl[1],pl[0]==="Prueba"?"Prueba":"Activo",pl[0]==="Prueba"?trial():"1 nov 2026"));var nr=REC[REC.length-1];nr.sv.length=0;nr.pro.length=0;nr.a.length=0;lg("Creó el negocio con la plantilla "+TPL[tpk].lbl+" (sin servicios ni equipo)","Plataforma",REC.length-1)}
  render();if(a==="go"||a==="svc"||a==="back")scrollTo(0,0);if(a==="ted"){var tfm=document.getElementById("tform");if(tfm)tfm.scrollIntoView({behavior:"smooth"})}};
-console.info("CitaGo negocio Etapa 3 R2 FIX V2 cargado");
+console.info("CitaLite Panel · Concepto B Moderna Llamativa");
 
 async function bootBusinessPanel(){
   const allowed = await verifyBusinessSession();
