@@ -1056,6 +1056,19 @@ async function saveProfessionalServices(){
 }
 
 
+async function goCreateServiceFromProfessional(){
+ NV="svc";
+ MO=false;
+ await loadServices();
+ setTimeout(function(){
+  var el=document.getElementById("sn");
+  if(el){
+   try{el.scrollIntoView({behavior:"smooth",block:"center"})}catch(_){el.scrollIntoView()}
+   el.focus();
+  }
+ },80);
+}
+
 async function addRealProfessional(){
  var n=(document.getElementById("pn")?.value||"").trim();
  var r=(document.getElementById("pr")?.value||"").trim();
@@ -1159,10 +1172,10 @@ function bizTeam(){
  h+='<div class="pn" style="overflow:visible;margin-top:14px"><h2>Agregar profesional</h2>';
  h+='<div class="g2"><div><label>Nombre</label><input id="pn" placeholder="Nombre completo"></div><div><label>Especialidad</label><input id="pr" placeholder="Ej. Colorista, Barbero, Matemáticas"></div></div>';
  h+='<div class="g2"><div><label>WhatsApp / teléfono (opcional)</label><input id="pp" type="tel" placeholder="300 123 4567"></div><div><label>Color identificador</label><input id="pc" type="color" value="#4F46E5"></div></div>';
- h+='<label>Servicios que realiza *</label>'; if(!API_SERVICES.length)h+='<p style="color:var(--mute)">Primero crea al menos un servicio.</p>'; else API_SERVICES.filter(function(s){return s.is_active!==false}).forEach(function(s){var sid=String(s.id),ck=PRO_CREATE_SERVICE_IDS.indexOf(sid)>-1;h+='<label style="display:flex;gap:10px;align-items:center;margin:7px 0"><input type="checkbox" data-create-service="'+sid+'" '+(ck?'checked':'')+'><span>'+esc(s.name)+'</span></label>'});
+ h+='<label>Servicios que realiza *</label>'; if(!API_SERVICES.length)h+='<div style="margin-top:8px;padding:14px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--acc) 7%,var(--sf))"><p style="color:var(--mute);margin:0 0 10px">Primero crea al menos un servicio para poder asignarlo al profesional.</p><button class="btn p" type="button" data-a="goCreateService">Crear servicio ahora</button></div>'; else API_SERVICES.filter(function(s){return s.is_active!==false}).forEach(function(s){var sid=String(s.id),ck=PRO_CREATE_SERVICE_IDS.indexOf(sid)>-1;h+='<label style="display:flex;gap:10px;align-items:center;margin:7px 0"><input type="checkbox" data-create-service="'+sid+'" '+(ck?'checked':'')+'><span>'+esc(s.name)+'</span></label>'});
  if(PRO_CREATE_ERROR)h+='<p style="color:#B3372A;margin:8px 0 0">'+esc(PRO_CREATE_ERROR)+'</p>';
  if(PRO_CREATE_MSG)h+='<p style="color:#18794E;margin:8px 0 0">'+esc(PRO_CREATE_MSG)+'</p>';
- h+='<button class="btn p" style="margin-top:12px" data-a="apiAddPro" '+(PRO_CREATE_SAVING?'disabled':'')+'>'+(PRO_CREATE_SAVING?'Guardando...':'Agregar profesional')+'</button></div>';
+ h+='<button class="btn p" style="margin-top:12px" data-a="apiAddPro" '+((PRO_CREATE_SAVING||!API_SERVICES.length)?'disabled':'')+'>'+(PRO_CREATE_SAVING?'Guardando...':'Agregar profesional')+'</button></div>';
 
  h+='<div style="margin-top:14px">';
  if(PROS_LOADING){
@@ -1483,6 +1496,7 @@ app.onclick=function(e){
  else if(a==="reloadAppts"){loadAppointments();return}
  else if(a==="reloadSvc"){loadServices();return}
  else if(a==="reloadPros"){loadProfessionals();return}
+ else if(a==="goCreateService"){goCreateServiceFromProfessional();return}
  else if(a==="apiAddSvc"){addRealService();return}
  else if(a==="apiEditSvc"){openServiceEdit(t.dataset.id);return}
  else if(a==="apiSaveSvc"){saveServiceEdit(t.dataset.id);return}
