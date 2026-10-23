@@ -181,6 +181,7 @@ body{
 .side .sl2 button[data-i="rep"]::before{content:"▥"}
 .side .sl2 button[data-i="cfg"]::before{content:"⚙"}
 .side .sl2 button[data-i="plan"]::before{content:"◇"}
+.side .sl2 button[data-i="link"]::before{content:"↗"}
 .side button[aria-pressed=true]{
   color:#fff;
   opacity:1;
@@ -418,6 +419,7 @@ input:not([type=checkbox]),select,textarea{
 <div class="bar"><small>Prototipo con datos de ejemplo · tres accesos distintos en el producto real</small>
 <button data-v="c">Cliente</button><button data-v="b">Negocio</button><button data-v="a">Plataforma</button><select id="sel" aria-label="Negocio"></select></div>
 <div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 var DN=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"],T0=new Date(),T=iso(T0);
 var CL=["#D9669A","#6E8BE8","#E8A23C","#3FB58A"];
@@ -1272,8 +1274,111 @@ function bizCfg(){
  h+='<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cta" data-a="saveCfg" style="max-width:340px" '+(SETTINGS_SAVING?'disabled':'')+'>'+(SETTINGS_SAVING?'Guardando...':'Guardar configuración')+'</button><button class="btn" data-a="seec">Ver página del cliente ↗</button></div>';
  return h
 }
-function biz(){var s=NV==="home"?bizHome():NV==="cit"?bizCitas():NV==="svc"?bizSvc():NV==="team"?bizTeam():NV==="blk"?bizBlk():NV==="rem"?bizRem():NV==="rep"?bizRep():NV==="plan"?bizPlan():bizCfg();
- return'<div class="sh">'+nav([["home","Inicio"],["cit","Citas"+(pc()?" ("+pc()+")":"")],["svc","Servicios"],["team",W.pros],["blk","Bloqueos"],["rem","Recordatorios"],["rep","Reportes"],["cfg","Configuración"],["plan","Mi plan"]],NV,esc(BZ.name))+'<main class="mn">'+(who==="Plataforma"?'<span class="tg w">Editando como plataforma</span>':'')+s+'</main></div>'}
+
+function bookingBusinessSlug(){
+ var s=AUTHORIZED_BUSINESS&&AUTHORIZED_BUSINESS.slug?String(AUTHORIZED_BUSINESS.slug).trim():"";
+ if(s)return s;
+ if(SETTINGS&&SETTINGS.slug)return String(SETTINGS.slug).trim();
+ var n=(AUTHORIZED_BUSINESS&&AUTHORIZED_BUSINESS.name)||BZ.name||"negocio";
+ return slug(n);
+}
+function publicBookingUrl(){
+ return location.origin+"/cliente.html?biz="+encodeURIComponent(bookingBusinessSlug());
+}
+function bookingBusinessName(){
+ return (AUTHORIZED_BUSINESS&&AUTHORIZED_BUSINESS.name)||BZ.name||"mi negocio";
+}
+function bizLink(){
+ var url=publicBookingUrl();
+ var name=bookingBusinessName();
+ return '<h1>Mi link de reservas</h1>'+
+ '<p style="color:var(--mute);margin:4px 0 0;max-width:680px">Comparte este enlace con tus clientes para que puedan ver tus servicios, profesionales y reservar una cita.</p>'+
+ '<div class="pn" style="margin-top:18px;overflow:visible">'+
+   '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'+
+     '<div style="width:46px;height:46px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(135deg,#E32AD2,#8151FF 52%,#22ABF4);color:#fff;font-size:1.2rem;font-weight:800">↗</div>'+
+     '<div><h2 style="margin:0">Página pública de '+esc(name)+'</h2><small style="color:var(--mute)">Este enlace es permanente para tu negocio.</small></div>'+
+   '</div>'+
+   '<label>Tu enlace de reservas</label>'+
+   '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'+
+     '<input id="booking-public-link" readonly value="'+esc(url)+'" style="flex:1;min-width:240px">'+
+     '<button class="btn p" data-a="copyBookingLink">Copiar link</button>'+
+   '</div>'+
+   '<div id="booking-link-status" style="min-height:22px;color:#18794E;font-weight:700;font-size:.84rem;margin-top:6px"></div>'+
+   '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px">'+
+     '<button class="btn p" data-a="shareBookingWhatsApp">Compartir por WhatsApp</button>'+
+     '<button class="btn" data-a="openBookingPage">Abrir página ↗</button>'+
+   '</div>'+
+ '</div>'+
+ '<div class="pn" style="overflow:visible">'+
+   '<div style="display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:22px;align-items:center">'+
+     '<div id="booking-qr-box" style="width:240px;max-width:100%;aspect-ratio:1;background:#fff;border:1px solid var(--line);border-radius:20px;padding:10px;display:grid;place-items:center;margin:auto"></div>'+
+     '<div><h2>Código QR</h2>'+
+       '<p style="color:var(--mute)">Puedes imprimirlo o mostrarlo en el local. Al escanearlo, el cliente abrirá directamente tu página de reservas.</p>'+
+       '<button class="btn p" data-a="downloadBookingQr">Descargar QR</button>'+
+     '</div>'+
+   '</div>'+
+ '</div>'+
+ '<div class="pn" style="overflow:visible;background:linear-gradient(135deg,rgba(227,42,210,.06),rgba(34,171,244,.08))">'+
+   '<h2>Ideas para compartirlo</h2>'+
+   '<div class="rw"><span class="grow">Instagram / biografía</span><span class="tg">Recomendado</span></div>'+
+   '<div class="rw" style="border-top:1px solid var(--line)"><span class="grow">WhatsApp Business</span><span class="tg">Recomendado</span></div>'+
+   '<div class="rw" style="border-top:1px solid var(--line)"><span class="grow">Google Business, Facebook o tarjetas</span><span class="tg">Disponible</span></div>'+
+ '</div>';
+}
+function renderBookingQr(){
+ var box=document.getElementById("booking-qr-box");
+ if(!box)return;
+ box.innerHTML="";
+ if(typeof QRCode==="undefined"){
+  box.innerHTML='<small style="color:var(--mute);text-align:center">No se pudo cargar el generador QR. Recarga la página.</small>';
+  return;
+ }
+ new QRCode(box,{
+  text:publicBookingUrl(),
+  width:220,
+  height:220,
+  colorDark:"#17152B",
+  colorLight:"#FFFFFF",
+  correctLevel:QRCode.CorrectLevel.H
+ });
+}
+async function copyBookingLink(){
+ var url=publicBookingUrl(),ok=false;
+ try{
+  if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(url);ok=true}
+ }catch(_){}
+ if(!ok){
+  var input=document.getElementById("booking-public-link");
+  if(input){
+   input.focus();input.select();input.setSelectionRange(0,99999);
+   try{ok=document.execCommand("copy")}catch(_){}
+  }
+ }
+ var msg=document.getElementById("booking-link-status");
+ if(msg)msg.textContent=ok?"✓ Link copiado":"Copia manualmente el enlace.";
+}
+function shareBookingWhatsApp(){
+ var msg="Reserva tu cita en "+bookingBusinessName()+": "+publicBookingUrl();
+ window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank","noopener");
+}
+function openBookingPage(){
+ window.open(publicBookingUrl(),"_blank","noopener");
+}
+function downloadBookingQr(){
+ var box=document.getElementById("booking-qr-box");
+ if(!box)return;
+ var canvas=box.querySelector("canvas"),img=box.querySelector("img"),src="";
+ if(canvas){try{src=canvas.toDataURL("image/png")}catch(_){}}
+ if(!src&&img)src=img.src||"";
+ if(!src){alert("Todavía no se pudo generar el QR. Recarga la página e intenta de nuevo.");return}
+ var a=document.createElement("a");
+ a.href=src;
+ a.download="citalite-"+bookingBusinessSlug()+"-qr.png";
+ document.body.appendChild(a);a.click();a.remove();
+}
+
+function biz(){var s=NV==="home"?bizHome():NV==="cit"?bizCitas():NV==="svc"?bizSvc():NV==="team"?bizTeam():NV==="blk"?bizBlk():NV==="rem"?bizRem():NV==="rep"?bizRep():NV==="link"?bizLink():NV==="plan"?bizPlan():bizCfg();
+ return'<div class="sh">'+nav([["home","Inicio"],["cit","Citas"+(pc()?" ("+pc()+")":"")],["svc","Servicios"],["team",W.pros],["blk","Bloqueos"],["rem","Recordatorios"],["rep","Reportes"],["link","Mi link de reservas"],["cfg","Configuración"],["plan","Mi plan"]],NV,esc(BZ.name))+'<main class="mn">'+(who==="Plataforma"?'<span class="tg w">Editando como plataforma</span>':'')+s+'</main></div>'}
 function canBook(){return SV.some(function(v){return!v.off&&PR.some(function(p){return p.sv.indexOf(v.id)>-1})})}
 function sugg(){var t=TPL[BZ.type].sv,c=t.map(function(x,i){return SV.some(function(v){return v.n===x[0]})?'':'<button data-a="sug" data-i="'+i+'">+ '+esc(x[0])+' · '+P(x[2])+'</button>'}).join("");
  return c?'<div class="pn" style="overflow:visible"><h2>Sugerencias para tu tipo de negocio</h2><p style="color:var(--mute);margin:0 0 8px;font-size:.88rem">Toca para agregar y luego ajusta el precio y la duración.</p><div class="chips">'+c+'</div></div>':''}
@@ -1422,7 +1527,7 @@ function render(){
  document.documentElement.style.setProperty("--acc",V==="a"?"#4F46C8":BZ.color);
  document.documentElement.style.setProperty("--side",V==="a"?"#1B2150":"#2A1F45");
  document.querySelectorAll(".bar [data-v]").forEach(function(e){e.setAttribute("aria-pressed",e.dataset.v===V)});
- document.getElementById("app").innerHTML=V==="c"?client():V==="b"?biz():adm()}
+ document.getElementById("app").innerHTML=V==="c"?client():V==="b"?biz():adm();if(V==="b"&&NV==="link")setTimeout(renderBookingQr,0)}
 function setV(v){V=v;MO=false;if(v==="b")who="Negocio";if(v==="c")st=JSON.parse(JSON.stringify(st0));render();scrollTo(0,0)}
 document.getElementById("sel").onchange=function(e){};
 document.querySelector(".bar").onclick=function(e){};
@@ -1490,6 +1595,10 @@ app.onclick=function(e){
   else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;loadServices();return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";loadProfessionals();return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
   MO=false
  }
+ else if(a==="copyBookingLink"){copyBookingLink();return}
+ else if(a==="shareBookingWhatsApp"){shareBookingWhatsApp();return}
+ else if(a==="openBookingPage"){openBookingPage();return}
+ else if(a==="downloadBookingQr"){downloadBookingQr();return}
  else if(a==="menu")MO=!MO;
  else if(a==="day"){bo=Math.max(0,bo+i);loadDashboard();return}
  else if(a==="reloadDash"){loadDashboard();return}
