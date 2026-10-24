@@ -801,7 +801,7 @@ var ASSIGN_PRO_ID = null, ASSIGN_SERVICE_IDS = [], ASSIGN_LOADING = false, ASSIG
 var PRO_CREATE_MSG = "", PRO_CREATE_ERROR = "", PRO_CREATE_SAVING = false, PRO_CREATE_SERVICE_IDS = [], PRO_CREATE_OPEN = false, PRO_CREATE_PHOTO = null, PRO_CREATE_PHOTO_NAME = "", PRO_CREATE_PHOTO_PREVIEW = "";
 var PRO_CREATE_DRAFT={name:"",specialty:"",phone:"",color:"#4F46E5"};
 var EDIT_PRO_ID=null, EDIT_PRO=null, EDIT_PRO_SAVING=false, EDIT_PRO_ERROR="";
-var SCHEDULE_PRO_ID = null, SCHEDULES = [], SCHEDULE_LOADING = false, SCHEDULE_SAVING = false, SCHEDULE_ERROR = "";
+var SCHEDULE_PRO_ID = null, SCHEDULES = [], SCHEDULE_LOADING = false, SCHEDULE_SAVING = false, SCHEDULE_ERROR = "", SCHEDULE_INITIAL_STATE = "";
 function slug(n){return n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
 function mk(name,type,pl,price,stt,nx){var t=TPL[type],sv=t.sv.map(function(x,i){return{id:i+1,n:x[0],m:x[1],p:x[2],e:x[3]}}),
  pro=t.pr.map(function(p,i){return{id:i+1,n:p[0],r:p[1],sv:p[2].map(function(k){return k+1}),days:[1,2,3,4,5,6],open:t.open,close:t.close,c:CL[i%CL.length]}}),
@@ -1552,20 +1552,38 @@ function scheduleValidation(){
  return{ok:true,intervals:intervals};
 }
 function schedulesReady(){return scheduleValidation().ok}
+function scheduleStateSnapshot(){
+ return JSON.stringify(SCHEDULES.map(function(row){
+  return {
+   weekday:Number(row.weekday),
+   is_active:!!row.is_active,
+   mode:row.mode||"continuous",
+   continuous_start:row.continuous_start||"",
+   continuous_end:row.continuous_end||"",
+   morning_start:row.morning_start||"",
+   morning_end:row.morning_end||"",
+   afternoon_start:row.afternoon_start||"",
+   afternoon_end:row.afternoon_end||""
+  };
+ }));
+}
+function schedulesChanged(){return !!SCHEDULE_INITIAL_STATE&&scheduleStateSnapshot()!==SCHEDULE_INITIAL_STATE}
 function updateScheduleSaveState(){
  var b=document.querySelector('[data-a="saveProSchedules"]');
- if(b)b.disabled=SCHEDULE_LOADING||SCHEDULE_SAVING||!schedulesReady();
+ if(b)b.disabled=SCHEDULE_LOADING||SCHEDULE_SAVING||!schedulesReady()||!schedulesChanged();
 }
 async function openProfessionalSchedules(proId){
- SCHEDULE_PRO_ID=String(proId);SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_LOADING=true;render();
+ SCHEDULE_PRO_ID=String(proId);SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";SCHEDULE_LOADING=true;render();
  try{
   var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+proId+"/schedules");
   if(!response.ok)throw new Error("Error HTTP "+response.status);
   SCHEDULES=scheduleEditorRows(await response.json());
+  SCHEDULE_INITIAL_STATE=scheduleStateSnapshot();
  }catch(error){
   console.error(error);
   SCHEDULE_ERROR="No se pudieron cargar los horarios.";
   SCHEDULES=defaultScheduleRows();
+  SCHEDULE_INITIAL_STATE=scheduleStateSnapshot();
  }finally{SCHEDULE_LOADING=false;render()}
 }
 async function saveProfessionalSchedules(){
@@ -1671,7 +1689,7 @@ function bizTeam(){
    }
    if(SCHEDULE_ERROR)h+='<p style="color:#B3372A">'+esc(SCHEDULE_ERROR)+'</p>';
    h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">';
-   h+='<button class="btn p" data-a="saveProSchedules" '+(SCHEDULE_LOADING||SCHEDULE_SAVING||!schedulesReady()?'disabled':'')+'>'+(SCHEDULE_SAVING?'Guardando...':'Guardar horarios')+'</button>';
+   h+='<button class="btn p" data-a="saveProSchedules" '+(SCHEDULE_LOADING||SCHEDULE_SAVING||!schedulesReady()||!schedulesChanged()?'disabled':'')+'>'+(SCHEDULE_SAVING?'Guardando...':'Guardar horarios')+'</button>';
    h+='<button class="btn" data-a="cancelProSchedules">Cancelar</button></div></div>';
   }
 
@@ -2153,7 +2171,7 @@ app.onclick=function(e){
  else if(a==="nav"){
   SERVICE_CREATE_OPEN=false;PRO_CREATE_OPEN=false;resetProfessionalCreatePhoto();resetProfessionalCreateDraft();resetPanelScroll();
   if(V==="a")AV=t.dataset.i;
-  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
+  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
   MO=false
  }
  else if(a==="copyBookingLink"){copyBookingLink();return}
@@ -2196,11 +2214,11 @@ app.onclick=function(e){
  else if(a==="cancelProServices"){ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";render();return}
  else if(a==="openProSchedules"){
   var pid=String(t.dataset.id||"");
-  if(SCHEDULE_PRO_ID===pid){SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";render();return}
+  if(SCHEDULE_PRO_ID===pid){SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";render();return}
   openProfessionalSchedules(pid);return
  }
  else if(a==="saveProSchedules"){saveProfessionalSchedules();return}
- else if(a==="cancelProSchedules"){SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";render();return}
+ else if(a==="cancelProSchedules"){SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";render();return}
  else if(a==="apiStatus"){updateAppointmentStatus(t.dataset.id,t.dataset.v);return}
  else if(a==="ast")A.forEach(function(x){if(x.id===i&&x.st!==v){x.st=v;lg(({Confirmada:"Confirmó",Cancelada:"Canceló",Rechazada:"Rechazó",Completada:"Marcó como completada","No asistió":"Marcó como no asistió"})[v]+" la cita de "+x.name)}});
  else if(a==="dsvc"){var sid=SV[i].id;lg('Quitó el servicio "'+SV[i].n+'"');PR.forEach(function(p){p.sv=p.sv.filter(function(x){return x!==sid})});SV.splice(i,1);ES=-1}
