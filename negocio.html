@@ -609,6 +609,79 @@ input[type="radio"]{
 }
 
 
+
+/* ===== ASIGNACIÓN DE SERVICIOS · NUEVO PROFESIONAL ===== */
+.pro-service-box{
+  margin-top:8px;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:color-mix(in srgb,var(--acc) 5%,var(--sf));
+}
+.pro-service-empty{
+  color:var(--mute);
+  font-size:.88rem;
+  margin:0 0 10px;
+}
+.pro-service-selected{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:0 0 12px;
+}
+.pro-service-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 10px;
+  border-radius:999px;
+  background:#E8F6EE;
+  color:#18794E;
+  font-weight:750;
+  font-size:.82rem;
+  border:1px solid rgba(24,121,78,.12);
+}
+.service-picker-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:99;
+  background:rgba(18,14,39,.58);
+  backdrop-filter:blur(5px);
+  -webkit-backdrop-filter:blur(5px);
+}
+.service-picker-modal{
+  z-index:100!important;
+  width:min(560px,calc(100% - 28px))!important;
+}
+.service-picker-option{
+  display:flex;
+  align-items:flex-start;
+  gap:11px;
+  padding:13px;
+  margin:8px 0;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:#fff;
+  cursor:pointer;
+}
+.service-picker-option input{
+  width:21px;
+  height:21px;
+  flex:none;
+  margin-top:1px;
+}
+.service-picker-option b{display:block}
+.service-picker-option small{
+  display:block;
+  color:var(--mute);
+  margin-top:2px;
+}
+.service-picker-count{
+  color:var(--mute);
+  font-size:.84rem;
+  margin:2px 0 10px;
+}
+
 /* ===== SELECTOR DE FOTO UNIFORME ===== */
 [data-a="pickImage"]{
   min-height:44px;
@@ -799,6 +872,7 @@ var PRO_LOCAL_PREVIEW = {}, PRO_FILE_NAME = {};
 var API_PROFESSIONALS = [], PROS_LOADING = false, PROS_ERROR = "";
 var ASSIGN_PRO_ID = null, ASSIGN_SERVICE_IDS = [], ASSIGN_LOADING = false, ASSIGN_SAVING = false, ASSIGN_ERROR = "";
 var PRO_CREATE_MSG = "", PRO_CREATE_ERROR = "", PRO_CREATE_SAVING = false, PRO_CREATE_SERVICE_IDS = [], PRO_CREATE_OPEN = false, PRO_CREATE_PHOTO = null, PRO_CREATE_PHOTO_NAME = "", PRO_CREATE_PHOTO_PREVIEW = "";
+var PRO_SERVICE_PICKER_OPEN = false, PRO_SERVICE_PICKER_DRAFT = [];
 var PRO_CREATE_DRAFT={name:"",specialty:"",phone:"",color:"#4F46E5"};
 var EDIT_PRO_ID=null, EDIT_PRO=null, EDIT_PRO_SAVING=false, EDIT_PRO_ERROR="";
 var SCHEDULE_PRO_ID = null, SCHEDULES = [], SCHEDULE_LOADING = false, SCHEDULE_SAVING = false, SCHEDULE_ERROR = "", SCHEDULE_INITIAL_STATE = "";
@@ -932,6 +1006,35 @@ function serviceCreateReady(){
 }
 function professionalCreateReady(){
  return !!(PRO_CREATE_DRAFT.name||"").trim() && PRO_CREATE_SERVICE_IDS.length>0;
+}
+function resetProfessionalServicePicker(){
+ PRO_SERVICE_PICKER_OPEN=false;
+ PRO_SERVICE_PICKER_DRAFT=[];
+}
+function openProfessionalServicePicker(){
+ PRO_SERVICE_PICKER_DRAFT=PRO_CREATE_SERVICE_IDS.slice();
+ PRO_SERVICE_PICKER_OPEN=true;
+ render();
+ requestAnimationFrame(function(){
+  var body=document.querySelector(".service-picker-modal .create-modal-body");
+  if(body)body.scrollTop=0;
+ });
+}
+function closeProfessionalServicePicker(apply){
+ if(apply){
+  PRO_CREATE_SERVICE_IDS=PRO_SERVICE_PICKER_DRAFT.slice();
+  PRO_CREATE_ERROR="";
+ }
+ PRO_SERVICE_PICKER_OPEN=false;
+ PRO_SERVICE_PICKER_DRAFT=[];
+ render();
+ updateCreateButtonStates();
+}
+function updateProfessionalServicePickerState(){
+ var b=document.querySelector('[data-a="confirmProServicePicker"]');
+ if(b)b.disabled=PRO_SERVICE_PICKER_DRAFT.length===0;
+ var c=document.getElementById("pro-service-picker-count");
+ if(c)c.textContent=PRO_SERVICE_PICKER_DRAFT.length===1?"1 servicio seleccionado":PRO_SERVICE_PICKER_DRAFT.length+" servicios seleccionados";
 }
 function resetProfessionalCreateDraft(){
  PRO_CREATE_DRAFT={name:"",specialty:"",phone:"",color:"#4F46E5"};
@@ -1710,16 +1813,35 @@ function bizTeam(){
   '<div class="g2"><div><label>WhatsApp / teléfono (opcional)</label><input id="pp" data-pro-create="phone" type="tel" value="'+esc(PRO_CREATE_DRAFT.phone||"")+'" placeholder="300 123 4567"></div><div><label>Color identificador</label><input id="pc" data-pro-create="color" type="color" value="'+esc(PRO_CREATE_DRAFT.color||"#4F46E5")+'"></div></div>'+
   '<label>Servicios que realiza *</label>';
   if(!API_SERVICES.length){
-   h+='<div style="margin-top:8px;padding:14px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--acc) 7%,var(--sf))"><p style="color:var(--mute);margin:0 0 10px">Primero crea al menos un servicio para poder asignarlo al profesional.</p><button class="btn p" type="button" data-a="goCreateService">Crear servicio ahora</button></div>';
+   h+='<div class="pro-service-box"><p class="pro-service-empty">Primero crea al menos un servicio para poder asignarlo al profesional.</p><button class="btn p" type="button" data-a="goCreateService">Crear servicio ahora</button></div>';
   }else{
-   API_SERVICES.filter(function(s){return s.is_active!==false}).forEach(function(s){
-    var sid=String(s.id),ck=PRO_CREATE_SERVICE_IDS.indexOf(sid)>-1;
-    h+='<label style="display:flex;gap:10px;align-items:center;margin:7px 0"><input type="checkbox" data-create-service="'+sid+'" '+(ck?'checked':'')+'><span>'+esc(s.name)+'</span></label>';
-   });
+   var selectedCreateServices=API_SERVICES.filter(function(s){return s.is_active!==false&&PRO_CREATE_SERVICE_IDS.indexOf(String(s.id))>-1});
+   h+='<div class="pro-service-box">';
+   if(selectedCreateServices.length){
+    h+='<div class="pro-service-selected">';
+    selectedCreateServices.forEach(function(s){h+='<span class="pro-service-chip">✓ '+esc(s.name)+'</span>'});
+    h+='</div><button class="btn" type="button" data-a="openProServicePicker">Editar selección</button>';
+   }else{
+    h+='<p class="pro-service-empty">Aún no has asignado servicios a este profesional.</p><button class="btn p" type="button" data-a="openProServicePicker">＋ Asignar servicios</button>';
+   }
+   h+='</div>';
   }
   if(PRO_CREATE_ERROR)h+='<p style="color:#B3372A;margin:8px 0 0">'+esc(PRO_CREATE_ERROR)+'</p>';
   h+='</div><div class="create-modal-actions"><button class="btn p" data-a="apiAddPro" '+((PRO_CREATE_SAVING||!professionalCreateReady())?'disabled':'')+'>'+(PRO_CREATE_SAVING?'Guardando...':'Crear profesional')+'</button>'+
   '<button class="btn" data-a="closeProCreate" '+(PRO_CREATE_SAVING?'disabled':'')+'>Cancelar</button></div></section>';
+
+  if(PRO_SERVICE_PICKER_OPEN){
+   var activeCreateServices=API_SERVICES.filter(function(s){return s.is_active!==false});
+   h+='<div class="service-picker-backdrop" data-a="cancelProServicePicker"></div>'+
+   '<section class="create-modal service-picker-modal" role="dialog" aria-modal="true" aria-label="Asignar servicios">'+
+   '<div class="create-modal-head"><div><h2>Asignar servicios</h2><small id="pro-service-picker-count" class="service-picker-count">'+(PRO_SERVICE_PICKER_DRAFT.length===1?'1 servicio seleccionado':PRO_SERVICE_PICKER_DRAFT.length+' servicios seleccionados')+'</small></div><button class="create-modal-x" data-a="cancelProServicePicker" aria-label="Cerrar">×</button></div>'+
+   '<div class="create-modal-body"><p style="color:var(--mute);margin:2px 0 12px">Selecciona los servicios que realizará este profesional.</p>';
+   activeCreateServices.forEach(function(s){
+    var sid=String(s.id),checked=PRO_SERVICE_PICKER_DRAFT.indexOf(sid)>-1;
+    h+='<label class="service-picker-option"><input type="checkbox" data-pro-picker-service="'+esc(sid)+'" '+(checked?'checked':'')+'><span><b>'+esc(s.name)+'</b><small>'+(s.duration_minutes||0)+' min'+(s.price!=null?' · '+P(Number(s.price||0)):'')+'</small></span></label>';
+   });
+   h+='</div><div class="create-modal-actions"><button class="btn p" data-a="confirmProServicePicker" '+(PRO_SERVICE_PICKER_DRAFT.length?'':'disabled')+'>Confirmar selección</button><button class="btn" data-a="cancelProServicePicker">Cancelar</button></div></section>';
+  }
  }
  return h+'</div>'
 }
@@ -2103,7 +2225,15 @@ app.oninput=function(e){
  updateCreateButtonStates();
 };
 app.onchange=function(e){
- var cs=e.target.dataset.createService;if(cs!==undefined){cs=String(cs);var ci=PRO_CREATE_SERVICE_IDS.indexOf(cs);if(e.target.checked&&ci<0)PRO_CREATE_SERVICE_IDS.push(cs);if(!e.target.checked&&ci>-1)PRO_CREATE_SERVICE_IDS.splice(ci,1);updateCreateButtonStates();return}
+ var pcs=e.target.dataset.proPickerService;
+ if(pcs!==undefined){
+  pcs=String(pcs);
+  var pci=PRO_SERVICE_PICKER_DRAFT.indexOf(pcs);
+  if(e.target.checked&&pci<0)PRO_SERVICE_PICKER_DRAFT.push(pcs);
+  if(!e.target.checked&&pci>-1)PRO_SERVICE_PICKER_DRAFT.splice(pci,1);
+  updateProfessionalServicePickerState();
+  return;
+ }
  var pc=e.target.dataset.proCreate;if(pc!==undefined){PRO_CREATE_DRAFT[pc]=e.target.value;updateCreateButtonStates();return}
  var ep=e.target.dataset.editPro;if(ep!==undefined&&EDIT_PRO){EDIT_PRO[ep]=e.target.value;return}
  if(e.target.dataset.editActive!==undefined&&EDIT_PRO){EDIT_PRO.is_active=e.target.checked;return}
@@ -2169,7 +2299,7 @@ app.onclick=function(e){
   st.pro=pid;st.done={id:nid++,pro:pid,svc:s.n,m:s.m,date:st.date,time:st.time,name:st.name.trim(),phone:st.phone.trim(),notes:st.notes.trim(),cf:false,st:BZ.auto?"Confirmada":"Pendiente"};A.push(st.done);st.s=5}
  else if(a==="reset")st=JSON.parse(JSON.stringify(st0));
  else if(a==="nav"){
-  SERVICE_CREATE_OPEN=false;PRO_CREATE_OPEN=false;resetProfessionalCreatePhoto();resetProfessionalCreateDraft();resetPanelScroll();
+  SERVICE_CREATE_OPEN=false;PRO_CREATE_OPEN=false;resetProfessionalServicePicker();resetProfessionalCreatePhoto();resetProfessionalCreateDraft();resetPanelScroll();
   if(V==="a")AV=t.dataset.i;
   else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
   MO=false
@@ -2186,8 +2316,11 @@ app.onclick=function(e){
  else if(a==="reloadPros"){loadProfessionals();return}
  else if(a==="openSvcCreate"){resetServiceCreateDraft();SERVICE_UI_ERROR="";SERVICE_MSG="";SERVICE_CREATE_OPEN=true;render();afterCreateModalOpen();return}
  else if(a==="closeSvcCreate"){if(!SERVICE_SAVING){resetServiceCreateDraft();SERVICE_UI_ERROR="";SERVICE_CREATE_OPEN=false;render()}return}
- else if(a==="openProCreate"){PRO_CREATE_SERVICE_IDS=[];PRO_CREATE_ERROR="";PRO_CREATE_MSG="";resetProfessionalCreatePhoto();resetProfessionalCreateDraft();PRO_CREATE_OPEN=true;render();afterCreateModalOpen();return}
- else if(a==="closeProCreate"){if(!PRO_CREATE_SAVING){PRO_CREATE_SERVICE_IDS=[];PRO_CREATE_ERROR="";resetProfessionalCreatePhoto();resetProfessionalCreateDraft();PRO_CREATE_OPEN=false;render()}return}
+ else if(a==="openProCreate"){PRO_CREATE_SERVICE_IDS=[];PRO_CREATE_ERROR="";PRO_CREATE_MSG="";resetProfessionalServicePicker();resetProfessionalCreatePhoto();resetProfessionalCreateDraft();PRO_CREATE_OPEN=true;render();afterCreateModalOpen();return}
+ else if(a==="closeProCreate"){if(!PRO_CREATE_SAVING){PRO_CREATE_SERVICE_IDS=[];PRO_CREATE_ERROR="";resetProfessionalServicePicker();resetProfessionalCreatePhoto();resetProfessionalCreateDraft();PRO_CREATE_OPEN=false;render()}return}
+ else if(a==="openProServicePicker"){openProfessionalServicePicker();return}
+ else if(a==="confirmProServicePicker"){closeProfessionalServicePicker(true);return}
+ else if(a==="cancelProServicePicker"){closeProfessionalServicePicker(false);return}
  else if(a==="goCreateService"){goCreateServiceFromProfessional();return}
  else if(a==="apiAddSvc"){addRealService();return}
  else if(a==="apiEditSvc"){openServiceEdit(t.dataset.id);return}
