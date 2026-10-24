@@ -642,6 +642,31 @@ input[type="radio"]{
 .file-status.busy{color:#6E40F1}
 .file-status.error{color:#B3372A}
 
+
+/* ===== HORARIOS PROFESIONALES · CONTINUA / DIVIDIDA ===== */
+.schedule-day{
+  margin:10px 0;padding:12px;border:1px solid var(--line);border-radius:16px;
+  background:#fff;
+}
+.schedule-day.off{background:var(--bg)}
+.schedule-day-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.schedule-day-toggle{display:flex;align-items:center;gap:9px;margin:0!important;color:var(--ink);font-weight:800}
+.schedule-day-toggle input{width:20px!important;height:20px!important;flex:0 0 20px}
+.schedule-mode{width:auto;min-width:190px;padding:9px 11px;border-radius:11px}
+.schedule-zones{display:grid;gap:10px;margin-top:12px}
+.schedule-zone{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}
+.schedule-zone-title{display:flex;align-items:center;gap:7px;font-weight:800;margin-bottom:8px}
+.schedule-time-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.schedule-time-grid label{margin:0 0 5px;font-size:.78rem}
+.schedule-time-grid input{width:100%;min-width:0}
+.schedule-help{display:block;color:var(--mute);font-size:.78rem;margin-top:8px;line-height:1.4}
+@media(max-width:520px){
+  .schedule-day-head{align-items:flex-start}
+  .schedule-mode{width:100%;min-width:0}
+  .schedule-time-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .schedule-zone{padding:10px}
+}
+
 </style>
 </head>
 <body>
@@ -1466,23 +1491,77 @@ function normalizeSchedules(data){
    end_time:(x.end_time||"17:00").slice(0,5),
    is_active:x.is_active!==false
   };
- });
+ }).filter(function(x){return x.is_active});
 }
 function defaultScheduleRows(){
  var out=[];
- [1,2,3,4,5,6,0].forEach(function(i){out.push({id:null,weekday:i,start_time:"08:00",end_time:"17:00",is_active:false})});
+ [1,2,3,4,5,6,0].forEach(function(i){
+  out.push({
+   weekday:i,
+   is_active:false,
+   mode:"continuous",
+   continuous_start:"08:00",
+   continuous_end:"17:00",
+   morning_start:"08:00",
+   morning_end:"12:00",
+   afternoon_start:"13:00",
+   afternoon_end:"17:00"
+  });
+ });
  return out;
+}
+function scheduleEditorRows(data){
+ var rows=normalizeSchedules(data),days=defaultScheduleRows();
+ days.forEach(function(day){
+  var found=rows.filter(function(x){return x.weekday===day.weekday}).sort(function(a,b){return a.start_time.localeCompare(b.start_time)});
+  if(!found.length)return;
+  day.is_active=true;
+  if(found.length===1){
+   day.mode="continuous";
+   day.continuous_start=found[0].start_time;
+   day.continuous_end=found[0].end_time;
+  }else{
+   day.mode="split";
+   day.morning_start=found[0].start_time;
+   day.morning_end=found[0].end_time;
+   day.afternoon_start=found[1].start_time;
+   day.afternoon_end=found[1].end_time;
+   day.continuous_start=found[0].start_time;
+   day.continuous_end=found[found.length-1].end_time;
+  }
+ });
+ return days;
+}
+function scheduleValidation(){
+ var dn={0:"Domingo",1:"Lunes",2:"Martes",3:"Miércoles",4:"Jueves",5:"Viernes",6:"Sábado"};
+ var intervals=[];
+ for(var i=0;i<SCHEDULES.length;i++){
+  var row=SCHEDULES[i];
+  if(!row.is_active)continue;
+  if(row.mode==="split"){
+   if(!row.morning_start||!row.morning_end||tm(row.morning_start)>=tm(row.morning_end))return{ok:false,error:"Revisa el horario de la mañana del "+dn[row.weekday]};
+   if(!row.afternoon_start||!row.afternoon_end||tm(row.afternoon_start)>=tm(row.afternoon_end))return{ok:false,error:"Revisa el horario de la tarde del "+dn[row.weekday]};
+   if(tm(row.morning_end)>tm(row.afternoon_start))return{ok:false,error:"La mañana y la tarde del "+dn[row.weekday]+" no pueden superponerse."};
+   intervals.push({weekday:Number(row.weekday),start_time:row.morning_start,end_time:row.morning_end});
+   intervals.push({weekday:Number(row.weekday),start_time:row.afternoon_start,end_time:row.afternoon_end});
+  }else{
+   if(!row.continuous_start||!row.continuous_end||tm(row.continuous_start)>=tm(row.continuous_end))return{ok:false,error:"Revisa la jornada continua del "+dn[row.weekday]};
+   intervals.push({weekday:Number(row.weekday),start_time:row.continuous_start,end_time:row.continuous_end});
+  }
+ }
+ return{ok:true,intervals:intervals};
+}
+function schedulesReady(){return scheduleValidation().ok}
+function updateScheduleSaveState(){
+ var b=document.querySelector('[data-a="saveProSchedules"]');
+ if(b)b.disabled=SCHEDULE_LOADING||SCHEDULE_SAVING||!schedulesReady();
 }
 async function openProfessionalSchedules(proId){
  SCHEDULE_PRO_ID=String(proId);SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_LOADING=true;render();
  try{
   var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+proId+"/schedules");
   if(!response.ok)throw new Error("Error HTTP "+response.status);
-  var rows=normalizeSchedules(await response.json());
-  SCHEDULES=defaultScheduleRows().map(function(base){
-   var found=rows.find(function(x){return Number(x.weekday)===base.weekday});
-   return found||base;
-  });
+  SCHEDULES=scheduleEditorRows(await response.json());
  }catch(error){
   console.error(error);
   SCHEDULE_ERROR="No se pudieron cargar los horarios.";
@@ -1490,12 +1569,24 @@ async function openProfessionalSchedules(proId){
  }finally{SCHEDULE_LOADING=false;render()}
 }
 async function saveProfessionalSchedules(){
- if(!SCHEDULE_PRO_ID)return;SCHEDULE_SAVING=true;SCHEDULE_ERROR="";render();
- var dn={0:"Domingo",1:"Lunes",2:"Martes",3:"Miércoles",4:"Jueves",5:"Viernes",6:"Sábado"};
- try{for(var i=0;i<SCHEDULES.length;i++){var row=SCHEDULES[i],base=API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+SCHEDULE_PRO_ID+"/schedules";
-  if(row.is_active){if(!row.start_time||!row.end_time||tm(row.start_time)>=tm(row.end_time))throw new Error("Revisa las horas de "+dn[row.weekday]);var body={weekday:Number(row.weekday),start_time:row.start_time,end_time:row.end_time};var url=row.id?base+"/"+row.id:base,method=row.id?"PATCH":"POST";var r=await fetch(url,{method:method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(!r.ok)throw new Error(dn[row.weekday]+": "+await r.text());if(!row.id){var created=await r.json();row.id=created.id}}
-  else if(row.id){var d=await fetch(base+"/"+row.id,{method:"DELETE"});if(!d.ok)throw new Error(dn[row.weekday]+": "+await d.text());row.id=null}
- }alert("Horarios guardados correctamente.");SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR=""}catch(e){console.error(e);SCHEDULE_ERROR="No se pudieron guardar los horarios: "+e.message}finally{SCHEDULE_SAVING=false;render()}
+ if(!SCHEDULE_PRO_ID)return;
+ var validation=scheduleValidation();
+ if(!validation.ok){SCHEDULE_ERROR=validation.error;render();return}
+ SCHEDULE_SAVING=true;SCHEDULE_ERROR="";render();
+ try{
+  var base=API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+SCHEDULE_PRO_ID+"/schedules";
+  var response=await fetch(base,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({schedules:validation.intervals})});
+  if(!response.ok){
+   var raw=await response.text(),msg=raw;
+   try{var er=JSON.parse(raw);msg=er.detail||raw}catch(_){}
+   throw new Error(msg||("Error HTTP "+response.status));
+  }
+  alert("Horarios guardados correctamente.");
+  SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";
+ }catch(e){
+  console.error(e);
+  SCHEDULE_ERROR="No se pudieron guardar los horarios: "+e.message;
+ }finally{SCHEDULE_SAVING=false;render()}
 }
 
 function bizTeam(){
@@ -1555,21 +1646,32 @@ function bizTeam(){
   if(SCHEDULE_PRO_ID===pid){
    h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px">';
    h+='<h2 style="margin:0 0 5px">Horarios del profesional</h2>';
-   h+='<p style="color:var(--mute);margin:0 0 10px;font-size:.86rem">Activa los días que trabaja y ajusta las horas. Puedes modificarlos después.</p>';
+   h+='<p style="color:var(--mute);margin:0 0 10px;font-size:.86rem">Cada día puede ser una jornada continua o dividirse en mañana y tarde.</p>';
    if(SCHEDULE_LOADING){
     h+='<p>Cargando horarios...</p>';
    }else{
     SCHEDULES.forEach(function(row,idx){
-     h+='<div style="display:grid;grid-template-columns:minmax(110px,1fr) 92px 92px;gap:8px;align-items:center;margin:8px 0;padding:8px;border:1px solid var(--line);border-radius:10px">';
-     h+='<label style="display:flex;align-items:center;gap:8px;margin:0"><input type="checkbox" data-sched-active="'+idx+'" '+(row.is_active?'checked':'')+' style="width:19px;height:19px"><span>'+dayNames[row.weekday]+'</span></label>';
-     h+='<input type="time" data-sched-start="'+idx+'" value="'+esc(row.start_time)+'" '+(!row.is_active?'disabled':'')+'>';
-     h+='<input type="time" data-sched-end="'+idx+'" value="'+esc(row.end_time)+'" '+(!row.is_active?'disabled':'')+'>';
+     h+='<div class="schedule-day '+(row.is_active?'':'off')+'">';
+     h+='<div class="schedule-day-head"><label class="schedule-day-toggle"><input type="checkbox" data-sched-active="'+idx+'" '+(row.is_active?'checked':'')+'><span>'+dayNames[row.weekday]+'</span></label>';
+     if(row.is_active)h+='<select class="schedule-mode" data-sched-mode="'+idx+'"><option value="continuous" '+(row.mode==="continuous"?'selected':'')+'>Jornada continua</option><option value="split" '+(row.mode==="split"?'selected':'')+'>Jornada dividida</option></select>';
+     h+='</div>';
+     if(row.is_active){
+      h+='<div class="schedule-zones">';
+      if(row.mode==="split"){
+       h+='<div class="schedule-zone"><div class="schedule-zone-title">☀️ Mañana</div><div class="schedule-time-grid"><div><label>Entrada</label><input type="time" data-sched-field="morning_start" data-i="'+idx+'" value="'+esc(row.morning_start)+'"></div><div><label>Salida</label><input type="time" data-sched-field="morning_end" data-i="'+idx+'" value="'+esc(row.morning_end)+'"></div></div></div>';
+       h+='<div class="schedule-zone"><div class="schedule-zone-title">🌤️ Tarde</div><div class="schedule-time-grid"><div><label>Entrada</label><input type="time" data-sched-field="afternoon_start" data-i="'+idx+'" value="'+esc(row.afternoon_start)+'"></div><div><label>Salida</label><input type="time" data-sched-field="afternoon_end" data-i="'+idx+'" value="'+esc(row.afternoon_end)+'"></div></div></div>';
+       h+='<small class="schedule-help">El espacio entre ambos bloques queda automáticamente fuera de las reservas.</small>';
+      }else{
+       h+='<div class="schedule-zone"><div class="schedule-zone-title">🕐 Jornada continua</div><div class="schedule-time-grid"><div><label>Entrada</label><input type="time" data-sched-field="continuous_start" data-i="'+idx+'" value="'+esc(row.continuous_start)+'"></div><div><label>Salida</label><input type="time" data-sched-field="continuous_end" data-i="'+idx+'" value="'+esc(row.continuous_end)+'"></div></div><small class="schedule-help">Ejemplo: 09:00 → 15:00, sin pausa de almuerzo.</small></div>';
+      }
+      h+='</div>';
+     }
      h+='</div>';
     });
    }
    if(SCHEDULE_ERROR)h+='<p style="color:#B3372A">'+esc(SCHEDULE_ERROR)+'</p>';
    h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">';
-   h+='<button class="btn p" data-a="saveProSchedules" '+(SCHEDULE_LOADING||SCHEDULE_SAVING?'disabled':'')+'>'+(SCHEDULE_SAVING?'Guardando...':'Guardar horarios')+'</button>';
+   h+='<button class="btn p" data-a="saveProSchedules" '+(SCHEDULE_LOADING||SCHEDULE_SAVING||!schedulesReady()?'disabled':'')+'>'+(SCHEDULE_SAVING?'Guardando...':'Guardar horarios')+'</button>';
    h+='<button class="btn" data-a="cancelProSchedules">Cancelar</button></div></div>';
   }
 
@@ -1989,12 +2091,25 @@ app.onchange=function(e){
  if(e.target.dataset.editActive!==undefined&&EDIT_PRO){EDIT_PRO.is_active=e.target.checked;return}
  var sa=e.target.dataset.schedActive;
  if(sa!==undefined){
-  var ix=Number(sa); if(SCHEDULES[ix]){SCHEDULES[ix].is_active=e.target.checked;render()} return;
+  var ix=Number(sa);if(SCHEDULES[ix]){SCHEDULES[ix].is_active=e.target.checked;SCHEDULE_ERROR="";render()}return;
  }
- var ss=e.target.dataset.schedStart;
- if(ss!==undefined){var ix=Number(ss);if(SCHEDULES[ix])SCHEDULES[ix].start_time=e.target.value;return}
- var se=e.target.dataset.schedEnd;
- if(se!==undefined){var ix=Number(se);if(SCHEDULES[ix])SCHEDULES[ix].end_time=e.target.value;return}
+ var sm=e.target.dataset.schedMode;
+ if(sm!==undefined){
+  var ix=Number(sm),row=SCHEDULES[ix];
+  if(row){
+   row.mode=e.target.value;
+   if(row.mode==="continuous"){
+    row.continuous_start=row.morning_start||row.continuous_start;
+    row.continuous_end=row.afternoon_end||row.continuous_end;
+   }
+   SCHEDULE_ERROR="";render();
+  }
+  return;
+ }
+ var sf=e.target.dataset.schedField;
+ if(sf!==undefined){
+  var ix=Number(e.target.dataset.i);if(SCHEDULES[ix]){SCHEDULES[ix][sf]=e.target.value;SCHEDULE_ERROR="";updateScheduleSaveState()}return;
+ }
 
  var psid=e.target.dataset.profService;
  if(psid!==undefined){
