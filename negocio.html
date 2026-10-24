@@ -622,6 +622,25 @@ input[type="radio"]{
   color:var(--mute);
   margin-top:4px;
 }
+.upload-control{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:8px;
+}
+.file-status{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:28px;
+  color:var(--mute);
+  font-size:.84rem;
+  font-weight:700;
+}
+.file-status.ok{color:#18794E}
+.file-status.busy{color:#6E40F1}
+.file-status.error{color:#B3372A}
 
 </style>
 </head>
@@ -1264,11 +1283,11 @@ function bizSvc(){
   if(editing){
    h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><h2>Editar servicio</h2>'+
    '<label>Foto del servicio</label><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">'+serviceThumb(v,96)+
-   '<div style="flex:1;min-width:220px"><button type="button" class="btn" data-a="pickImage" data-kind="serviceEdit" data-id="'+esc(sid)+'" '+(busy?'disabled':'')+'>Seleccionar foto</button>'+
+   '<div style="flex:1;min-width:220px"><div class="upload-control"><button type="button" class="btn" data-a="pickImage" data-kind="serviceEdit" data-id="'+esc(sid)+'" '+(busy?'disabled':'')+'>Seleccionar foto</button>'+
+   (busy?'<span class="file-status busy">⏳ Subiendo foto...</span>':(v.image_url?'<span class="file-status ok">✓ Foto cargada</span>':'<span class="file-status">Sin foto cargada</span>'))+'</div>'+
    '<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB. Al elegir otra imagen se reemplaza la anterior.</small>'+
    (SERVICE_FILE_NAME[sid]?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo: '+esc(SERVICE_FILE_NAME[sid])+'</small>':'')+
-   (v.image_url?'<button class="lk" data-a="removeSvcPhoto" data-id="'+esc(sid)+'" '+(busy?'disabled':'')+'>Quitar foto</button>':'')+
-   (busy?'<p style="color:var(--mute);margin:6px 0 0">Subiendo foto...</p>':'')+'</div></div>'+
+   (v.image_url?'<button class="lk" data-a="removeSvcPhoto" data-id="'+esc(sid)+'" '+(busy?'disabled':'')+'>Quitar foto</button>':'')+'</div></div>'+
    '<label>Nombre</label><input id="esn" value="'+esc(v.name)+'"><label>Descripción</label><textarea id="esd" rows="2">'+esc(v.description||"")+'</textarea>'+
    '<div class="g3"><div><label>Duración (min)</label><input id="esm" type="number" min="1" value="'+Number(v.duration_minutes||0)+'"></div>'+
    '<div><label>Precio</label><input id="esp" type="number" min="0" value="'+Number(v.price||0)+'"></div>'+
@@ -1289,7 +1308,8 @@ function bizSvc(){
   '<div><label>Ícono</label><input id="si" data-service-create="icon" maxlength="20" value="'+esc(SERVICE_CREATE_DRAFT.icon||"✨")+'"></div></div>'+
   '<label>Foto del servicio (opcional)</label>'+
   (SERVICE_CREATE_PREVIEW?'<div style="margin:6px 0 8px"><img src="'+esc(SERVICE_CREATE_PREVIEW)+'" alt="Vista previa del servicio" style="width:120px;height:90px;border-radius:14px;object-fit:cover;border:1px solid var(--line)"></div>':'')+
-  '<button type="button" class="btn" data-a="pickImage" data-kind="serviceCreate" '+(SERVICE_SAVING?'disabled':'')+'>Seleccionar foto</button>'+
+  '<div class="upload-control"><button type="button" class="btn" data-a="pickImage" data-kind="serviceCreate" '+(SERVICE_SAVING?'disabled':'')+'>Seleccionar foto</button>'+
+  (SERVICE_CREATE_PHOTO_NAME?'<span class="file-status ok">✓ Foto seleccionada</span>':'<span class="file-status">Sin foto seleccionada</span>')+'</div>'+
   '<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+
   (SERVICE_CREATE_PHOTO_NAME?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo seleccionado: '+esc(SERVICE_CREATE_PHOTO_NAME)+'</small>':'')+
   (SERVICE_UI_ERROR?'<p style="color:#B3372A;margin:10px 0 0;font-weight:600">'+esc(SERVICE_UI_ERROR)+'</p>':'')+
@@ -1506,7 +1526,7 @@ function bizTeam(){
 
    if(EDIT_PRO_ID===pid&&EDIT_PRO){
     h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><h2>Editar profesional</h2>';
-    h+='<div class="rw">'+professionalAvatar(p,76)+'<div class="grow"><label style="margin:0">Foto del profesional</label><button type="button" class="btn" data-a="pickImage" data-kind="professionalEdit" data-id="'+esc(pid)+'" '+(PRO_PHOTO_BUSY===pid?'disabled':'')+'>Seleccionar foto</button><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(p.photo_url?'<button class="lk" data-a="removeProPhoto" data-id="'+esc(pid)+'">Quitar foto</button>':'')+'</div></div>';
+    h+='<div class="rw">'+professionalAvatar(p,76)+'<div class="grow"><label style="margin:0">Foto del profesional</label><div class="upload-control"><button type="button" class="btn" data-a="pickImage" data-kind="professionalEdit" data-id="'+esc(pid)+'" '+(PRO_PHOTO_BUSY===pid?'disabled':'')+'>Seleccionar foto</button>'+(PRO_PHOTO_BUSY===pid?'<span class="file-status busy">⏳ Subiendo foto...</span>':(p.photo_url?'<span class="file-status ok">✓ Foto cargada</span>':'<span class="file-status">Sin foto cargada</span>'))+'</div><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(PRO_FILE_NAME[pid]?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo: '+esc(PRO_FILE_NAME[pid])+'</small>':'')+(p.photo_url?'<button class="lk" data-a="removeProPhoto" data-id="'+esc(pid)+'">Quitar foto</button>':'')+'</div></div>';
     h+='<div class="g2"><div><label>Nombre</label><input data-edit-pro="name" value="'+esc(EDIT_PRO.name)+'"></div><div><label>Especialidad</label><input data-edit-pro="specialty" value="'+esc(EDIT_PRO.specialty)+'"></div></div><div class="g2"><div><label>WhatsApp / teléfono</label><input data-edit-pro="phone" value="'+esc(EDIT_PRO.phone)+'"></div><div><label>Color</label><input type="color" data-edit-pro="color" value="'+esc(EDIT_PRO.color)+'"></div></div><label style="color:var(--ink)"><input type="checkbox" data-edit-active="1" '+(EDIT_PRO.is_active?'checked':'')+'> Profesional activo</label>';
     if(EDIT_PRO_ERROR)h+='<p style="color:#B3372A">'+esc(EDIT_PRO_ERROR)+'</p>';h+='<div class="dn"><button class="btn p" data-a="saveProEdit" '+(EDIT_PRO_SAVING?'disabled':'')+'>'+(EDIT_PRO_SAVING?'Guardando...':'Guardar cambios')+'</button><button class="btn" data-a="cancelProEdit">Cancelar</button></div></div>';
    }
@@ -1562,7 +1582,8 @@ function bizTeam(){
   '<label>Foto del profesional (opcional)</label>'+
   '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:6px 0 12px">'+
   (PRO_CREATE_PHOTO_PREVIEW?'<img class="create-photo-preview" src="'+esc(PRO_CREATE_PHOTO_PREVIEW)+'" alt="Vista previa del profesional">':'<div class="create-photo-preview" style="display:grid;place-items:center;color:var(--mute);font-size:1.6rem">👤</div>')+
-  '<div style="flex:1;min-width:210px"><button type="button" class="btn" data-a="pickImage" data-kind="professionalCreate" '+(PRO_CREATE_SAVING?'disabled':'')+'>Seleccionar foto</button>'+
+  '<div style="flex:1;min-width:210px"><div class="upload-control"><button type="button" class="btn" data-a="pickImage" data-kind="professionalCreate" '+(PRO_CREATE_SAVING?'disabled':'')+'>Seleccionar foto</button>'+
+  (PRO_CREATE_PHOTO_NAME?'<span class="file-status ok">✓ Foto seleccionada</span>':'<span class="file-status">Sin foto seleccionada</span>')+'</div>'+
   '<small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+
   (PRO_CREATE_PHOTO_NAME?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo seleccionado: '+esc(PRO_CREATE_PHOTO_NAME)+'</small>':'')+'</div></div>'+
   '<div class="g2"><div><label>Nombre</label><input id="pn" data-pro-create="name" value="'+esc(PRO_CREATE_DRAFT.name||"")+'" placeholder="Nombre completo"></div><div><label>Especialidad</label><input id="pr" data-pro-create="specialty" value="'+esc(PRO_CREATE_DRAFT.specialty||"")+'" placeholder="Ej. Colorista, Barbero, Matemáticas"></div></div>'+
@@ -1588,7 +1609,7 @@ function imgPreview(url,label,ratio){
 }
 function mediaPicker(kind,label,url,height){
  var busy=MEDIA_BUSY===kind,preview=MEDIA_LOCAL_PREVIEW[kind]||url||"",fname=MEDIA_FILE_NAME[kind]||"";
- return'<div><label>'+esc(label)+'</label>'+imgPreview(preview,label,height)+'<div style="margin-top:8px"><button type="button" class="btn" data-a="pickImage" data-kind="businessMedia" data-id="'+kind+'" '+(busy?'disabled':'')+'>Seleccionar foto</button></div><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(fname?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo: '+esc(fname)+'</small>':'')+(url?'<button class="lk" data-a="removeMedia" data-kind="'+kind+'" '+(busy?'disabled':'')+'>Quitar imagen</button>':'')+(busy?'<p style="color:var(--mute);margin:6px 0 0">Subiendo imagen...</p>':'')+'</div>'
+ return'<div><label>'+esc(label)+'</label>'+imgPreview(preview,label,height)+'<div class="upload-control"><button type="button" class="btn" data-a="pickImage" data-kind="businessMedia" data-id="'+kind+'" '+(busy?'disabled':'')+'>Seleccionar foto</button>'+(busy?'<span class="file-status busy">⏳ Subiendo imagen...</span>':(url?'<span class="file-status ok">✓ Imagen cargada</span>':'<span class="file-status">Sin imagen cargada</span>'))+'</div><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(fname?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo: '+esc(fname)+'</small>':'')+(url?'<button class="lk" data-a="removeMedia" data-kind="'+kind+'" '+(busy?'disabled':'')+'>Quitar imagen</button>':'')+'</div>'
 }
 
 var TIMEZONE_OPTIONS=[
