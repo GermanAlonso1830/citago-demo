@@ -859,22 +859,22 @@ window.fetch = async function(input, init){
 var DASH = null, DASH_LOADING = false, DASH_ERROR = "";
 var APPTS = [], APPTS_LOADING = false, APPTS_ERROR = "";
 var API_SERVICES = [], SERVICES_LOADING = false, SERVICES_ERROR = "";
-var EDIT_SERVICE_ID = null, SERVICE_SAVING = false, SERVICE_ACTION_BUSY = "";
+var EDIT_SERVICE_ID = null, SERVICE_SAVING = false, SERVICE_ACTION_BUSY = "", SERVICE_EDIT_INITIAL_STATE = "", SERVICE_EDIT_DIRTY = false;
 var SERVICE_MSG = "", SERVICE_UI_ERROR = "";
 var SERVICE_PHOTO_BUSY = "", SERVICE_LOCAL_PREVIEW = {}, SERVICE_FILE_NAME = {};
 var SERVICE_CREATE_DRAFT = {name:"",description:"",duration:"",price:"",icon:"✨"};
 var SERVICE_CREATE_PHOTO = null, SERVICE_CREATE_PHOTO_NAME = "", SERVICE_CREATE_PREVIEW = "", SERVICE_CREATE_OPEN = false;
-var SETTINGS = null, SETTINGS_LOADING = false, SETTINGS_SAVING = false, SETTINGS_ERROR = "", SETTINGS_MSG = "";
+var SETTINGS = null, SETTINGS_LOADING = false, SETTINGS_SAVING = false, SETTINGS_ERROR = "", SETTINGS_MSG = "", SETTINGS_INITIAL_STATE = "", SETTINGS_DIRTY = false;
 var MEDIA_BUSY = "", MEDIA_ERROR = "", PRO_PHOTO_BUSY = "";
 var MEDIA_LOCAL_PREVIEW = {logo:"",cover:"",background:""};
 var MEDIA_FILE_NAME = {logo:"",cover:"",background:""};
 var PRO_LOCAL_PREVIEW = {}, PRO_FILE_NAME = {};
 var API_PROFESSIONALS = [], PROS_LOADING = false, PROS_ERROR = "";
-var ASSIGN_PRO_ID = null, ASSIGN_SERVICE_IDS = [], ASSIGN_LOADING = false, ASSIGN_SAVING = false, ASSIGN_ERROR = "";
+var ASSIGN_PRO_ID = null, ASSIGN_SERVICE_IDS = [], ASSIGN_LOADING = false, ASSIGN_SAVING = false, ASSIGN_ERROR = "", ASSIGN_INITIAL_STATE = "";
 var PRO_CREATE_MSG = "", PRO_CREATE_ERROR = "", PRO_CREATE_SAVING = false, PRO_CREATE_SERVICE_IDS = [], PRO_CREATE_OPEN = false, PRO_CREATE_PHOTO = null, PRO_CREATE_PHOTO_NAME = "", PRO_CREATE_PHOTO_PREVIEW = "";
 var PRO_SERVICE_PICKER_OPEN = false, PRO_SERVICE_PICKER_DRAFT = [];
 var PRO_CREATE_DRAFT={name:"",specialty:"",phone:"",color:"#4F46E5"};
-var EDIT_PRO_ID=null, EDIT_PRO=null, EDIT_PRO_SAVING=false, EDIT_PRO_ERROR="";
+var EDIT_PRO_ID=null, EDIT_PRO=null, EDIT_PRO_SAVING=false, EDIT_PRO_ERROR="", EDIT_PRO_INITIAL_STATE="";
 var SCHEDULE_PRO_ID = null, SCHEDULES = [], SCHEDULE_LOADING = false, SCHEDULE_SAVING = false, SCHEDULE_ERROR = "", SCHEDULE_INITIAL_STATE = "";
 function slug(n){return n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
 function mk(name,type,pl,price,stt,nx){var t=TPL[type],sv=t.sv.map(function(x,i){return{id:i+1,n:x[0],m:x[1],p:x[2],e:x[3]}}),
@@ -1140,9 +1140,44 @@ async function addRealService(){
   render();
  }
 }
+function serviceEditPayloadFromService(v){
+ return {
+  name:String((v&&v.name)||"").trim(),
+  description:String((v&&v.description)||"").trim()||null,
+  duration_minutes:Number((v&&v.duration_minutes)||0),
+  price:Number((v&&v.price)||0),
+  icon:String((v&&v.icon)||"✨").trim()||null
+ };
+}
+function serviceEditCurrentPayload(){
+ var priceRaw=document.getElementById("esp")?.value;
+ return {
+  name:(document.getElementById("esn")?.value||"").trim(),
+  description:(document.getElementById("esd")?.value||"").trim()||null,
+  duration_minutes:Number(document.getElementById("esm")?.value||0),
+  price:priceRaw===""?0:Number(priceRaw||0),
+  icon:(document.getElementById("esi")?.value||"").trim()||null
+ };
+}
+function serviceEditChanged(){
+ return !!SERVICE_EDIT_INITIAL_STATE&&JSON.stringify(serviceEditCurrentPayload())!==SERVICE_EDIT_INITIAL_STATE;
+}
+function updateServiceEditSaveState(){
+ SERVICE_EDIT_DIRTY=serviceEditChanged();
+ var b=document.querySelector('[data-a="apiSaveSvc"]');
+ if(b)b.disabled=SERVICE_SAVING||!SERVICE_EDIT_DIRTY;
+}
 function openServiceEdit(id){
  SERVICE_UI_ERROR="";SERVICE_MSG="";
- EDIT_SERVICE_ID=EDIT_SERVICE_ID===String(id)?null:String(id);render();
+ var sid=String(id);
+ if(EDIT_SERVICE_ID===sid){
+  EDIT_SERVICE_ID=null;SERVICE_EDIT_INITIAL_STATE="";SERVICE_EDIT_DIRTY=false;render();return;
+ }
+ var svc=API_SERVICES.find(function(x){return String(x.id)===sid});
+ EDIT_SERVICE_ID=sid;
+ SERVICE_EDIT_INITIAL_STATE=svc?JSON.stringify(serviceEditPayloadFromService(svc)):"";
+ SERVICE_EDIT_DIRTY=false;
+ render();
 }
 async function saveServiceEdit(id){
  if(SERVICE_SAVING)return;
@@ -1157,7 +1192,7 @@ async function saveServiceEdit(id){
  try{
   var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/services/"+id,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:n,description:d,duration_minutes:m,price:p,icon:ic})});
   if(!response.ok){var er=await response.json().catch(function(){return{}});throw new Error(er.detail||("Error HTTP "+response.status))}
-  EDIT_SERVICE_ID=null;SERVICE_MSG='Servicio "'+n+'" actualizado correctamente.';await loadServices();
+  EDIT_SERVICE_ID=null;SERVICE_EDIT_INITIAL_STATE="";SERVICE_EDIT_DIRTY=false;SERVICE_MSG='Servicio "'+n+'" actualizado correctamente.';await loadServices();
  }catch(error){console.error(error);SERVICE_UI_ERROR="No se pudo guardar el servicio: "+error.message}
  finally{SERVICE_SAVING=false;render()}
 }
@@ -1169,7 +1204,7 @@ async function deactivateRealService(id){
  try{
   var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/services/"+id,{method:"DELETE"});
   if(!response.ok&&response.status!==204){var er=await response.json().catch(function(){return{}});throw new Error(er.detail||("Error HTTP "+response.status))}
-  if(EDIT_SERVICE_ID===id)EDIT_SERVICE_ID=null;SERVICE_MSG='Servicio "'+svc.name+'" pausado. Ya no aparecerá para nuevas reservas.';await loadServices();
+  if(EDIT_SERVICE_ID===id){EDIT_SERVICE_ID=null;SERVICE_EDIT_INITIAL_STATE="";SERVICE_EDIT_DIRTY=false}SERVICE_MSG='Servicio "'+svc.name+'" pausado. Ya no aparecerá para nuevas reservas.';await loadServices();
  }catch(error){console.error(error);SERVICE_UI_ERROR="No se pudo pausar el servicio: "+error.message}
  finally{SERVICE_ACTION_BUSY="";render()}
 }
@@ -1189,12 +1224,51 @@ function applySettingsToView(x){
  if(!x)return;
  BZ.name=x.name||BZ.name;BZ.tag=x.tagline||"";BZ.logo=x.logo_url||null;BZ.cover=x.cover_image_url||null;BZ.background=x.background_image_url||null;BZ.color=x.primary_color||BZ.color;BZ.wa=x.whatsapp||"";BZ.open=trimTime(x.default_open_time)||BZ.open;BZ.close=trimTime(x.default_close_time)||BZ.close;BZ.step=Number(x.slot_minutes||BZ.step);BZ.auto=(x.booking_mode||"AUTO")==="AUTO";BZ.active=x.is_active!==false;
 }
+function settingsPayloadFromObject(x){
+ x=x||{};
+ return {
+  name:String(x.name||"").trim(),
+  tagline:String(x.tagline||"").trim()||null,
+  primary_color:x.primary_color||"#4F46E5",
+  whatsapp:String(x.whatsapp||"").trim()||null,
+  email:String(x.email||"").trim()||null,
+  address:String(x.address||"").trim()||null,
+  timezone:isAllowedTimezone(x.timezone)?x.timezone:"America/Bogota",
+  booking_mode:(x.booking_mode||"AUTO"),
+  default_open_time:trimTime(x.default_open_time)||null,
+  default_close_time:trimTime(x.default_close_time)||null,
+  slot_minutes:Number(x.slot_minutes||30)
+ };
+}
+function settingsCurrentPayload(){
+ var open=document.getElementById("cfg-open")?.value||"",close=document.getElementById("cfg-close")?.value||"";
+ var tz=document.getElementById("cfg-timezone")?.value||"America/Bogota";
+ return {
+  name:(document.getElementById("cfg-name")?.value||"").trim(),
+  tagline:(document.getElementById("cfg-tag")?.value||"").trim()||null,
+  primary_color:document.getElementById("cfg-color")?.value||"#4F46E5",
+  whatsapp:(document.getElementById("cfg-wa")?.value||"").trim()||null,
+  email:(document.getElementById("cfg-email")?.value||"").trim()||null,
+  address:(document.getElementById("cfg-address")?.value||"").trim()||null,
+  timezone:isAllowedTimezone(tz)?tz:"America/Bogota",
+  booking_mode:document.querySelector('[name="cfg-booking"]:checked')?.value||"AUTO",
+  default_open_time:open||null,
+  default_close_time:close||null,
+  slot_minutes:Number(document.getElementById("cfg-slot")?.value||30)
+ };
+}
+function settingsChanged(){return !!SETTINGS_INITIAL_STATE&&JSON.stringify(settingsCurrentPayload())!==SETTINGS_INITIAL_STATE}
+function updateSettingsSaveState(){
+ SETTINGS_DIRTY=settingsChanged();
+ var b=document.querySelector('[data-a="saveCfg"]');
+ if(b)b.disabled=SETTINGS_SAVING||!SETTINGS_DIRTY;
+}
 async function loadBusinessSettings(){
- SETTINGS_LOADING=true;SETTINGS_ERROR="";SETTINGS_MSG="";render();
+ SETTINGS_LOADING=true;SETTINGS_ERROR="";SETTINGS_MSG="";SETTINGS_INITIAL_STATE="";SETTINGS_DIRTY=false;render();
  try{
   var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/settings");
   if(!response.ok)throw new Error("Error HTTP "+response.status);
-  SETTINGS=await response.json();applySettingsToView(SETTINGS);
+  SETTINGS=await response.json();applySettingsToView(SETTINGS);SETTINGS_INITIAL_STATE=JSON.stringify(settingsPayloadFromObject(SETTINGS));SETTINGS_DIRTY=false;
  }catch(error){console.error(error);SETTINGS_ERROR="No se pudo cargar la configuración del negocio."}
  finally{SETTINGS_LOADING=false;render()}
 }
@@ -1203,24 +1277,12 @@ async function saveBusinessSettings(){
  if(!name){alert("El nombre del negocio es obligatorio.");return}
  var open=document.getElementById("cfg-open")?.value||"",close=document.getElementById("cfg-close")?.value||"";
  if(open&&close&&tm(open)>=tm(close)){alert("La hora de apertura debe ser anterior a la hora de cierre.");return}
- var body={
-  name:name,
-  tagline:document.getElementById("cfg-tag")?.value.trim()||null,
-  primary_color:document.getElementById("cfg-color")?.value||"#4F46E5",
-  whatsapp:document.getElementById("cfg-wa")?.value.trim()||null,
-  email:document.getElementById("cfg-email")?.value.trim()||null,
-  address:document.getElementById("cfg-address")?.value.trim()||null,
-  timezone:isAllowedTimezone(document.getElementById("cfg-timezone")?.value)?document.getElementById("cfg-timezone").value:"America/Bogota",
-  booking_mode:document.querySelector('[name="cfg-booking"]:checked')?.value||"AUTO",
-  default_open_time:open||null,
-  default_close_time:close||null,
-  slot_minutes:+(document.getElementById("cfg-slot")?.value||30)
- };
+ var body=settingsCurrentPayload();
  SETTINGS_SAVING=true;SETTINGS_ERROR="";SETTINGS_MSG="";render();
  try{
   var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/settings",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   if(!response.ok){var er=await response.json().catch(function(){return{}});throw new Error(er.detail||("Error HTTP "+response.status))}
-  SETTINGS=await response.json();applySettingsToView(SETTINGS);SETTINGS_MSG="Configuración guardada correctamente.";
+  SETTINGS=await response.json();applySettingsToView(SETTINGS);SETTINGS_INITIAL_STATE=JSON.stringify(settingsPayloadFromObject(SETTINGS));SETTINGS_DIRTY=false;SETTINGS_MSG="Configuración guardada correctamente.";
  }catch(error){console.error(error);SETTINGS_ERROR="No se pudo guardar la configuración: "+error.message}
  finally{SETTINGS_SAVING=false;render()}
 }
@@ -1420,7 +1482,7 @@ function bizSvc(){
    '<div class="g3"><div><label>Duración (min)</label><input id="esm" type="number" min="1" value="'+Number(v.duration_minutes||0)+'"></div>'+
    '<div><label>Precio</label><input id="esp" type="number" min="0" value="'+Number(v.price||0)+'"></div>'+
    '<div><label>Ícono</label><input id="esi" maxlength="20" value="'+esc(v.icon||"✨")+'"></div></div>'+
-   '<div class="dn" style="margin-top:10px"><button class="btn p" data-a="apiSaveSvc" data-id="'+esc(sid)+'" '+(SERVICE_SAVING?'disabled':'')+'>'+(SERVICE_SAVING?'Guardando...':'Guardar cambios')+'</button>'+
+   '<div class="dn" style="margin-top:10px"><button class="btn p" data-a="apiSaveSvc" data-id="'+esc(sid)+'" '+(SERVICE_SAVING||!SERVICE_EDIT_DIRTY?'disabled':'')+'>'+(SERVICE_SAVING?'Guardando...':'Guardar cambios')+'</button>'+
    '<button class="btn" data-a="apiEditSvc" data-id="'+esc(sid)+'">Cancelar</button></div></div>';
   }
   h+='</div>';
@@ -1460,12 +1522,18 @@ function normalizeAssignedServices(data){
   return null;
  }).filter(Boolean);
 }
+function assignedServicesSnapshot(ids){return JSON.stringify((ids||[]).map(String).sort())}
+function assignedServicesChanged(){return !!ASSIGN_INITIAL_STATE&&assignedServicesSnapshot(ASSIGN_SERVICE_IDS)!==ASSIGN_INITIAL_STATE}
+function updateAssignedServicesSaveState(){
+ var b=document.querySelector('[data-a="saveProServices"]');
+ if(b)b.disabled=ASSIGN_LOADING||ASSIGN_SAVING||!API_SERVICES.length||!assignedServicesChanged();
+}
 async function openProfessionalServices(proId){
- ASSIGN_PRO_ID=String(proId);ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_LOADING=true;render();
+ ASSIGN_PRO_ID=String(proId);ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";ASSIGN_LOADING=true;render();
  try{
   var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+proId+"/services");
   if(!response.ok)throw new Error("Error HTTP "+response.status);
-  ASSIGN_SERVICE_IDS=normalizeAssignedServices(await response.json());
+  ASSIGN_SERVICE_IDS=normalizeAssignedServices(await response.json());ASSIGN_INITIAL_STATE=assignedServicesSnapshot(ASSIGN_SERVICE_IDS);
  }catch(error){
   console.error(error);
   ASSIGN_ERROR="No se pudieron consultar los servicios asignados.";
@@ -1493,7 +1561,7 @@ async function saveProfessionalServices(){
    throw new Error(er.detail?JSON.stringify(er.detail):("Error HTTP "+response.status));
   }
   alert("Servicios asignados correctamente.");
-  ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";
+  ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";
   await loadProfessionals();
  }catch(error){
   console.error(error);
@@ -1575,14 +1643,29 @@ async function addRealProfessional(){
  }
 }
 
+function professionalEditSnapshot(obj){
+ obj=obj||{};
+ return JSON.stringify({
+  name:String(obj.name||"").trim(),
+  specialty:String(obj.specialty||"").trim(),
+  phone:String(obj.phone||"").trim(),
+  color:obj.color||"#4F46E5",
+  is_active:obj.is_active!==false
+ });
+}
+function professionalEditChanged(){return !!EDIT_PRO_INITIAL_STATE&&professionalEditSnapshot(EDIT_PRO)!==EDIT_PRO_INITIAL_STATE}
+function updateProfessionalEditSaveState(){
+ var b=document.querySelector('[data-a="saveProEdit"]');
+ if(b)b.disabled=EDIT_PRO_SAVING||!professionalEditChanged();
+}
 function openProfessionalEdit(id){
  var p=API_PROFESSIONALS.find(function(x){return String(x.id)===String(id)});if(!p)return;
- EDIT_PRO_ID=String(id);EDIT_PRO={name:p.name||"",specialty:p.specialty||"",phone:p.phone||"",color:p.color||"#4F46E5",is_active:p.is_active!==false};EDIT_PRO_ERROR="";render()
+ EDIT_PRO_ID=String(id);EDIT_PRO={name:p.name||"",specialty:p.specialty||"",phone:p.phone||"",color:p.color||"#4F46E5",is_active:p.is_active!==false};EDIT_PRO_INITIAL_STATE=professionalEditSnapshot(EDIT_PRO);EDIT_PRO_ERROR="";render()
 }
 async function saveProfessionalEdit(){
  if(!EDIT_PRO_ID||!EDIT_PRO)return;if(!EDIT_PRO.name.trim()){EDIT_PRO_ERROR="El nombre es obligatorio.";render();return}
  EDIT_PRO_SAVING=true;EDIT_PRO_ERROR="";render();
- try{var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+EDIT_PRO_ID,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:EDIT_PRO.name.trim(),specialty:EDIT_PRO.specialty.trim()||null,phone:EDIT_PRO.phone.trim()||null,color:EDIT_PRO.color||null,is_active:!!EDIT_PRO.is_active})});if(!r.ok)throw new Error(await r.text());EDIT_PRO_ID=null;EDIT_PRO=null;await loadProfessionals()}catch(e){EDIT_PRO_ERROR="No se pudo guardar: "+e.message}finally{EDIT_PRO_SAVING=false;render()}
+ try{var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals/"+EDIT_PRO_ID,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:EDIT_PRO.name.trim(),specialty:EDIT_PRO.specialty.trim()||null,phone:EDIT_PRO.phone.trim()||null,color:EDIT_PRO.color||null,is_active:!!EDIT_PRO.is_active})});if(!r.ok)throw new Error(await r.text());EDIT_PRO_ID=null;EDIT_PRO=null;EDIT_PRO_INITIAL_STATE="";await loadProfessionals()}catch(e){EDIT_PRO_ERROR="No se pudo guardar: "+e.message}finally{EDIT_PRO_SAVING=false;render()}
 }
 function normalizeSchedules(data){
  var arr=Array.isArray(data)?data:(data&&Array.isArray(data.schedules)?data.schedules:[]);
@@ -1740,7 +1823,7 @@ function bizTeam(){
     h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><h2>Editar profesional</h2>';
     h+='<div class="rw">'+professionalAvatar(p,76)+'<div class="grow"><label style="margin:0">Foto del profesional</label><div class="upload-control"><button type="button" class="btn" data-a="pickImage" data-kind="professionalEdit" data-id="'+esc(pid)+'" '+(PRO_PHOTO_BUSY===pid?'disabled':'')+'>Seleccionar foto</button>'+(PRO_PHOTO_BUSY===pid?'<span class="file-status busy">⏳ Subiendo foto...</span>':(p.photo_url?'<span class="file-status ok">✓ Foto cargada</span>':'<span class="file-status">Sin foto cargada</span>'))+'</div><small style="display:block;color:var(--mute);margin-top:4px">JPG, PNG o WebP · máximo 5 MB</small>'+(PRO_FILE_NAME[pid]?'<small style="display:block;color:var(--mute);margin-top:3px">Archivo: '+esc(PRO_FILE_NAME[pid])+'</small>':'')+(p.photo_url?'<button class="lk" data-a="removeProPhoto" data-id="'+esc(pid)+'">Quitar foto</button>':'')+'</div></div>';
     h+='<div class="g2"><div><label>Nombre</label><input data-edit-pro="name" value="'+esc(EDIT_PRO.name)+'"></div><div><label>Especialidad</label><input data-edit-pro="specialty" value="'+esc(EDIT_PRO.specialty)+'"></div></div><div class="g2"><div><label>WhatsApp / teléfono</label><input data-edit-pro="phone" value="'+esc(EDIT_PRO.phone)+'"></div><div><label>Color</label><input type="color" data-edit-pro="color" value="'+esc(EDIT_PRO.color)+'"></div></div><label style="color:var(--ink)"><input type="checkbox" data-edit-active="1" '+(EDIT_PRO.is_active?'checked':'')+'> Profesional activo</label>';
-    if(EDIT_PRO_ERROR)h+='<p style="color:#B3372A">'+esc(EDIT_PRO_ERROR)+'</p>';h+='<div class="dn"><button class="btn p" data-a="saveProEdit" '+(EDIT_PRO_SAVING?'disabled':'')+'>'+(EDIT_PRO_SAVING?'Guardando...':'Guardar cambios')+'</button><button class="btn" data-a="cancelProEdit">Cancelar</button></div></div>';
+    if(EDIT_PRO_ERROR)h+='<p style="color:#B3372A">'+esc(EDIT_PRO_ERROR)+'</p>';h+='<div class="dn"><button class="btn p" data-a="saveProEdit" '+(EDIT_PRO_SAVING||!professionalEditChanged()?'disabled':'')+'>'+(EDIT_PRO_SAVING?'Guardando...':'Guardar cambios')+'</button><button class="btn" data-a="cancelProEdit">Cancelar</button></div></div>';
    }
   if(ASSIGN_PRO_ID===pid){
    h+='<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px">';
@@ -1760,7 +1843,7 @@ function bizTeam(){
    }
    if(ASSIGN_ERROR)h+='<p style="color:#B3372A">'+esc(ASSIGN_ERROR)+'</p>';
    h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">';
-   h+='<button class="btn p" data-a="saveProServices" '+(ASSIGN_LOADING||ASSIGN_SAVING||!API_SERVICES.length?'disabled':'')+'>'+(ASSIGN_SAVING?'Guardando...':'Guardar servicios')+'</button>';
+   h+='<button class="btn p" data-a="saveProServices" '+(ASSIGN_LOADING||ASSIGN_SAVING||!API_SERVICES.length||!assignedServicesChanged()?'disabled':'')+'>'+(ASSIGN_SAVING?'Guardando...':'Guardar servicios')+'</button>';
    h+='<button class="btn" data-a="cancelProServices">Cancelar</button></div></div>';
   }
 
@@ -1890,7 +1973,7 @@ function bizCfg(){
  h+='<div class="pn" style="overflow:visible"><h2>Reservas</h2><p style="color:var(--mute);margin:0 0 8px;font-size:.9rem">Automático confirma inmediatamente. Manual deja la cita pendiente hasta que el negocio la apruebe.</p><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="radio" name="cfg-booking" value="AUTO" '+((x.booking_mode||"AUTO")==="AUTO"?'checked':'')+'> ⚡ Confirmación automática</label><label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input type="radio" name="cfg-booking" value="MANUAL" '+((x.booking_mode||"AUTO")==="MANUAL"?'checked':'')+'> ✋ Aprobación manual</label></div>';
  h+='<div class="pn" style="overflow:visible"><h2>Horario general</h2><div class="g2"><div><label>Apertura</label><input id="cfg-open" type="time" value="'+esc(trimTime(x.default_open_time)||"08:00")+'"></div><div><label>Cierre</label><input id="cfg-close" type="time" value="'+esc(trimTime(x.default_close_time)||"17:00")+'"></div></div><label>Duración de cada bloque</label><select id="cfg-slot">'+[15,30,45,60,90,120].map(function(m){return'<option value="'+m+'"'+(Number(x.slot_minutes||30)===m?' selected':'')+'>'+m+' min</option>'}).join("")+'</select><p style="color:var(--mute);font-size:.82rem">Los días y horarios específicos de cada integrante se configuran en Profesionales → Horarios.</p></div>';
  if(SETTINGS_ERROR)h+='<p style="color:#B3372A;font-weight:600">'+esc(SETTINGS_ERROR)+'</p>';if(SETTINGS_MSG)h+='<p style="color:#16794C;font-weight:600">'+esc(SETTINGS_MSG)+'</p>';
- h+='<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cta" data-a="saveCfg" style="max-width:340px" '+(SETTINGS_SAVING?'disabled':'')+'>'+(SETTINGS_SAVING?'Guardando...':'Guardar configuración')+'</button><button class="btn" data-a="seec">Ver página del cliente ↗</button></div>';
+ h+='<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="cta" data-a="saveCfg" style="max-width:340px" '+(SETTINGS_SAVING||!SETTINGS_DIRTY?'disabled':'')+'>'+(SETTINGS_SAVING?'Guardando...':'Guardar configuración')+'</button><button class="btn" data-a="seec">Ver página del cliente ↗</button></div>';
  return h
 }
 
@@ -2146,7 +2229,16 @@ function render(){
  document.documentElement.style.setProperty("--acc",V==="a"?"#4F46C8":BZ.color);
  document.documentElement.style.setProperty("--side",V==="a"?"#1B2150":"#2A1F45");
  document.querySelectorAll(".bar [data-v]").forEach(function(e){e.setAttribute("aria-pressed",e.dataset.v===V)});
- document.getElementById("app").innerHTML=V==="c"?client():V==="b"?biz():adm();if(V==="b"&&NV==="link")setTimeout(renderBookingQr,0)}
+ document.getElementById("app").innerHTML=V==="c"?client():V==="b"?biz():adm();
+ if(V==="b"&&NV==="link")setTimeout(renderBookingQr,0);
+ if(V==="b"&&NV==="svc"&&EDIT_SERVICE_ID)setTimeout(updateServiceEditSaveState,0);
+ if(V==="b"&&NV==="team"){
+  if(EDIT_PRO_ID)setTimeout(updateProfessionalEditSaveState,0);
+  if(ASSIGN_PRO_ID)setTimeout(updateAssignedServicesSaveState,0);
+  if(SCHEDULE_PRO_ID)setTimeout(updateScheduleSaveState,0);
+ }
+ if(V==="b"&&NV==="cfg")setTimeout(updateSettingsSaveState,0);
+}
 function setV(v){V=v;MO=false;if(v==="b")who="Negocio";if(v==="c")st=JSON.parse(JSON.stringify(st0));render();scrollTo(0,0)}
 document.getElementById("sel").onchange=function(e){};
 document.querySelector(".bar").onclick=function(e){};
@@ -2221,7 +2313,9 @@ app.oninput=function(e){
  var pc=e.target.dataset.proCreate;
  if(pc!==undefined){PRO_CREATE_DRAFT[pc]=e.target.value;updateCreateButtonStates();return}
  var k=e.target.dataset.s;if(k)st[k]=e.target.value;
- var ep=e.target.dataset.editPro;if(ep!==undefined&&EDIT_PRO)EDIT_PRO[ep]=e.target.value;
+ var ep=e.target.dataset.editPro;if(ep!==undefined&&EDIT_PRO){EDIT_PRO[ep]=e.target.value;updateProfessionalEditSaveState();return}
+ if(["esn","esd","esm","esp","esi"].indexOf(e.target.id)>-1){updateServiceEditSaveState();return}
+ if(e.target.id&&e.target.id.indexOf("cfg-")===0){updateSettingsSaveState();return}
  updateCreateButtonStates();
 };
 app.onchange=function(e){
@@ -2235,8 +2329,9 @@ app.onchange=function(e){
   return;
  }
  var pc=e.target.dataset.proCreate;if(pc!==undefined){PRO_CREATE_DRAFT[pc]=e.target.value;updateCreateButtonStates();return}
- var ep=e.target.dataset.editPro;if(ep!==undefined&&EDIT_PRO){EDIT_PRO[ep]=e.target.value;return}
- if(e.target.dataset.editActive!==undefined&&EDIT_PRO){EDIT_PRO.is_active=e.target.checked;return}
+ var ep=e.target.dataset.editPro;if(ep!==undefined&&EDIT_PRO){EDIT_PRO[ep]=e.target.value;updateProfessionalEditSaveState();return}
+ if(e.target.dataset.editActive!==undefined&&EDIT_PRO){EDIT_PRO.is_active=e.target.checked;updateProfessionalEditSaveState();return}
+ if((e.target.id&&e.target.id.indexOf("cfg-")===0)||e.target.name==="cfg-booking"){updateSettingsSaveState();return}
  var sa=e.target.dataset.schedActive;
  if(sa!==undefined){
   var ix=Number(sa);if(SCHEDULES[ix]){SCHEDULES[ix].is_active=e.target.checked;SCHEDULE_ERROR="";render()}return;
@@ -2265,6 +2360,7 @@ app.onchange=function(e){
   var ix=ASSIGN_SERVICE_IDS.indexOf(psid);
   if(e.target.checked&&ix<0)ASSIGN_SERVICE_IDS.push(psid);
   if(!e.target.checked&&ix>-1)ASSIGN_SERVICE_IDS.splice(ix,1);
+  updateAssignedServicesSaveState();
   return;
  }
  var tfk=e.target.dataset.tf;if(tfk){TF[tfk]=tfk==="step"?+e.target.value:e.target.value;return}var pq2=e.target.dataset.pl;
@@ -2301,7 +2397,7 @@ app.onclick=function(e){
  else if(a==="nav"){
   SERVICE_CREATE_OPEN=false;PRO_CREATE_OPEN=false;resetProfessionalServicePicker();resetProfessionalCreatePhoto();resetProfessionalCreateDraft();resetPanelScroll();
   if(V==="a")AV=t.dataset.i;
-  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
+  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
   MO=false
  }
  else if(a==="copyBookingLink"){copyBookingLink();return}
@@ -2334,17 +2430,17 @@ app.onclick=function(e){
  else if(a==="removeMedia"){removeBusinessMedia(t.dataset.kind);return}
  else if(a==="removeProPhoto"){removeProfessionalPhoto(t.dataset.id);return}
  else if(a==="apiAddPro"){addRealProfessional();return}
- else if(a==="openProEdit"){var ep=String(t.dataset.id||"");if(EDIT_PRO_ID===ep){EDIT_PRO_ID=null;EDIT_PRO=null;render()}else openProfessionalEdit(ep);return}
+ else if(a==="openProEdit"){var ep=String(t.dataset.id||"");if(EDIT_PRO_ID===ep){EDIT_PRO_ID=null;EDIT_PRO=null;EDIT_PRO_INITIAL_STATE="";render()}else openProfessionalEdit(ep);return}
  else if(a==="saveProEdit"){saveProfessionalEdit();return}
- else if(a==="cancelProEdit"){EDIT_PRO_ID=null;EDIT_PRO=null;EDIT_PRO_ERROR="";render();return}
+ else if(a==="cancelProEdit"){EDIT_PRO_ID=null;EDIT_PRO=null;EDIT_PRO_ERROR="";EDIT_PRO_INITIAL_STATE="";render();return}
  else if(a==="openProServices"){
   var pid=String(t.dataset.id||"");
-  if(EDIT_PRO_ID===pid){EDIT_PRO_ID=null;EDIT_PRO=null;EDIT_PRO_ERROR=""}
-  if(ASSIGN_PRO_ID===pid){ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";render();return}
+  if(EDIT_PRO_ID===pid){EDIT_PRO_ID=null;EDIT_PRO=null;EDIT_PRO_ERROR="";EDIT_PRO_INITIAL_STATE=""}
+  if(ASSIGN_PRO_ID===pid){ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";render();return}
   openProfessionalServices(pid);return
  }
  else if(a==="saveProServices"){saveProfessionalServices();return}
- else if(a==="cancelProServices"){ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";render();return}
+ else if(a==="cancelProServices"){ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";render();return}
  else if(a==="openProSchedules"){
   var pid=String(t.dataset.id||"");
   if(SCHEDULE_PRO_ID===pid){SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";render();return}
