@@ -876,6 +876,8 @@ var PRO_SERVICE_PICKER_OPEN = false, PRO_SERVICE_PICKER_DRAFT = [];
 var PRO_CREATE_DRAFT={name:"",specialty:"",phone:"",color:"#4F46E5"};
 var EDIT_PRO_ID=null, EDIT_PRO=null, EDIT_PRO_SAVING=false, EDIT_PRO_ERROR="", EDIT_PRO_INITIAL_STATE="";
 var SCHEDULE_PRO_ID = null, SCHEDULES = [], SCHEDULE_LOADING = false, SCHEDULE_SAVING = false, SCHEDULE_ERROR = "", SCHEDULE_INITIAL_STATE = "";
+var REAL_BLOCKS = [], BLOCKS_LOADING = false, BLOCKS_ERROR = "", BLOCK_SAVING = false, BLOCK_DELETE_BUSY = "";
+var BLOCK_FORM = {professional_id:"",reason:"Vacaciones",from:"",to:"",all_day:true,start_time:"09:00",end_time:"10:00"};
 function slug(n){return n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
 function mk(name,type,pl,price,stt,nx){var t=TPL[type],sv=t.sv.map(function(x,i){return{id:i+1,n:x[0],m:x[1],p:x[2],e:x[3]}}),
  pro=t.pr.map(function(p,i){return{id:i+1,n:p[0],r:p[1],sv:p[2].map(function(k){return k+1}),days:[1,2,3,4,5,6],open:t.open,close:t.close,c:CL[i%CL.length]}}),
@@ -2152,18 +2154,117 @@ function manage(a){var pr=PR.filter(function(x){return x.id===a.pro})[0],tag='<s
  if(st.cc===a.id)return h+'<p style="margin:10px 0 6px"><b>¿Seguro que quieres cancelar tu cita?</b></p><div class="dn"><button class="btn p" data-a="cxy" data-i="'+a.id+'">Sí, cancelar</button><button class="btn" data-a="cxn">No</button></div>';
  return h+'<div class="mg"><a class="btn" href="'+calUrl(a)+'" target="_blank" rel="noopener">📅 Agregar al calendario</a><a class="btn" href="'+waUrl(a)+'" target="_blank" rel="noopener">💬 Contactar al negocio</a><button class="btn" data-a="rs" data-i="'+a.id+'">🔄 Reprogramar</button><button class="btn" data-a="cx" data-i="'+a.id+'">✖ Cancelar cita</button></div>'}
 function lockBox(t,p){return'<h1>'+t+'</h1><div class="pn" style="overflow:visible;margin-top:14px"><h2>🔐 Disponible desde el plan '+p+'</h2><p style="color:var(--mute)">Tu plan actual es '+REC[CUR].pl+'. Pídele a la plataforma que lo actualice.</p><button class="btn p" data-a="nav" data-i="plan">Ver mi plan</button></div>'}
-function bdesc(b){var w=b.pro?(PR.filter(function(p){return p.id===b.pro})[0]||{n:"—"}).n:"Todo el negocio",rg=b.from?" ("+b.from+(b.to?" → "+b.to:" en adelante")+")":"",d=b.rep==="once"?(b.to&&b.to!==b.from?b.from+" → "+b.to:b.from):(b.rep==="daily"?"Todos los días":"Cada "+b.days.map(function(x){return DN[x]}).join(", "))+rg,t=b.all?"Todo el día":h12(b.t1)+"–"+h12(b.t2);return[w,d+" · "+t]}
+function resetBlockForm(){
+ BLOCK_FORM={professional_id:"",reason:"Vacaciones",from:"",to:"",all_day:true,start_time:"09:00",end_time:"10:00"};
+ BLOCKS_ERROR="";
+}
+function addDaysIso(dateText,days){
+ var d=new Date(dateText+"T12:00:00");
+ d.setDate(d.getDate()+days);
+ return iso(d);
+}
+function blockFormReady(){
+ if(!BLOCK_FORM.from)return false;
+ if(BLOCK_FORM.to&&BLOCK_FORM.to<BLOCK_FORM.from)return false;
+ if(!BLOCK_FORM.reason.trim())return false;
+ if(!BLOCK_FORM.all_day){
+  if(BLOCK_FORM.to&&BLOCK_FORM.to!==BLOCK_FORM.from)return false;
+  if(!BLOCK_FORM.start_time||!BLOCK_FORM.end_time||tm(BLOCK_FORM.start_time)>=tm(BLOCK_FORM.end_time))return false;
+ }
+ return true;
+}
+function updateBlockAddState(){
+ var b=document.querySelector('[data-a="addRealBlock"]');
+ if(b)b.disabled=BLOCK_SAVING||!blockFormReady();
+}
+function fmtBlockDate(value,tz){
+ try{return new Intl.DateTimeFormat("es-CO",{timeZone:tz||"America/Bogota",weekday:"short",day:"numeric",month:"short",year:"numeric"}).format(new Date(value))}catch(_){return String(value||"")}
+}
+function fmtBlockTime(value,tz){
+ try{return new Intl.DateTimeFormat("es-CO",{timeZone:tz||"America/Bogota",hour:"numeric",minute:"2-digit",hour12:true}).format(new Date(value))}catch(_){return ""}
+}
+function blockLocalParts(value,tz){
+ try{
+  var d=new Date(value),z=tz||"America/Bogota";
+  var parts=new Intl.DateTimeFormat("en-CA",{timeZone:z,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(d),o={};
+  parts.forEach(function(p){o[p.type]=p.value});
+  return{date:o.year+"-"+o.month+"-"+o.day,time:o.hour+":"+o.minute};
+ }catch(_){return{date:"",time:""}}
+}
+function blockDescription(b){
+ var tz=b.timezone||"America/Bogota",sp=blockLocalParts(b.start_at,tz),ep=blockLocalParts(b.end_at,tz);
+ var allDay=sp.time==="00:00"&&ep.time==="00:00";
+ var target=b.all_business?"Todo el negocio":(b.professional_name||"Profesional");
+ if(allDay){
+  var lastDate=addDaysIso(ep.date,-1);
+  var when=sp.date===lastDate?fmtBlockDate(b.start_at,tz):(fmtBlockDate(b.start_at,tz)+" → "+new Intl.DateTimeFormat("es-CO",{timeZone:"UTC",weekday:"short",day:"numeric",month:"short",year:"numeric"}).format(new Date(lastDate+"T12:00:00Z")));
+  return[target,when+" · Todo el día"];
+ }
+ return[target,fmtBlockDate(b.start_at,tz)+" · "+fmtBlockTime(b.start_at,tz)+"–"+fmtBlockTime(b.end_at,tz)];
+}
+async function loadRealBlocks(){
+ BLOCKS_LOADING=true;BLOCKS_ERROR="";render();
+ try{
+  var rs=await Promise.all([
+   fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/blocks"),
+   fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/professionals")
+  ]);
+  if(!rs[0].ok)throw new Error("Bloqueos: error HTTP "+rs[0].status);
+  if(!rs[1].ok)throw new Error("Profesionales: error HTTP "+rs[1].status);
+  REAL_BLOCKS=await rs[0].json();
+  API_PROFESSIONALS=await rs[1].json();
+ }catch(e){console.error(e);BLOCKS_ERROR="No se pudieron cargar los bloqueos de agenda."}
+ finally{BLOCKS_LOADING=false;render();updateBlockAddState()}
+}
+async function createRealBlock(){
+ if(BLOCK_SAVING||!blockFormReady())return;
+ BLOCK_SAVING=true;BLOCKS_ERROR="";render();
+ try{
+  var from=BLOCK_FORM.from,to=BLOCK_FORM.to||BLOCK_FORM.from,startAt,endAt;
+  if(BLOCK_FORM.all_day){
+   startAt=from+"T00:00:00";
+   endAt=addDaysIso(to,1)+"T00:00:00";
+  }else{
+   startAt=from+"T"+BLOCK_FORM.start_time+":00";
+   endAt=from+"T"+BLOCK_FORM.end_time+":00";
+  }
+  var allBusiness=!BLOCK_FORM.professional_id;
+  var body={reason:BLOCK_FORM.reason.trim(),professional_id:allBusiness?null:BLOCK_FORM.professional_id,all_business:allBusiness,start_at:startAt,end_at:endAt};
+  var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/blocks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  if(!r.ok){var raw=await r.text(),msg=raw;try{var er=JSON.parse(raw);msg=er.detail||raw}catch(_){}throw new Error(msg||("Error HTTP "+r.status))}
+  resetBlockForm();
+  await loadRealBlocks();
+ }catch(e){console.error(e);BLOCKS_ERROR="No se pudo crear el bloqueo: "+e.message;BLOCK_SAVING=false;render();updateBlockAddState();return}
+ BLOCK_SAVING=false;render();updateBlockAddState();
+}
+async function deleteRealBlock(id){
+ id=String(id||"");if(!id||BLOCK_DELETE_BUSY)return;
+ if(!confirm("¿Quitar este bloqueo de agenda?"))return;
+ BLOCK_DELETE_BUSY=id;BLOCKS_ERROR="";render();
+ try{
+  var r=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/blocks/"+encodeURIComponent(id),{method:"DELETE"});
+  if(!r.ok&&r.status!==204){var raw=await r.text(),msg=raw;try{var er=JSON.parse(raw);msg=er.detail||raw}catch(_){}throw new Error(msg||("Error HTTP "+r.status))}
+  REAL_BLOCKS=REAL_BLOCKS.filter(function(x){return String(x.id)!==id});
+ }catch(e){console.error(e);BLOCKS_ERROR="No se pudo quitar el bloqueo: "+e.message}
+ finally{BLOCK_DELETE_BUSY="";render();updateBlockAddState()}
+}
 function bizBlk(){
- var h='<h1>Bloqueos de agenda</h1><p style="color:var(--mute);margin:4px 0 0">Almuerzos, vacaciones, festivos o citas personales. Esos horarios no se pueden reservar.</p><div style="margin-top:14px">';
- if(!BL.length)h+='<p style="color:var(--mute)">No hay bloqueos.</p>';
- BL.forEach(function(b){var x=bdesc(b);h+='<div class="item" style="cursor:default"><div class="av">⛔</div><div class="grow"><b>'+esc(b.label)+' · '+esc(x[0])+'</b><small>'+esc(x[1])+'</small></div><button class="btn" data-a="bdel" data-i="'+b.id+'">Quitar</button></div>'});
- h+='</div><div class="pn" style="overflow:visible"><h2>Nuevo bloqueo</h2><label>Aplica a</label><select data-bf="pro"><option value="0">Todo el negocio</option>'+PR.map(function(p){return'<option value="'+p.id+'"'+(BF.pro==p.id?' selected':'')+'>'+esc(p.n)+'</option>'}).join("")+'</select>';
- h+='<label>Motivo</label><select data-bf="mot">'+["Almuerzo","Vacaciones","Festivo / cierre","Cita personal","Otro"].map(function(m){return'<option'+(BF.mot===m?' selected':'')+'>'+m+'</option>'}).join("")+'</select>';
- h+='<label>Repetir</label><select data-bf="rep">'+[["daily","Todos los días"],["weekly","Días de la semana"],["once","Fechas específicas"]].map(function(o){return'<option value="'+o[0]+'"'+(BF.rep===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join("")+'</select>';
- if(BF.rep==="weekly")h+='<div class="chips" style="margin-top:8px">'+DN.map(function(n,i){return'<button data-a="bfd" data-i="'+i+'" aria-pressed="'+(BF.days.indexOf(i)>-1)+'">'+n+'</button>'}).join("")+'</div>';
- h+='<p style="color:var(--mute);font-size:.82rem;margin:8px 0 0">'+(BF.rep==="once"?"Elige el día o el rango de días.":"Opcional: limita el bloqueo a un rango de fechas.")+'</p><div class="g2"><div><label>Desde</label><input type="date" data-bf="from" min="'+T+'" value="'+BF.from+'"></div><div><label>Hasta (opcional)</label><input type="date" data-bf="to" min="'+(BF.from||T)+'" value="'+BF.to+'"></div></div><div class="chips" style="margin-top:10px"><button data-a="bfall" aria-pressed="'+BF.all+'">Todo el día</button></div>';
- if(!BF.all)h+='<div class="g2"><div><label>Hora inicio</label><input type="time" data-bf="t1" value="'+BF.t1+'"></div><div><label>Hora fin</label><input type="time" data-bf="t2" value="'+BF.t2+'"></div></div>';
- return h+(BE?'<p style="color:#B3372A;margin:8px 0 0">'+BE+'</p>':'')+'<button class="btn p" style="margin-top:12px" data-a="bfadd">Agregar bloqueo</button></div>'}
+ var h='<h1>Bloqueos de agenda</h1><p style="color:var(--mute);margin:4px 0 0">Vacaciones, festivos, cierres o compromisos puntuales. Los horarios bloqueados desaparecen automáticamente de las reservas.</p>';
+ if(BLOCKS_LOADING)return h+'<div class="pn" style="margin-top:14px"><p>Cargando bloqueos reales...</p></div>';
+ if(BLOCKS_ERROR)h+='<p style="background:#FBE0DD;color:#B3372A;border-radius:12px;padding:10px 12px;margin:12px 0 0;font-weight:600">'+esc(BLOCKS_ERROR)+'</p>';
+ h+='<div style="margin-top:14px">';
+ if(!REAL_BLOCKS.length)h+='<div class="pn"><p style="color:var(--mute);margin:0">No hay bloqueos activos.</p></div>';
+ REAL_BLOCKS.forEach(function(b){var x=blockDescription(b),bid=String(b.id);h+='<div class="item" style="cursor:default"><div class="av">⛔</div><div class="grow"><b>'+esc(b.reason||"Bloqueo")+' · '+esc(x[0])+'</b><small>'+esc(x[1])+'</small></div><button class="btn" data-a="deleteRealBlock" data-id="'+esc(bid)+'" '+(BLOCK_DELETE_BUSY===bid?'disabled':'')+'>'+(BLOCK_DELETE_BUSY===bid?'Quitando...':'Quitar')+'</button></div>'});
+ h+='</div><div class="pn" style="overflow:visible"><h2>Nuevo bloqueo</h2>';
+ h+='<p style="color:var(--mute);font-size:.84rem;margin:0 0 8px">Para almuerzos fijos usa Profesionales → Horarios → Jornada dividida. Aquí registra excepciones reales de agenda.</p>';
+ h+='<label>Aplica a</label><select data-real-block="professional_id"><option value="">Todo el negocio</option>'+API_PROFESSIONALS.filter(function(p){return p.is_active!==false}).map(function(p){return'<option value="'+esc(String(p.id))+'"'+(BLOCK_FORM.professional_id===String(p.id)?' selected':'')+'>'+esc(p.name)+'</option>'}).join("")+'</select>';
+ h+='<label>Motivo</label><select data-real-block="reason">'+["Vacaciones","Festivo / cierre","Cita personal","Almuerzo excepcional","Otro"].map(function(m){return'<option'+(BLOCK_FORM.reason===m?' selected':'')+'>'+m+'</option>'}).join("")+'</select>';
+ h+='<div class="g2"><div><label>Desde</label><input type="date" data-real-block="from" min="'+T+'" value="'+esc(BLOCK_FORM.from)+'"></div><div><label>Hasta (opcional)</label><input type="date" data-real-block="to" min="'+esc(BLOCK_FORM.from||T)+'" value="'+esc(BLOCK_FORM.to)+'"></div></div>';
+ h+='<label style="display:flex;align-items:center;gap:9px;color:var(--ink);margin-top:12px"><input type="checkbox" data-real-block-all="1" '+(BLOCK_FORM.all_day?'checked':'')+' style="width:20px;height:20px"> Bloquear todo el día</label>';
+ if(!BLOCK_FORM.all_day)h+='<div class="g2"><div><label>Hora inicio</label><input type="time" data-real-block="start_time" value="'+esc(BLOCK_FORM.start_time)+'"></div><div><label>Hora fin</label><input type="time" data-real-block="end_time" value="'+esc(BLOCK_FORM.end_time)+'"></div></div>'+(BLOCK_FORM.to&&BLOCK_FORM.to!==BLOCK_FORM.from?'<p style="color:#B36A00;font-size:.82rem">Los bloqueos por horas deben corresponder a una sola fecha.</p>':'');
+ h+='<button class="btn p" style="margin-top:12px" data-a="addRealBlock" '+(BLOCK_SAVING||!blockFormReady()?'disabled':'')+'>'+(BLOCK_SAVING?'Guardando...':'Agregar bloqueo')+'</button></div>';
+ return h;
+}
 function bizRem(){if(lvl()<2)return lockBox("Recordatorios por WhatsApp","Pro");
  var la=A.filter(live),c=la.filter(function(x){return x.id===RP})[0]||la[0];
  var h='<h1>Recordatorios por WhatsApp</h1><p style="color:var(--mute);margin:4px 0 0">Se envían solos a tus clientes y ellos responden con un botón.</p><div class="pn" style="margin-top:14px;overflow:visible"><h2>Cuándo enviarlos</h2><div class="chips"><button data-a="rt" data-i="24" aria-pressed="'+!!BZ.r24+'">⏰ 24 horas antes</button><button data-a="rt" data-i="2" aria-pressed="'+!!BZ.r2+'">⏰ 2 horas antes</button></div><p style="color:var(--mute);font-size:.85rem;margin:8px 0 0">No se envían a citas canceladas ni rechazadas.</p></div>';
@@ -2354,6 +2455,10 @@ app.onchange=function(e){
   var ix=Number(e.target.dataset.i);if(SCHEDULES[ix]){SCHEDULES[ix][sf]=e.target.value;SCHEDULE_ERROR="";updateScheduleSaveState()}return;
  }
 
+ var rb=e.target.dataset.realBlock;
+ if(rb!==undefined){BLOCK_FORM[rb]=e.target.value;BLOCKS_ERROR="";updateBlockAddState();return}
+ if(e.target.dataset.realBlockAll!==undefined){BLOCK_FORM.all_day=e.target.checked;BLOCKS_ERROR="";render();updateBlockAddState();return}
+
  var psid=e.target.dataset.profService;
  if(psid!==undefined){
   psid=String(psid);
@@ -2397,7 +2502,7 @@ app.onclick=function(e){
  else if(a==="nav"){
   SERVICE_CREATE_OPEN=false;PRO_CREATE_OPEN=false;resetProfessionalServicePicker();resetProfessionalCreatePhoto();resetProfessionalCreateDraft();resetPanelScroll();
   if(V==="a")AV=t.dataset.i;
-  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
+  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="blk"){MO=false;resetBlockForm();resetPanelScroll();loadRealBlocks();setTimeout(resetPanelScroll,0);return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
   MO=false
  }
  else if(a==="copyBookingLink"){copyBookingLink();return}
@@ -2410,6 +2515,9 @@ app.onclick=function(e){
  else if(a==="reloadAppts"){loadAppointments();return}
  else if(a==="reloadSvc"){loadServices();return}
  else if(a==="reloadPros"){loadProfessionals();return}
+ else if(a==="reloadBlocks"){loadRealBlocks();return}
+ else if(a==="addRealBlock"){createRealBlock();return}
+ else if(a==="deleteRealBlock"){deleteRealBlock(t.dataset.id);return}
  else if(a==="openSvcCreate"){resetServiceCreateDraft();SERVICE_UI_ERROR="";SERVICE_MSG="";SERVICE_CREATE_OPEN=true;render();afterCreateModalOpen();return}
  else if(a==="closeSvcCreate"){if(!SERVICE_SAVING){resetServiceCreateDraft();SERVICE_UI_ERROR="";SERVICE_CREATE_OPEN=false;render()}return}
  else if(a==="openProCreate"){PRO_CREATE_SERVICE_IDS=[];PRO_CREATE_ERROR="";PRO_CREATE_MSG="";resetProfessionalServicePicker();resetProfessionalCreatePhoto();resetProfessionalCreateDraft();PRO_CREATE_OPEN=true;render();afterCreateModalOpen();return}
@@ -2474,9 +2582,6 @@ app.onclick=function(e){
  else if(a==="rmc"){var ap1=A.filter(function(x){return x.id===i})[0];ap1.cf=true;RM="Confirmó su asistencia ✔";lg("El cliente "+ap1.name+" confirmó su asistencia por WhatsApp","Cliente")}
  else if(a==="rmx"){var ap2=A.filter(function(x){return x.id===i})[0];ap2.st="Cancelada";RM="Canceló la cita";lg("El cliente "+ap2.name+" canceló su cita por WhatsApp","Cliente")}
  else if(a==="rms"){RM="";st=JSON.parse(JSON.stringify(st0));if(startRs(i,0))V="c"}
- else if(a==="bfall")BF.all=!BF.all;
- else if(a==="bfadd"){BE="";if(BF.rep==="once"&&!BF.from)BE="Elige la fecha del bloqueo.";else if(BF.rep==="weekly"&&!BF.days.length)BE="Elige al menos un día de la semana.";else if(BF.from&&BF.to&&BF.to<BF.from)BE="La fecha final no puede ser anterior a la inicial.";else if(!BF.all&&(!BF.t1||!BF.t2||tm(BF.t1)>=tm(BF.t2)))BE="La hora de inicio debe ser menor que la de fin.";if(!BE){var nb={id:Date.now(),pro:BF.pro,label:BF.mot,rep:BF.rep,from:BF.from,to:BF.to,days:BF.days.slice(),all:BF.all,t1:BF.t1,t2:BF.t2};BL.push(nb);lg('Agregó un bloqueo: "'+nb.label+'" ('+bdesc(nb)[0]+")");BF.from="";BF.to=""}}
- else if(a==="bdel"){var bx=BL.filter(function(b){return b.id===i})[0];BL.splice(BL.indexOf(bx),1);lg('Quitó el bloqueo "'+bx.label+'"')}
  else if(a==="rs")startRs(i,st.s);
  else if(a==="cx")st.cc=i;
  else if(a==="cxn")st.cc=null;
@@ -2486,7 +2591,6 @@ app.onclick=function(e){
  else if(a==="sendc"){if(norm(st.phone).length<7){st.ce="Escribe un número válido."}else{st.cd=String(Math.floor(100000+Math.random()*900000));st.cs=true;st.ce="";st.ci=""}}
  else if(a==="verc"){if(st.ci.trim()===st.cd){st.vf=true;st.ce=""}else st.ce="Código incorrecto. Inténtalo de nuevo."}
  else if(a==="lo"){st.vf=false;st.cs=false;st.ci="";st.ce=""}
- else if(a==="bfd"){var bi=BF.days.indexOf(i);if(bi>-1)BF.days.splice(bi,1);else BF.days.push(i)}
  else if(a==="tsave")saveType();
  else if(a==="tcan"){TF=newTF();TE="";TS=""}
  else if(a==="tdel"){var kd=t.dataset.i;if(!REC.some(function(r){return r.bz.type===kd}))delete TPL[kd];TS=""}
