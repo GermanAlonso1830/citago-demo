@@ -878,6 +878,7 @@ var EDIT_PRO_ID=null, EDIT_PRO=null, EDIT_PRO_SAVING=false, EDIT_PRO_ERROR="", E
 var SCHEDULE_PRO_ID = null, SCHEDULES = [], SCHEDULE_LOADING = false, SCHEDULE_SAVING = false, SCHEDULE_ERROR = "", SCHEDULE_INITIAL_STATE = "";
 var REAL_BLOCKS = [], BLOCKS_LOADING = false, BLOCKS_ERROR = "", BLOCK_SAVING = false, BLOCK_DELETE_BUSY = "";
 var BLOCK_FORM = {professional_id:"",reason:"Vacaciones",from:"",to:"",all_day:true,start_time:"09:00",end_time:"10:00"};
+var REMINDER_SETTINGS = null, REMINDER_LOADING = false, REMINDER_SAVING = false, REMINDER_ERROR = "", REMINDER_MSG = "", REMINDER_INITIAL_STATE = "", REMINDER_SELECTED_ID = "", REMINDER_SUBSCRIPTION = null;
 function slug(n){return n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}
 function mk(name,type,pl,price,stt,nx){var t=TPL[type],sv=t.sv.map(function(x,i){return{id:i+1,n:x[0],m:x[1],p:x[2],e:x[3]}}),
  pro=t.pr.map(function(p,i){return{id:i+1,n:p[0],r:p[1],sv:p[2].map(function(k){return k+1}),days:[1,2,3,4,5,6],open:t.open,close:t.close,c:CL[i%CL.length]}}),
@@ -2265,13 +2266,96 @@ function bizBlk(){
  h+='<button class="btn p" style="margin-top:12px" data-a="addRealBlock" '+(BLOCK_SAVING||!blockFormReady()?'disabled':'')+'>'+(BLOCK_SAVING?'Guardando...':'Agregar bloqueo')+'</button></div>';
  return h;
 }
-function bizRem(){if(lvl()<2)return lockBox("Recordatorios por WhatsApp","Pro");
- var la=A.filter(live),c=la.filter(function(x){return x.id===RP})[0]||la[0];
- var h='<h1>Recordatorios por WhatsApp</h1><p style="color:var(--mute);margin:4px 0 0">Se envían solos a tus clientes y ellos responden con un botón.</p><div class="pn" style="margin-top:14px;overflow:visible"><h2>Cuándo enviarlos</h2><div class="chips"><button data-a="rt" data-i="24" aria-pressed="'+!!BZ.r24+'">⏰ 24 horas antes</button><button data-a="rt" data-i="2" aria-pressed="'+!!BZ.r2+'">⏰ 2 horas antes</button></div><p style="color:var(--mute);font-size:.85rem;margin:8px 0 0">No se envían a citas canceladas ni rechazadas.</p></div>';
- if(!c)return h+'<p style="color:var(--mute)">No hay citas activas para probar.</p>';
- h+='<div class="pn" style="overflow:visible"><h2>Vista previa</h2><label>Cita de ejemplo</label><select data-rp="1">'+la.map(function(x){return'<option value="'+x.id+'"'+(x===c?' selected':'')+'>'+esc(x.name)+' · '+esc(x.svc)+'</option>'}).join("")+'</select>';
- [[24,"mañana"],[2,"hoy en 2 horas"]].forEach(function(q){if(!BZ["r"+q[0]])return;h+='<div class="wa"><div class="bub">Hola '+esc(c.name.split(" ")[0])+' 👋 Te recordamos tu cita de <b>'+esc(c.svc)+'</b> en '+esc(BZ.name)+' ('+q[1]+'): '+lng(c.date)+', '+h12(c.time)+'. ¿Confirmas tu asistencia?<br><span style="color:#1A8FBF">Gestiona tu cita: citas.app/c/'+tok(c.id)+'</span><small>Enviado '+q[0]+' h antes</small><div class="wb"><button data-a="rmc" data-i="'+c.id+'">✅ Confirmar</button><button data-a="rms" data-i="'+c.id+'">🔄 Reprogramar</button><button data-a="rmx" data-i="'+c.id+'">✖ Cancelar</button></div></div></div>'});
- return h+(RM?'<p style="margin:12px 0 0"><b>Respuesta del cliente:</b> '+esc(RM)+'</p>':'<p style="color:var(--mute);font-size:.85rem;margin:12px 0 0">Prueba los botones: actúan sobre la cita como si el cliente los tocara en WhatsApp.</p>')+'</div>'}
+function reminderSettingsState(){
+ if(!REMINDER_SETTINGS)return "";
+ return JSON.stringify({
+  reminder_24h_enabled:!!REMINDER_SETTINGS.reminder_24h_enabled,
+  reminder_2h_enabled:!!REMINDER_SETTINGS.reminder_2h_enabled
+ });
+}
+function reminderSettingsChanged(){return !!REMINDER_INITIAL_STATE&&reminderSettingsState()!==REMINDER_INITIAL_STATE}
+function reminderEligibleAppointments(){
+ return APPTS.filter(function(a){
+  return a&&a.reminder_opt_in!==false&&(a.status==="PENDING"||a.status==="CONFIRMED");
+ });
+}
+async function loadReminderCenter(){
+ REMINDER_LOADING=true;REMINDER_ERROR="";REMINDER_MSG="";REMINDER_INITIAL_STATE="";REMINDER_SUBSCRIPTION=null;render();
+ try{
+  var rs=await Promise.all([
+   fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/reminders/settings"),
+   fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/appointments"),
+   fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/subscription")
+  ]);
+  if(!rs[0].ok)throw new Error("Recordatorios: error HTTP "+rs[0].status);
+  if(!rs[1].ok)throw new Error("Citas: error HTTP "+rs[1].status);
+  if(!rs[2].ok)throw new Error("Plan: error HTTP "+rs[2].status);
+  REMINDER_SETTINGS=await rs[0].json();
+  APPTS=await rs[1].json();
+  var sub=await rs[2].json();
+  REMINDER_SUBSCRIPTION=sub&&sub.subscription?sub.subscription:null;
+  REMINDER_INITIAL_STATE=reminderSettingsState();
+  var eligible=reminderEligibleAppointments();
+  if(!eligible.some(function(a){return String(a.id)===String(REMINDER_SELECTED_ID)}))REMINDER_SELECTED_ID=eligible.length?String(eligible[0].id):"";
+ }catch(error){
+  console.error(error);REMINDER_ERROR="No se pudo cargar la configuración real de recordatorios. "+error.message;
+ }finally{REMINDER_LOADING=false;render()}
+}
+async function saveReminderSettings(){
+ if(!REMINDER_SETTINGS||!reminderSettingsChanged()||REMINDER_SAVING)return;
+ REMINDER_SAVING=true;REMINDER_ERROR="";REMINDER_MSG="";render();
+ try{
+  var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/reminders/settings",{
+   method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+    reminder_24h_enabled:!!REMINDER_SETTINGS.reminder_24h_enabled,
+    reminder_2h_enabled:!!REMINDER_SETTINGS.reminder_2h_enabled
+   })
+  });
+  if(!response.ok){var er=await response.json().catch(function(){return{}});throw new Error(er.detail||("Error HTTP "+response.status))}
+  var saved=await response.json();
+  REMINDER_SETTINGS={reminder_24h_enabled:!!saved.reminder_24h_enabled,reminder_2h_enabled:!!saved.reminder_2h_enabled};
+  REMINDER_INITIAL_STATE=reminderSettingsState();
+  REMINDER_MSG="Configuración de recordatorios guardada correctamente.";
+ }catch(error){REMINDER_ERROR="No se pudo guardar la configuración: "+error.message}
+ finally{REMINDER_SAVING=false;render()}
+}
+function toggleReminderSetting(which){
+ if(!REMINDER_SETTINGS||REMINDER_SAVING)return;
+ if(which===24)REMINDER_SETTINGS.reminder_24h_enabled=!REMINDER_SETTINGS.reminder_24h_enabled;
+ if(which===2)REMINDER_SETTINGS.reminder_2h_enabled=!REMINDER_SETTINGS.reminder_2h_enabled;
+ REMINDER_MSG="";REMINDER_ERROR="";render();
+}
+function bizRem(){
+ var h='<h1>Recordatorios por WhatsApp</h1><p style="color:var(--mute);margin:4px 0 0">Configura cuándo CitaLite debe recordar las citas que aceptaron recibir avisos por WhatsApp.</p>';
+ if(REMINDER_LOADING)return h+'<div class="pn" style="margin-top:14px"><p>Cargando configuración real...</p></div>';
+ if(REMINDER_ERROR&&!REMINDER_SETTINGS)return h+'<div class="pn" style="margin-top:14px"><p style="color:#B3372A">'+esc(REMINDER_ERROR)+'</p><button class="btn p" data-a="reloadReminders">Reintentar</button></div>';
+ var feature=REMINDER_SUBSCRIPTION&&REMINDER_SUBSCRIPTION.plan&&REMINDER_SUBSCRIPTION.plan.features?REMINDER_SUBSCRIPTION.plan.features.whatsapp:null;
+ if(feature===false){
+  var pn=(REMINDER_SUBSCRIPTION.plan&&REMINDER_SUBSCRIPTION.plan.name)||"actual";
+  return h+'<div class="pn" style="margin-top:14px;overflow:visible"><h2>🔐 WhatsApp no está incluido en tu plan</h2><p style="color:var(--mute)">Tu plan actual es '+esc(pn)+'. Puedes revisar las funciones disponibles en Mi plan.</p><button class="btn p" data-a="nav" data-i="plan">Ver mi plan</button></div>';
+ }
+ if(!REMINDER_SETTINGS)REMINDER_SETTINGS={reminder_24h_enabled:true,reminder_2h_enabled:true};
+ h+='<div class="pn" style="margin-top:14px;overflow:visible"><h2>Cuándo enviarlos</h2><p style="color:var(--mute);font-size:.86rem;margin:0 0 10px">Solo se tendrán en cuenta citas pendientes o confirmadas cuyo cliente aceptó recordatorios.</p><div class="chips">'+
+ '<button data-a="toggleReminder24" aria-pressed="'+!!REMINDER_SETTINGS.reminder_24h_enabled+'">⏰ 24 horas antes</button>'+
+ '<button data-a="toggleReminder2" aria-pressed="'+!!REMINDER_SETTINGS.reminder_2h_enabled+'">⏰ 2 horas antes</button></div>'+
+ (REMINDER_ERROR?'<p style="color:#B3372A;font-weight:600">'+esc(REMINDER_ERROR)+'</p>':'')+
+ (REMINDER_MSG?'<p style="color:#16794C;font-weight:600">'+esc(REMINDER_MSG)+'</p>':'')+
+ '<button class="btn p" style="margin-top:12px" data-a="saveReminderSettings" '+(REMINDER_SAVING||!reminderSettingsChanged()?'disabled':'')+'>'+(REMINDER_SAVING?'Guardando...':'Guardar recordatorios')+'</button></div>';
+ var la=reminderEligibleAppointments();
+ if(!la.length)return h+'<div class="pn"><h2>Vista previa</h2><p style="color:var(--mute)">No hay citas pendientes o confirmadas con recordatorios autorizados para mostrar una vista previa.</p></div>';
+ var c=la.filter(function(x){return String(x.id)===String(REMINDER_SELECTED_ID)})[0]||la[0];
+ REMINDER_SELECTED_ID=String(c.id);
+ var businessName=(AUTHORIZED_BUSINESS&&AUTHORIZED_BUSINESS.name)||BZ.name||"tu negocio";
+ var first=((c.client&&c.client.name)||"Cliente").trim().split(/\s+/)[0];
+ var service=(c.service&&c.service.name)||"tu cita";
+ h+='<div class="pn" style="overflow:visible"><h2>Vista previa con una cita real</h2><label>Cita</label><select data-reminder-preview="1">'+la.map(function(x){return'<option value="'+esc(String(x.id))+'"'+(String(x.id)===String(c.id)?' selected':'')+'>'+esc((x.client&&x.client.name)||"Cliente")+' · '+esc((x.service&&x.service.name)||"Servicio")+' · '+esc(x.date||"")+' '+esc(x.start_time||"")+'</option>'}).join("")+'</select>';
+ [24,2].forEach(function(hours){
+  var enabled=hours===24?REMINDER_SETTINGS.reminder_24h_enabled:REMINDER_SETTINGS.reminder_2h_enabled;if(!enabled)return;
+  h+='<div class="wa"><div class="bub">Hola '+esc(first)+' 👋 Te recordamos tu cita de <b>'+esc(service)+'</b> en '+esc(businessName)+': '+(c.date?lng(c.date):"")+', '+(c.start_time?h12(c.start_time):"")+'.<small>Vista previa · '+hours+' h antes</small></div></div>';
+ });
+ h+='<p style="color:#8A5A00;background:#FFF6D8;border:1px solid #F2D88A;border-radius:12px;padding:10px 12px;font-size:.84rem;margin:12px 0 0"><b>Envío automático aún no activado.</b> Esta configuración ya se guarda en Neon y la vista previa usa citas reales. Para enviar recordatorios automáticamente debemos conectar una plantilla de mensaje aprobada de WhatsApp Cloud API.</p></div>';
+ return h;
+}
 function bizRep(){if(lvl()<2)return lockBox("Reportes","Pro");
  var n=function(x){return A.filter(function(a){return a.st===x}).length},pf=function(a){var v=SV.filter(function(y){return y.n===a.svc})[0];return v?v.p:0},
  inc=function(l){return l.filter(function(a){return a.st==="Confirmada"||a.st==="Completada"}).reduce(function(t,a){return t+pf(a)},0)},dn=n("Completada"),ns=n("No asistió");
@@ -2459,6 +2543,8 @@ app.onchange=function(e){
  if(rb!==undefined){BLOCK_FORM[rb]=e.target.value;BLOCKS_ERROR="";updateBlockAddState();return}
  if(e.target.dataset.realBlockAll!==undefined){BLOCK_FORM.all_day=e.target.checked;BLOCKS_ERROR="";render();updateBlockAddState();return}
 
+ var rprev=e.target.dataset.reminderPreview;if(rprev!==undefined){REMINDER_SELECTED_ID=String(e.target.value||"");render();return}
+
  var psid=e.target.dataset.profService;
  if(psid!==undefined){
   psid=String(psid);
@@ -2502,7 +2588,7 @@ app.onclick=function(e){
  else if(a==="nav"){
   SERVICE_CREATE_OPEN=false;PRO_CREATE_OPEN=false;resetProfessionalServicePicker();resetProfessionalCreatePhoto();resetProfessionalCreateDraft();resetPanelScroll();
   if(V==="a")AV=t.dataset.i;
-  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="blk"){MO=false;resetBlockForm();resetPanelScroll();loadRealBlocks();setTimeout(resetPanelScroll,0);return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
+  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="blk"){MO=false;resetBlockForm();resetPanelScroll();loadRealBlocks();setTimeout(resetPanelScroll,0);return}if(NV==="rem"){MO=false;resetPanelScroll();loadReminderCenter();setTimeout(resetPanelScroll,0);return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
   MO=false
  }
  else if(a==="copyBookingLink"){copyBookingLink();return}
@@ -2511,6 +2597,10 @@ app.onclick=function(e){
  else if(a==="downloadBookingQr"){downloadBookingQr();return}
  else if(a==="menu")MO=!MO;
  else if(a==="day"){bo=Math.max(0,bo+i);loadDashboard();return}
+ else if(a==="reloadReminders"){loadReminderCenter();return}
+ else if(a==="toggleReminder24"){toggleReminderSetting(24);return}
+ else if(a==="toggleReminder2"){toggleReminderSetting(2);return}
+ else if(a==="saveReminderSettings"){saveReminderSettings();return}
  else if(a==="reloadDash"){loadDashboard();return}
  else if(a==="reloadAppts"){loadAppointments();return}
  else if(a==="reloadSvc"){loadServices();return}
@@ -2578,7 +2668,7 @@ app.onclick=function(e){
  else if(a==="sug"){var tx=TPL[BZ.type].sv[i];SV.push({id:SV.reduce(function(a,x){return Math.max(a,x.id)},0)+1,n:tx[0],m:tx[1],p:tx[2],e:tx[3]});lg('Agregó el servicio "'+tx[0]+'" ('+tx[1]+" min, "+P(tx[2])+")")}
  else if(a==="rdall")REC.forEach(function(r){r.log.forEach(function(e){e.read=true})});
  else if(a==="auto"){BZ.auto=!!i;lg(BZ.auto?"Activó las reservas automáticas":"Activó la aprobación manual de reservas")}
- else if(a==="rt"){var rk="r"+i;BZ[rk]=!BZ[rk];lg((BZ[rk]?"Activó":"Desactivó")+" el recordatorio de "+i+" horas antes")}
+ else if(a==="rt"){return}
  else if(a==="rmc"){var ap1=A.filter(function(x){return x.id===i})[0];ap1.cf=true;RM="Confirmó su asistencia ✔";lg("El cliente "+ap1.name+" confirmó su asistencia por WhatsApp","Cliente")}
  else if(a==="rmx"){var ap2=A.filter(function(x){return x.id===i})[0];ap2.st="Cancelada";RM="Canceló la cita";lg("El cliente "+ap2.name+" canceló su cita por WhatsApp","Cliente")}
  else if(a==="rms"){RM="";st=JSON.parse(JSON.stringify(st0));if(startRs(i,0))V="c"}
