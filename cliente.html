@@ -431,6 +431,8 @@ async function book(){
     })});
     bookingProof={phase:'identify',token:'',bound:'',busy:false};
     message="Tu cita quedó registrada correctamente. Estado: "+statusLabel(x.appointment.status)+".";
+    if(x.email_confirmation?.accepted)message+=(x.appointment.status==='PENDING'?' Enviamos al correo la recepción de tu solicitud; falta la aprobación del negocio.':' Enviamos la confirmación a tu correo.');
+    else if(x.email_confirmation)message+=' Tu cita está registrada, pero no pudimos confirmar el envío del correo. Puedes consultarla en Mis citas; no necesitas volver a reservar.';
     step=5;
   }catch(e){error=e.message}
   finally{bookingBusy=false;render()}
