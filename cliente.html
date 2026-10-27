@@ -387,7 +387,7 @@ async function bookingEmailAction(action){
     const x=await api('/public/booking/email/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(identity!==bookingIdentity())return;
     if(action==='options')bookingProof={...x,phase:'send',bound:identity,token:''};
-    if(action==='request')bookingProof={...bookingProof,...x,phase:'code',code:'',resendAt:Date.now()+60000};
+    if(action==='request')bookingProof={...bookingProof,...x,phase:'code',token:'',expiresAt:0,code:'',resendAt:Date.now()+60000};
     if(action==='verify'){booking.email=x.email;bookingProof={...bookingProof,phase:'verified',token:x.booking_verification_token,bound:identity,expiresAt:Date.now()+x.expires_in_seconds*1000}}
   }catch(e){if(identity===bookingIdentity())error=typeof e.message==='string'?e.message:'Revisa los datos e intenta nuevamente.'}
   finally{bookingProof.busy=false;render()}
@@ -395,7 +395,7 @@ async function bookingEmailAction(action){
 function bookingDetailsValid(){
   const digits=localPhoneDigits(booking.phoneCountry,booking.phone);
   const email=booking.email.trim();
-  return Boolean(booking.name.trim())&&digits.length>=7&&cleanPhoneDigits(normalizePhone(booking.phoneCountry,booking.phone)).length<=15&&Boolean(bookingProof.token)&&bookingProof.bound===bookingIdentity()&&Date.now()<bookingProof.expiresAt;
+  return Boolean(booking.name.trim())&&digits.length>=7&&cleanPhoneDigits(normalizePhone(booking.phoneCountry,booking.phone)).length<=15&&bookingProof.phase==='verified'&&!bookingProof.busy&&Boolean(bookingProof.token)&&bookingProof.bound===bookingIdentity()&&Date.now()<bookingProof.expiresAt;
 }
 function readBookingFields(){
   for(const id of ['name','phoneCountry','phone','email','notes']){
