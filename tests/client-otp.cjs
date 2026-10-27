@@ -36,6 +36,7 @@ const fill=(id,value)=>{const el=d.getElementById(id);assert(el,'missing '+id);e
  assert(!d.body.textContent.includes('owner@example.com'),'full email hidden before OTP');
  click('bookingSend');await tick();fill('bookingCode','000000');click('bookingVerify');await tick();assert(reserve().disabled);
  fill('bookingCode','123456');click('bookingVerify');await tick();assert(!reserve().disabled);assert(d.body.textContent.includes('owner@example.com'));
+ click('bookingSend');await tick();assert(reserve().disabled,'resend invalidates booking authorization');fill('bookingCode','123456');click('bookingVerify');await tick();assert(!reserve().disabled);
  fill('name','');assert(reserve().disabled);fill('name','Maria');assert(!reserve().disabled);
  fill('phone','999123456');d.getElementById('phoneCountry').value='+51';d.getElementById('phoneCountry').dispatchEvent(new w.Event('change',{bubbles:true}));assert(reserve().disabled,'phone change must invalidate proof');
  click('bookingIdentify');await tick();assert(d.getElementById('email'),'new client must enter email');
