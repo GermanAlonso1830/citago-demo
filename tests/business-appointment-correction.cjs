@@ -1,0 +1,34 @@
+// Run with jsdom installed: node tests/business-appointment-correction.cjs
+const {JSDOM}=require('jsdom');const fs=require('node:fs');const assert=require('node:assert/strict');const vm=require('node:vm');
+const html=fs.readFileSync(require('node:path').join(__dirname,'../negocio.html'),'utf8');
+for(const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g))new vm.Script(match[1]);
+const dom=new JSDOM('<div id="app"></div>',{url:'https://example.test',runScripts:'outside-only'}),w=dom.window,d=w.document;
+const extract=(start,end)=>{const a=html.indexOf(start),b=html.indexOf(end,a);assert(a>=0&&b>a,start);return html.slice(a,b)};
+const record=(id,status)=>({id,status,date:'2026-10-27',start_time:'15:00',client:{name:'Client',phone:'573001234567'},service:{name:'Haircut'},professional:{name:'Leo'}});
+w.APPTS=[record('done','COMPLETED'),record('absent','NO_SHOW'),record('cancel','CANCELLED'),record('reject','REJECTED'),record('active','CONFIRMED')];
+w.APPTS_LOADING=false;w.APPTS_ERROR='';w.APPT_CORRECTION=null;w.APPT_STATUS_BUSY=false;w.APPT_STATUS_MESSAGE='';w.API_BASE='https://api.test';w.BUSINESS_ID='business';w.app=d.getElementById('app');
+w.esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));w.lng=w.h12=s=>s;w.console.error=()=>{};
+const alerts=[],requests=[];let mode='ok',release,latest=null,dashRefreshes=0;
+w.alert=m=>alerts.push(m);w.HTMLElement.prototype.scrollIntoView=function(){};
+w.render=()=>{w.app.innerHTML=w.bizCitas()};
+w.loadAppointments=async()=>{if(latest){w.APPTS.find(a=>a.id===latest.id).status=latest.status;latest=null}w.render()};w.loadDashboard=async()=>{dashRefreshes++};
+w.fetch=async(url,opts)=>{const body=JSON.parse(opts.body);requests.push({url,body});if(mode==='hold')await new Promise(r=>release=r);if(mode==='fail')return{ok:false,status:500,json:async()=>({detail:'Temporary problem'})};if(mode==='conflict'){latest={id:url.split('/').at(-2),status:'NO_SHOW'};return{ok:false,status:409,json:async()=>({detail:'La cita cambió de estado.'})}}latest={id:url.split('/').at(-2),status:body.status};return{ok:true,status:200,json:async()=>({})}};
+w.eval(extract('function bizCitas(){','async function loadServices(){'));
+w.eval(extract('async function updateAppointmentStatus(id,status,correction){','app.onclick=function(e){'));
+w.eval(extract('app.oninput=function(e){','app.onchange=function(e){'));
+w.eval(extract('app.onclick=function(e){','console.info("CitaLite Panel'));
+const click=(action,id)=>{const b=d.querySelector('[data-a="'+action+'"]'+(id?'[data-id="'+id+'"]':''));assert(b,action);b.click()};
+const reason=text=>{const el=d.getElementById('appointmentCorrectionReason');el.value=text;el.dispatchEvent(new w.Event('input',{bubbles:true}))};
+const tick=()=>new Promise(r=>setTimeout(r,10));
+(async()=>{
+ w.render();assert.equal(d.querySelectorAll('[data-a="apiCorrectStatus"]').length,2);
+ click('apiCorrectStatus','done');assert(d.body.textContent.includes('De Completada a No asistió.'));assert(d.querySelector('[data-a="saveAppointmentCorrection"]').disabled);
+ reason('  ');assert(d.querySelector('[data-a="saveAppointmentCorrection"]').disabled);reason('ab');assert(d.querySelector('[data-a="saveAppointmentCorrection"]').disabled);assert.equal(requests.length,0);
+ reason('Marqué completada por error');mode='hold';click('saveAppointmentCorrection');assert(d.querySelector('[data-a="saveAppointmentCorrection"]').disabled);click('saveAppointmentCorrection');assert.equal(requests.length,1);release();await tick();
+ assert.deepEqual(requests[0].body,{status:'NO_SHOW',expected_status:'COMPLETED',reason:'Marqué completada por error'});assert.equal(w.APPTS[0].status,'NO_SHOW');assert(!d.getElementById('appointmentCorrectionReason'));assert(d.body.textContent.includes('Corrección guardada en el historial.'));assert.equal(dashRefreshes,1);
+ mode='ok';click('apiCorrectStatus','absent');assert(d.body.textContent.includes('De No asistió a Completada.'));reason('El cliente sí fue atendido');click('saveAppointmentCorrection');await tick();assert.equal(requests.at(-1).body.status,'COMPLETED');assert.equal(requests.at(-1).body.expected_status,'NO_SHOW');
+ click('apiCorrectStatus','done');reason('Cambio que no se guarda');const before=requests.length;click('cancelAppointmentCorrection');assert.equal(requests.length,before);assert(!d.getElementById('appointmentCorrectionReason'));
+ mode='fail';click('apiCorrectStatus','done');reason('Conservar este motivo');click('saveAppointmentCorrection');await tick();assert.equal(d.getElementById('appointmentCorrectionReason').value,'Conservar este motivo');assert(d.querySelector('[role="alert"]').textContent.includes('Temporary problem'));
+ mode='conflict';w.APPTS[0].status='COMPLETED';w.render();click('apiCorrectStatus','done');reason('Conflicto entre operadores');click('saveAppointmentCorrection');await tick();assert.equal(alerts.at(-1),'La cita cambió de estado.');assert(!d.getElementById('appointmentCorrectionReason'));assert.equal(w.APPTS[0].status,'NO_SHOW');
+ console.log('Business correction DOM PASS: both directions, required reason, duplicate guard, cancel, provider errors, concurrent change and full-script syntax');dom.window.close();
+})().catch(e=>{console.error(e);dom.window.close();process.exit(1)});
