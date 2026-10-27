@@ -361,11 +361,29 @@ function fmtShortDate(date){
   const d=new Date(date+"T12:00:00");
   return new Intl.DateTimeFormat("es-CO",{weekday:"long",day:"numeric",month:"long"}).format(d);
 }
+function bookingDetailsValid(){
+  const digits=localPhoneDigits(booking.phoneCountry,booking.phone);
+  const email=booking.email.trim();
+  return Boolean(booking.name.trim())&&digits.length>=7&&cleanPhoneDigits(normalizePhone(booking.phoneCountry,booking.phone)).length<=15&&(!email||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+}
+function readBookingFields(){
+  for(const id of ['name','phoneCountry','phone','email','notes']){
+    const el=document.getElementById(id);if(el)booking[id]=el.value;
+  }
+  const rem=document.getElementById('rem');if(rem)booking.reminder=rem.checked;
+}
+function updateBookingButton(){
+  readBookingFields();
+  const button=document.querySelector('[data-a="book"]');
+  if(button)button.disabled=bookingBusy||!bookingDetailsValid();
+  const help=document.getElementById('bookingDataHelp');
+  if(help)help.textContent=bookingDetailsValid()?'Datos completos. Ya puedes confirmar tu cita.':'Completa tu nombre y un teléfono válido. El correo es opcional; si lo escribes, debe ser válido.';
+}
 async function book(){
   if(bookingBusy)return;
   const normalizedPhone=normalizePhone(booking.phoneCountry,booking.phone);
   const localDigits=localPhoneDigits(booking.phoneCountry,booking.phone);
-  if(!booking.name.trim()||localDigits.length<7){error="Escribe tu nombre y un número de WhatsApp válido.";render();return}
+  if(!bookingDetailsValid()){error="Completa tu nombre, un teléfono válido y revisa el correo si lo ingresaste.";render();return}
   let professionalId=booking.professional?.id||null;
   if(!professionalId){
     const available=availability.find(x=>(x.slots||[]).includes(booking.time));
@@ -376,7 +394,7 @@ async function book(){
   try{
     const x=await api("/appointments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
       business_id:business.id,service_id:booking.service.id,professional_id:professionalId,
-      client_name:booking.name.trim(),client_phone:normalizedPhone,client_email:booking.email||null,
+      client_name:booking.name.trim(),client_phone:normalizedPhone,client_email:booking.email.trim()||null,
       date:booking.date,start_time:booking.time,notes:booking.notes||null,reminder_opt_in:booking.reminder
     })});
     message="Tu cita quedó registrada correctamente. Estado: "+statusLabel(x.appointment.status)+".";
@@ -545,7 +563,7 @@ function bookingStepContent(){
   }else if(step===4){
     h+='<h3 class="stepTitle">Tus datos</h3><p class="stepSub">Revisa la reserva y completa tus datos de contacto.</p>';
     h+='<div class="summary"><div class="summaryRow"><span>Servicio</span><b>'+esc(booking.service?.name||'')+'</b></div><div class="summaryRow"><span>Profesional</span><b>'+esc(currentProfessionalName())+'</b></div><div class="summaryRow"><span>Fecha</span><b>'+esc(fmtShortDate(booking.date))+'</b></div><div class="summaryRow"><span>Hora</span><b>'+esc(booking.time)+'</b></div><div class="summaryRow"><span>Total</span><b>'+money(booking.service?.price)+'</b></div></div>';
-    h+='<label>Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label>WhatsApp</label>'+phoneFieldHtml("phoneCountry","phone",booking.phoneCountry,booking.phone,"Ej. 3001234567")+'<label>Email (opcional)</label><input id="email" type="email" autocomplete="email" value="'+esc(booking.email)+'"><label>Notas (opcional)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea><label style="display:flex;gap:8px;align-items:center"><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?'checked':'')+'> Quiero recordatorios</label>';
+    h+='<p id="bookingDataHelp" class="phoneHelp" role="status" aria-live="polite">Completa tu nombre y un teléfono válido. El correo es opcional; si lo escribes, debe ser válido.</p><label>Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label>WhatsApp</label>'+phoneFieldHtml("phoneCountry","phone",booking.phoneCountry,booking.phone,"Ej. 3001234567")+'<label>Email (opcional)</label><input id="email" type="email" autocomplete="email" value="'+esc(booking.email)+'"><label>Notas (opcional)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea><label style="display:flex;gap:8px;align-items:center"><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?'checked':'')+'> Quiero recordatorios</label>';
   }else if(step===5){
     h+='<div class="ok">'+esc(message||"Cita creada correctamente.")+'</div><h3 class="stepTitle">¡Reserva lista! 🎉</h3><p class="stepSub">Tu cita quedó registrada. Puedes consultar tus citas desde este mismo enlace.</p>';
     h+='<div class="summary"><div class="summaryRow"><span>Servicio</span><b>'+esc(booking.service?.name||'')+'</b></div><div class="summaryRow"><span>Fecha</span><b>'+esc(fmtShortDate(booking.date))+'</b></div><div class="summaryRow"><span>Hora</span><b>'+esc(booking.time)+'</b></div></div>';
@@ -556,7 +574,7 @@ function bookingFooter(){
   if(step===1)return '<div class="panelFoot"><button class="btn" data-a="closeBooking">Cerrar</button></div>';
   if(step===2)return '<div class="panelFoot"><button class="btn" data-a="back">← Volver</button></div>';
   if(step===3)return '<div class="panelFoot"><button class="btn" data-a="back">← Volver</button><button class="btn p" data-a="next" '+(!booking.time?'disabled':'')+'>Continuar</button></div>';
-  if(step===4)return '<div class="panelFoot"><button class="btn" data-a="back" '+(bookingBusy?'disabled':'')+'>← Volver</button><button class="btn p" data-a="book" '+(bookingBusy?'disabled':'')+'>'+(bookingBusy?'Guardando…':'Confirmar cita')+'</button></div>';
+  if(step===4)return '<div class="panelFoot"><button class="btn" data-a="back" '+(bookingBusy?'disabled':'')+'>← Volver</button><button class="btn p" data-a="book" '+(bookingBusy||!bookingDetailsValid()?'disabled':'')+'>'+(bookingBusy?'Guardando…':'Confirmar cita')+'</button></div>';
   return '<div class="panelFoot"><button class="btn" data-a="my">Mis citas</button><button class="btn p" data-a="reset">Reservar otra</button></div>';
 }
 function bookingOverlay(){return '<div class="overlay"><section class="bookingPanel">'+bookingHeader()+ '<div class="panelBody">'+bookingStepContent()+'</div>'+bookingFooter()+'</section></div>'}
@@ -595,6 +613,7 @@ function render(){
 }
 
 document.getElementById('app').addEventListener('input',e=>{
+  if(step===4&&['name','phone','email','notes'].includes(e.target.id))updateBookingButton();
   if(e.target.id==='myCode'){
     myCode=e.target.value.replace(/[^0-9]/g,'').slice(0,6);e.target.value=myCode;
     const button=document.querySelector('[data-a="verifyMyCode"]');
@@ -607,6 +626,7 @@ setInterval(()=>{
 },1000);
 
 document.getElementById('app').addEventListener('change',e=>{
+  if(step===4&&['phoneCountry','rem'].includes(e.target.id))updateBookingButton();
   if(e.target.id==='date'){
     const selected=e.target.value;
     if(selected&&selected<todayInBusinessTz()){booking.date='';booking.time='';availability=[];error='Selecciona una fecha de hoy en adelante.';render();return}
@@ -620,7 +640,7 @@ document.getElementById('app').addEventListener('click',e=>{
   if(a==='openBooking'){view='home';step=1;menuOpen=false;render()}
   else if(a==='closeBooking'){step=0;view='home';menuOpen=false;render()}
   else if(a==='next'){step++;render()}
-  else if(a==='back'){step=Math.max(1,step-1);render()}
+  else if(a==='back'){if(step===4)readBookingFields();step=Math.max(1,step-1);render()}
   else if(a==='svc'){
     booking.service=services.find(x=>x.id===t.dataset.id);
     if(booking.professional){
