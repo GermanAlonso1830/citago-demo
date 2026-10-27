@@ -24,7 +24,7 @@ const w=dom.window,d=w.document,tick=()=>new Promise(resolve=>setTimeout(resolve
 const accept=id=>{const el=d.getElementById(id);assert(el,'missing '+id);assert(!el.checked,'consent starts unchecked');el.checked=true;el.dispatchEvent(new w.Event('change',{bubbles:true}))};
 const click=a=>{const b=d.querySelector('[data-a="'+a+'"]');assert(b,'missing '+a);b.click()};
 const fill=(id,value)=>{const el=d.getElementById(id);assert(el,'missing '+id);el.value=value;el.dispatchEvent(new w.Event('input',{bubbles:true}))};
-(async()=>{await tick();click('my');assert(d.querySelector('[data-a="identifyMy"]').disabled);accept('myPrivacy');fill('myPhone','3001234567');click('identifyMy');await tick();click('requestMyCode');await tick();
+(async()=>{await tick();click('my');assert(d.querySelector('[data-a="identifyMy"]').disabled);accept('myPrivacy');assert.equal(w.lastRevealed,'myPhone');fill('myPhone','3001234567');click('identifyMy');await tick();click('requestMyCode');await tick();
  fill('myCode','123');assert(d.querySelector('[data-a="verifyMyCode"]').disabled);assert(d.querySelector('[data-a="requestMyCode"]').disabled);
  fill('myCode','000000');click('verifyMyCode');await tick();assert(d.body.textContent.includes('Código incorrecto'));
  fill('myCode','123456');click('verifyMyCode');await tick();assert(d.body.textContent.includes('Corte'));
@@ -39,7 +39,7 @@ const fill=(id,value)=>{const el=d.getElementById(id);assert(el,'missing '+id);e
  click('privacy');assert(d.getElementById('privacyDialog').open);assert(d.querySelector('#privacyDialog iframe').src.endsWith('/legal/privacidad-2026-10-27.html'));
  d.getElementById('closePrivacy').click();assert(!d.getElementById('privacyDialog').open);assert.equal(d.querySelector('.panelBody'),policyPanel);assert.equal(policyPanel.scrollTop,240);assert.equal(d.getElementById('name'),nameBeforePolicy);
  const noConsentCount=requests.length;fill('phone','3001234567');await new Promise(r=>setTimeout(r,750));assert.equal(requests.length,noConsentCount);
- fill('phone','');accept('bookingPrivacy');
+ fill('phone','');const acceptanceRequests=requests.length;accept('bookingPrivacy');assert.equal(w.lastRevealed,'name','accepting privacy reveals the first contact field');assert.equal(d.querySelector('.panelBody'),policyPanel);assert.equal(d.getElementById('name'),nameBeforePolicy);assert.equal(requests.length,acceptanceRequests,'accepting without a number must not send a request');
  const reserve=()=>d.querySelector('[data-a="book"]');
  assert(reserve().disabled,'empty booking must be disabled');
  fill('name','   ');fill('phone','3001234567');assert(reserve().disabled,'whitespace name');
