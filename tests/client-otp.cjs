@@ -1,6 +1,6 @@
 // Run: npm install --no-save jsdom && node tests/client-otp.cjs
 const {JSDOM,VirtualConsole}=require('jsdom');const fs=require('fs');const assert=require('node:assert/strict');
-let available=true,expire=false,requests=[];const errors=[];
+let available=true,expire=false,requests=[],receiptAccepted=true,receiptStatus="CONFIRMED";const errors=[];
 const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
 const dom=new JSDOM(fs.readFileSync(require('node:path').join(__dirname,'../cliente.html'),'utf8'),{url:'https://test.local/?biz=test',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){
  w.fetch=async(url,opts={})=>{const path=new URL(url).pathname;const data=opts.body?JSON.parse(opts.body):{};requests.push({path,data});let body={},status=200;
@@ -11,6 +11,7 @@ const dom=new JSDOM(fs.readFileSync(require('node:path').join(__dirname,'../clie
  else if(path.endsWith('/otp/options'))body={methods:[{channel:'email',available},{channel:'whatsapp',available:false}]};
  else if(path.endsWith('/otp/request'))body={challenge_id:'c',resend_after_seconds:60,message:'Código enviado'};
  else if(path.endsWith('/otp/verify')){if(data.code!=='123456'){status=401;body={detail:'Código incorrecto'}}else body={access_token:'token'}}
+ else if(path==='/appointments')body={appointment:{status:receiptStatus},email_confirmation:{accepted:receiptAccepted}};
  else if(path.endsWith('/my')){if(expire){status=401;body={detail:'Sesión vencida'}}else body={appointments:[{service:'Corte',status:'CONFIRMED',professional:'Leo',start_at:'2026-12-01T12:00:00Z',duration_minutes:30,price:10000}]}}
  else throw Error(path);
  return {ok:status===200,status,json:async()=>body};
@@ -44,5 +45,8 @@ const fill=(id,value)=>{const el=d.getElementById(id);assert(el,'missing '+id);e
  fill('email','new@example.com');click('bookingSend');await tick();fill('bookingCode','123456');click('bookingVerify');await tick();assert(!reserve().disabled);
  w.eval('bookingBusy=true;render()');assert(reserve().disabled,'double submit blocked');
  assert.equal(requests.filter(r=>r.path==='/appointments').length,0,'validation must not create appointments');
+ w.eval('bookingBusy=false;render()');click('book');await tick();assert(d.body.textContent.includes('Enviamos la confirmación a tu correo.'));
+ receiptAccepted=false;w.eval("step=4;bookingProof={phase:'verified',token:'proof2',bound:bookingIdentity(),expiresAt:Date.now()+600000,busy:false};render()");click('book');await tick();assert(d.body.textContent.includes('no necesitas volver a reservar'));
+ receiptAccepted=true;receiptStatus='PENDING';w.eval("step=4;bookingProof={phase:'verified',token:'proof3',bound:bookingIdentity(),expiresAt:Date.now()+600000,busy:false};render()");click('book');await tick();assert(d.body.textContent.includes('falta la aprobación del negocio'));
  assert(!requests.some(r=>r.path.includes('dev-access')));assert.deepEqual(errors,[]);console.log('Booking validation and DOM flow PASS: OTP, wrong code, disabled controls, list, logout, unavailable email, expired session, no dev-access');dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exit(1)});
