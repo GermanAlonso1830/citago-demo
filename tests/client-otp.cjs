@@ -3,6 +3,7 @@ const {JSDOM,VirtualConsole}=require('jsdom');const fs=require('fs');const asser
 let available=true,expire=false,requests=[],receiptAccepted=true,receiptStatus="CONFIRMED";const errors=[];
 const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
 const dom=new JSDOM(fs.readFileSync(require('node:path').join(__dirname,'../cliente.html'),'utf8'),{url:'https://test.local/?biz=test',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){
+ w.HTMLElement.prototype.scrollIntoView=function(){w.lastRevealed=this.id||this.getAttribute('role')};
  w.fetch=async(url,opts={})=>{const path=new URL(url).pathname;const data=opts.body?JSON.parse(opts.body):{};requests.push({path,data});let body={},status=200;
  if(path.endsWith('/catalog'))body={business:{id:'b',name:'Test',timezone:'UTC'},services:[],professionals:[]};
  else if(path.endsWith('/email/options'))body={requires_email:data.phone!=='+573001234567',email_hint:'o***@e***'};
@@ -33,14 +34,19 @@ const fill=(id,value)=>{const el=d.getElementById(id);assert(el,'missing '+id);e
  assert(reserve().disabled,'empty booking must be disabled');
  fill('name','   ');fill('phone','3001234567');assert(reserve().disabled,'whitespace name');
  fill('name','Maria');assert(reserve().disabled,'unverified email must block booking');
- click('bookingIdentify');await tick();assert(!d.getElementById('email'),'existing email must not need typing');assert(d.body.textContent.includes('o***@e***'));
+ const panel=d.querySelector('.panelBody'),nameInput=d.getElementById('name');panel.scrollTop=280;
+ click('bookingIdentify');await tick();assert.equal(d.querySelector('.panelBody'),panel);assert.equal(panel.scrollTop,280);assert.equal(d.getElementById('name'),nameInput);assert.equal(w.lastRevealed,'bookingEmailTitle');assert(!d.getElementById('email'),'existing email must not need typing');assert(d.body.textContent.includes('o***@e***'));
  assert(!d.body.textContent.includes('owner@example.com'),'full email hidden before OTP');
- click('bookingSend');await tick();fill('bookingCode','000000');click('bookingVerify');await tick();assert(reserve().disabled);
+ click('bookingSend');await tick();assert.equal(w.lastRevealed,'bookingCode');assert.equal(d.querySelector('.panelBody'),panel);assert.equal(panel.scrollTop,280);assert(d.querySelector('[data-a="bookingVerify"]').disabled);fill('bookingCode','12ab');assert.equal(d.getElementById('bookingCode').value,'12');assert(d.querySelector('[data-a="bookingVerify"]').disabled);fill('bookingCode','000000');click('bookingVerify');await tick();assert(reserve().disabled);
  fill('bookingCode','123456');click('bookingVerify');await tick();assert(!reserve().disabled);assert(d.body.textContent.includes('owner@example.com'));
- click('bookingSend');await tick();assert(reserve().disabled,'resend invalidates booking authorization');fill('bookingCode','123456');click('bookingVerify');await tick();assert(!reserve().disabled);
+ assert.equal(w.lastRevealed,'bookingEmailVerified');assert.equal(d.querySelector('.panelBody'),panel);assert.equal(panel.scrollTop,280);
+ assert(!d.querySelector('[data-a="bookingVerify"]'),'verified state removes verify action');
+ assert(!d.querySelector('[data-a="bookingSend"]'),'verified state removes resend action');
+ const requestCount=requests.length;await w.eval("bookingEmailAction('request')");assert.equal(requests.length,requestCount,'verified state rejects accidental resend');
+ w.eval('bookingProof.expiresAt=Date.now()-1');await new Promise(r=>setTimeout(r,1100));assert(reserve().disabled);assert(d.querySelector('[data-a="bookingSend"]'));click('bookingSend');await tick();fill('bookingCode','123456');click('bookingVerify');await tick();assert(!reserve().disabled);
  fill('name','');assert(reserve().disabled);fill('name','Maria');assert(!reserve().disabled);
  fill('phone','999123456');d.getElementById('phoneCountry').value='+51';d.getElementById('phoneCountry').dispatchEvent(new w.Event('change',{bubbles:true}));assert(reserve().disabled,'phone change must invalidate proof');
- click('bookingIdentify');await tick();assert(d.getElementById('email'),'new client must enter email');
+ click('bookingIdentify');await tick();assert(d.getElementById('email'),'new client must enter email');assert.equal(w.lastRevealed,'email');
  fill('email','invalid');click('bookingSend');await tick();assert(reserve().disabled);assert(d.body.textContent.includes('Escribe un correo electrónico válido.'));
  fill('email','new@example.com');click('bookingSend');await tick();fill('bookingCode','123456');click('bookingVerify');await tick();assert(!reserve().disabled);
  w.eval('bookingBusy=true;render()');assert(reserve().disabled,'double submit blocked');
