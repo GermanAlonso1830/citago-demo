@@ -858,6 +858,7 @@ window.fetch = async function(input, init){
 };
 var DASH = null, DASH_LOADING = false, DASH_ERROR = "";
 var APPTS = [], APPTS_LOADING = false, APPTS_ERROR = "";
+var APPT_CORRECTION=null, APPT_STATUS_BUSY=false, APPT_STATUS_MESSAGE="";
 var API_SERVICES = [], SERVICES_LOADING = false, SERVICES_ERROR = "";
 var EDIT_SERVICE_ID = null, SERVICE_SAVING = false, SERVICE_ACTION_BUSY = "", SERVICE_EDIT_INITIAL_STATE = "", SERVICE_EDIT_DIRTY = false;
 var SERVICE_MSG = "", SERVICE_UI_ERROR = "";
@@ -971,18 +972,35 @@ async function loadAppointments(){
 }
 function bizCitas(){
  var h='<h1>Citas</h1><div style="margin-top:14px">';
+ if(APPT_STATUS_MESSAGE)h+='<p role="status" style="color:#19764D">'+esc(APPT_STATUS_MESSAGE)+'</p>';
+ var statusDisabled=APPT_STATUS_BUSY?' disabled':'';
  if(APPTS_LOADING)return h+'<div class="pn"><p>Cargando citas reales...</p></div></div>';
  if(APPTS_ERROR)return h+'<div class="pn"><p style="color:#B3372A">'+esc(APPTS_ERROR)+'</p><button class="btn p" data-a="reloadAppts">Reintentar</button></div></div>';
  if(!APPTS.length)return h+'<p style="color:var(--mute)">Todavía no hay citas.</p></div>';
  APPTS.forEach(function(a){
   var statusMap={PENDING:"Pendiente",CONFIRMED:"Confirmada",COMPLETED:"Completada",CANCELLED:"Cancelada",NO_SHOW:"No asistió",REJECTED:"Rechazada"},stx=statusMap[a.status]||a.status;
   var k=a.status==="CONFIRMED"?"":a.status==="PENDING"?" w":a.status==="COMPLETED"?" c":a.status==="NO_SHOW"?" n":" x";
-  h+='<div class="pn" style="overflow:visible"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(a.client.name)+'</b><span class="tg'+k+'">'+stx+'</span></div><div style="color:var(--mute);font-size:.88rem">'+esc(a.service.name)+' · '+esc(a.professional.name||"—")+'<br>'+lng(a.date)+', '+h12(a.start_time)+' · '+esc(a.client.phone)+(a.notes?'<br>📝 '+esc(a.notes):'')+'</div>';
-  if(a.status==="PENDING")h+='<div class="dn"><button class="btn p" data-a="apiStatus" data-id="'+a.id+'" data-v="CONFIRMED">Aprobar</button><button class="btn" data-a="apiStatus" data-id="'+a.id+'" data-v="REJECTED">Rechazar</button></div>';
-  else if(a.status==="CONFIRMED")h+='<div class="dn"><button class="btn p" data-a="apiStatus" data-id="'+a.id+'" data-v="COMPLETED">✓ Completada</button><button class="btn" data-a="apiStatus" data-id="'+a.id+'" data-v="NO_SHOW">No asistió</button><button class="btn" data-a="apiStatus" data-id="'+a.id+'" data-v="CANCELLED">Cancelar cita</button></div>';
+  h+='<div class="pn" data-appointment-id="'+esc(a.id)+'" style="overflow:visible"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(a.client.name)+'</b><span class="tg'+k+'">'+stx+'</span></div><div style="color:var(--mute);font-size:.88rem">'+esc(a.service.name)+' · '+esc(a.professional.name||"—")+'<br>'+lng(a.date)+', '+h12(a.start_time)+' · '+esc(a.client.phone)+(a.notes?'<br>📝 '+esc(a.notes):'')+'</div>';
+  if(a.status==="PENDING")h+='<div class="dn"><button class="btn p" data-a="apiStatus"'+statusDisabled+' data-id="'+a.id+'" data-v="CONFIRMED">Aprobar</button><button class="btn" data-a="apiStatus"'+statusDisabled+' data-id="'+a.id+'" data-v="REJECTED">Rechazar</button></div>';
+  else if(a.status==="CONFIRMED")h+='<div class="dn"><button class="btn p" data-a="apiStatus"'+statusDisabled+' data-id="'+a.id+'" data-v="COMPLETED">✓ Completada</button><button class="btn" data-a="apiStatus"'+statusDisabled+' data-id="'+a.id+'" data-v="NO_SHOW">No asistió</button><button class="btn" data-a="apiStatus"'+statusDisabled+' data-id="'+a.id+'" data-v="CANCELLED">Cancelar cita</button></div>';
+  else if(a.status==='COMPLETED'||a.status==='NO_SHOW'){
+   h+='<div class="dn"><button class="btn" data-a="apiCorrectStatus" data-id="'+esc(a.id)+'"'+statusDisabled+'>Corregir estado</button></div>';
+   if(APPT_CORRECTION&&APPT_CORRECTION.id===a.id)h+=appointmentCorrectionHtml();
+  }
   h+='</div>'
  });
  return h+'</div>'
+}
+function appointmentCorrectionHtml(){
+ var c=APPT_CORRECTION,from=c.from==='COMPLETED'?'Completada':'No asistió',to=c.to==='COMPLETED'?'Completada':'No asistió';
+ return '<section style="margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:14px" aria-label="Corregir resultado de la cita"><b>Corregir estado</b><p style="margin:8px 0">De <b>'+from+'</b> a <b>'+to+'</b>.</p><p style="color:var(--mute);font-size:.85rem">Usa esta opción si marcaste el resultado por error. La corrección conservará el historial.</p><label for="appointmentCorrectionReason">Motivo de la corrección</label><textarea id="appointmentCorrectionReason" rows="2" maxlength="500" placeholder="Ej. Seleccioné el resultado equivocado." '+(APPT_STATUS_BUSY?'disabled':'')+'>'+esc(c.reason)+'</textarea>'+(c.error?'<p role="alert" style="color:#B3372A">'+esc(c.error)+'</p>':'')+'<div class="dn"><button class="btn p" data-a="saveAppointmentCorrection" '+(APPT_STATUS_BUSY||c.reason.trim().length<3?'disabled':'')+'>'+(APPT_STATUS_BUSY?'Guardando…':'Guardar corrección')+'</button><button class="btn" data-a="cancelAppointmentCorrection" '+(APPT_STATUS_BUSY?'disabled':'')+'>Cancelar</button></div></section>';
+}
+function openAppointmentCorrection(id){
+ if(APPT_STATUS_BUSY)return;
+ var a=APPTS.find(function(x){return x.id===id});
+ if(!a||['COMPLETED','NO_SHOW'].indexOf(a.status)<0)return;
+ APPT_STATUS_MESSAGE='';APPT_CORRECTION={id:id,from:a.status,to:a.status==='COMPLETED'?'NO_SHOW':'COMPLETED',reason:'',error:''};render();
+ var field=document.getElementById('appointmentCorrectionReason');if(field){field.scrollIntoView?.({block:'center',behavior:'smooth'});field.focus({preventScroll:true})}
 }
 async function loadServices(){
  SERVICES_LOADING=true;SERVICES_ERROR="";render();
@@ -2493,6 +2511,11 @@ function openFreshImagePicker(kind,id){
 
 var app=document.getElementById("app");
 app.oninput=function(e){
+ if(e.target.id==='appointmentCorrectionReason'&&APPT_CORRECTION){
+  APPT_CORRECTION.reason=e.target.value;
+  var save=document.querySelector('[data-a="saveAppointmentCorrection"]');if(save)save.disabled=APPT_STATUS_BUSY||APPT_CORRECTION.reason.trim().length<3;
+  return;
+ }
  var sc=e.target.dataset.serviceCreate;
  if(sc!==undefined){SERVICE_CREATE_DRAFT[sc]=e.target.value;updateCreateButtonStates();return}
  var pc=e.target.dataset.proCreate;
@@ -2564,16 +2587,26 @@ app.onchange=function(e){
  if(k==="logo"){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(){BZ.logo=r.result;lg("Cambió el logo");render()};r.readAsDataURL(f);return}
   if(k){var ov2=BZ[k];BZ[k]=k==="step"?+e.target.value:e.target.value;if(ov2!==BZ[k])lg("Cambió "+({name:"el nombre",tag:"la frase",wa:"el WhatsApp",color:"el color de marca",open:"la hora de apertura",close:"la hora de cierre",step:"la duración del bloque"})[k]+': "'+ov2+'" → "'+BZ[k]+'"');render()}
  else if(e.target.dataset.a==="rem")st.rem=e.target.checked};
-async function updateAppointmentStatus(id,status){
+async function updateAppointmentStatus(id,status,correction){
+ if(APPT_STATUS_BUSY)return;
+ var appointment=APPTS.find(function(x){return x.id===id});if(!appointment)return;
+ if(correction&&!(correction.reason.trim().length>=3&&correction.reason.trim().length<=500))return;
+ APPT_STATUS_BUSY=true;APPT_STATUS_MESSAGE='';if(correction)correction.error='';render();
  try{
-  var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/appointments/"+id+"/status",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:status,reason:"Actualizado desde el panel del negocio"})});
-  if(!response.ok){var err=await response.json().catch(function(){return{}});throw new Error(err.detail||("Error HTTP "+response.status))}
+  var response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/appointments/"+id+"/status",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:status,expected_status:correction?correction.from:appointment.status,reason:correction?correction.reason.trim():"Actualizado desde el panel del negocio"})});
+  if(!response.ok){var err=await response.json().catch(function(){return{}});var problem=new Error(err.detail||("Error HTTP "+response.status));problem.status=response.status;throw problem}
+  if(correction){APPT_CORRECTION=null;APPT_STATUS_MESSAGE='Corrección guardada en el historial.'}
   await loadAppointments();
   await loadDashboard();
- }catch(error){console.error(error);alert("No se pudo actualizar la cita: "+error.message)}
+ }catch(error){
+  console.error(error);
+  if(error.status===409){APPT_CORRECTION=null;await loadAppointments();alert(error.message)}
+  else if(correction&&APPT_CORRECTION)APPT_CORRECTION.error='No se pudo guardar la corrección: '+error.message;
+  else alert("No se pudo actualizar la cita: "+error.message);
+ }finally{APPT_STATUS_BUSY=false;render()}
 }
 app.onclick=function(e){
- var t=e.target.closest("[data-a]");if(!t||t.type==="checkbox")return;var a=t.dataset.a,i=+t.dataset.i,v=t.dataset.v;
+ var t=e.target.closest("[data-a]");if(!t||t.disabled||t.type==="checkbox")return;var a=t.dataset.a,i=+t.dataset.i,v=t.dataset.v;
  if(a==="go"){st.s=i;if(i===6){st.cs=false;st.vf=false;st.ci="";st.ce=""}}
  else if(a==="back"){if(st.rs){st.s=st.from;st.rs=null}else st.s=st.s===6?0:(st.s>1?st.s-1:0)}
  else if(a==="svc"){st.svc=i;st.pro=0;st.time=null;st.s=2}
@@ -2646,6 +2679,9 @@ app.onclick=function(e){
  }
  else if(a==="saveProSchedules"){saveProfessionalSchedules();return}
  else if(a==="cancelProSchedules"){SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";render();return}
+ else if(a==="apiCorrectStatus"){openAppointmentCorrection(t.dataset.id);return}
+ else if(a==="cancelAppointmentCorrection"){if(!APPT_STATUS_BUSY){APPT_CORRECTION=null;render()}return}
+ else if(a==="saveAppointmentCorrection"){if(APPT_CORRECTION)updateAppointmentStatus(APPT_CORRECTION.id,APPT_CORRECTION.to,APPT_CORRECTION);return}
  else if(a==="apiStatus"){updateAppointmentStatus(t.dataset.id,t.dataset.v);return}
  else if(a==="ast")A.forEach(function(x){if(x.id===i&&x.st!==v){x.st=v;lg(({Confirmada:"Confirmó",Cancelada:"Canceló",Rechazada:"Rechazó",Completada:"Marcó como completada","No asistió":"Marcó como no asistió"})[v]+" la cita de "+x.name)}});
  else if(a==="dsvc"){var sid=SV[i].id;lg('Quitó el servicio "'+SV[i].n+'"');PR.forEach(function(p){p.sv=p.sv.filter(function(x){return x!==sid})});SV.splice(i,1);ES=-1}
