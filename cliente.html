@@ -361,10 +361,41 @@ function fmtShortDate(date){
   const d=new Date(date+"T12:00:00");
   return new Intl.DateTimeFormat("es-CO",{weekday:"long",day:"numeric",month:"long"}).format(d);
 }
+let bookingProof={phase:'identify',token:'',bound:'',busy:false};
+function bookingIdentity(){return normalizePhone(booking.phoneCountry,booking.phone)}
+function bookingProofHtml(){
+  const p=bookingProof;
+  if(p.phase==='identify')return '<p class="phoneHelp">Consulta el teléfono para verificar el correo de tu reserva.</p><button class="btn full" data-a="bookingIdentify" '+(p.busy?'disabled':'')+'>'+(p.busy?'Consultando…':'Continuar con este teléfono')+'</button>';
+  let h=p.requires_email?'<label for="email">Correo obligatorio</label><input id="email" type="email" autocomplete="email" value="'+esc(booking.email)+'" '+(p.phase==='code'?'readonly':'')+'>':'<p>Usaremos tu correo registrado: <b>'+esc(p.email_hint||'')+'</b></p>';
+  if(p.phase==='verified')return '<div class="ok">✓ Correo verificado: '+esc(booking.email)+'</div><button class="btn full" data-a="bookingSend" '+(p.busy?'disabled':'')+'>Enviar un nuevo código</button>';
+  if(p.phase==='code')h+='<label for="bookingCode">Código de 6 dígitos</label><input id="bookingCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value="'+esc(p.code||'')+'"><button class="btn full" data-a="bookingVerify" '+(p.busy?'disabled':'')+'>Verificar correo</button><button class="btn full" data-a="bookingSend" '+(p.busy||Date.now()<(p.resendAt||0)?'disabled':'')+'>Reenviar código</button><small class="phoneHelp">El código vence en 5 minutos. Puedes reenviarlo después de 60 segundos.</small>';
+  else h+='<button class="btn full" data-a="bookingSend" '+(p.busy?'disabled':'')+'>Enviar código al correo</button>';
+  return h;
+}
+async function bookingEmailAction(action){
+  readBookingFields();if(bookingProof.busy)return;
+  const identity=bookingIdentity();const base={business_id:business.id,phone:identity};
+  if(localPhoneDigits(booking.phoneCountry,booking.phone).length<7){error='Escribe un teléfono válido.';render();return}
+  if(action==='verify')bookingProof.code=document.getElementById('bookingCode')?.value||'';
+  if(action==='request'&&bookingProof.requires_email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(booking.email.trim())){error='Escribe un correo electrónico válido.';render();return}
+  if(action==='verify'&&!/^[0-9]{6}$/.test(bookingProof.code||'')){error='Escribe los 6 dígitos del código.';render();return}
+  bookingProof.busy=true;error='';render();
+  try{
+    let body=base;
+    if(action==='request')body={...base,...(bookingProof.requires_email?{email:booking.email.trim()}: {})};
+    if(action==='verify')body={...base,challenge_id:bookingProof.challenge_id,code:bookingProof.code};
+    const x=await api('/public/booking/email/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(identity!==bookingIdentity())return;
+    if(action==='options')bookingProof={...x,phase:'send',bound:identity,token:''};
+    if(action==='request')bookingProof={...bookingProof,...x,phase:'code',code:'',resendAt:Date.now()+60000};
+    if(action==='verify'){booking.email=x.email;bookingProof={...bookingProof,phase:'verified',token:x.booking_verification_token,bound:identity,expiresAt:Date.now()+x.expires_in_seconds*1000}}
+  }catch(e){if(identity===bookingIdentity())error=typeof e.message==='string'?e.message:'Revisa los datos e intenta nuevamente.'}
+  finally{bookingProof.busy=false;render()}
+}
 function bookingDetailsValid(){
   const digits=localPhoneDigits(booking.phoneCountry,booking.phone);
   const email=booking.email.trim();
-  return Boolean(booking.name.trim())&&digits.length>=7&&cleanPhoneDigits(normalizePhone(booking.phoneCountry,booking.phone)).length<=15&&(!email||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
+  return Boolean(booking.name.trim())&&digits.length>=7&&cleanPhoneDigits(normalizePhone(booking.phoneCountry,booking.phone)).length<=15&&Boolean(bookingProof.token)&&bookingProof.bound===bookingIdentity()&&Date.now()<bookingProof.expiresAt;
 }
 function readBookingFields(){
   for(const id of ['name','phoneCountry','phone','email','notes']){
@@ -374,16 +405,17 @@ function readBookingFields(){
 }
 function updateBookingButton(){
   readBookingFields();
+  if(bookingProof.bound&&bookingProof.bound!==bookingIdentity()){bookingProof={phase:'identify',token:'',bound:'',busy:false};booking.email='';const block=document.getElementById('bookingEmailProof');if(block)block.innerHTML=bookingProofHtml()}
   const button=document.querySelector('[data-a="book"]');
   if(button)button.disabled=bookingBusy||!bookingDetailsValid();
   const help=document.getElementById('bookingDataHelp');
-  if(help)help.textContent=bookingDetailsValid()?'Datos completos. Ya puedes confirmar tu cita.':'Completa tu nombre y un teléfono válido. El correo es opcional; si lo escribes, debe ser válido.';
+  if(help)help.textContent=bookingDetailsValid()?'Datos completos. Ya puedes confirmar tu cita.':'Completa tu nombre y teléfono, y verifica tu correo antes de confirmar.';
 }
 async function book(){
   if(bookingBusy)return;
   const normalizedPhone=normalizePhone(booking.phoneCountry,booking.phone);
   const localDigits=localPhoneDigits(booking.phoneCountry,booking.phone);
-  if(!bookingDetailsValid()){error="Completa tu nombre, un teléfono válido y revisa el correo si lo ingresaste.";render();return}
+  if(!bookingDetailsValid()){error="Completa tu nombre y teléfono, y verifica tu correo para continuar.";render();return}
   let professionalId=booking.professional?.id||null;
   if(!professionalId){
     const available=availability.find(x=>(x.slots||[]).includes(booking.time));
@@ -393,10 +425,11 @@ async function book(){
   bookingBusy=true;error="";render();
   try{
     const x=await api("/appointments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-      business_id:business.id,service_id:booking.service.id,professional_id:professionalId,
+      booking_verification_token:bookingProof.token,business_id:business.id,service_id:booking.service.id,professional_id:professionalId,
       client_name:booking.name.trim(),client_phone:normalizedPhone,client_email:booking.email.trim()||null,
       date:booking.date,start_time:booking.time,notes:booking.notes||null,reminder_opt_in:booking.reminder
     })});
+    bookingProof={phase:'identify',token:'',bound:'',busy:false};
     message="Tu cita quedó registrada correctamente. Estado: "+statusLabel(x.appointment.status)+".";
     step=5;
   }catch(e){error=e.message}
@@ -563,7 +596,7 @@ function bookingStepContent(){
   }else if(step===4){
     h+='<h3 class="stepTitle">Tus datos</h3><p class="stepSub">Revisa la reserva y completa tus datos de contacto.</p>';
     h+='<div class="summary"><div class="summaryRow"><span>Servicio</span><b>'+esc(booking.service?.name||'')+'</b></div><div class="summaryRow"><span>Profesional</span><b>'+esc(currentProfessionalName())+'</b></div><div class="summaryRow"><span>Fecha</span><b>'+esc(fmtShortDate(booking.date))+'</b></div><div class="summaryRow"><span>Hora</span><b>'+esc(booking.time)+'</b></div><div class="summaryRow"><span>Total</span><b>'+money(booking.service?.price)+'</b></div></div>';
-    h+='<p id="bookingDataHelp" class="phoneHelp" role="status" aria-live="polite">Completa tu nombre y un teléfono válido. El correo es opcional; si lo escribes, debe ser válido.</p><label>Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label>WhatsApp</label>'+phoneFieldHtml("phoneCountry","phone",booking.phoneCountry,booking.phone,"Ej. 3001234567")+'<label>Email (opcional)</label><input id="email" type="email" autocomplete="email" value="'+esc(booking.email)+'"><label>Notas (opcional)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea><label style="display:flex;gap:8px;align-items:center"><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?'checked':'')+'> Quiero recordatorios</label>';
+    h+='<p id="bookingDataHelp" class="phoneHelp" role="status" aria-live="polite">Completa tu nombre y teléfono, y verifica tu correo antes de confirmar.</p><label>Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label>WhatsApp</label>'+phoneFieldHtml("phoneCountry","phone",booking.phoneCountry,booking.phone,"Ej. 3001234567")+'<div id="bookingEmailProof">'+bookingProofHtml()+'</div><label>Notas (opcional)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea><label style="display:flex;gap:8px;align-items:center"><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?'checked':'')+'> Quiero recordatorios</label>';
   }else if(step===5){
     h+='<div class="ok">'+esc(message||"Cita creada correctamente.")+'</div><h3 class="stepTitle">¡Reserva lista! 🎉</h3><p class="stepSub">Tu cita quedó registrada. Puedes consultar tus citas desde este mismo enlace.</p>';
     h+='<div class="summary"><div class="summaryRow"><span>Servicio</span><b>'+esc(booking.service?.name||'')+'</b></div><div class="summaryRow"><span>Fecha</span><b>'+esc(fmtShortDate(booking.date))+'</b></div><div class="summaryRow"><span>Hora</span><b>'+esc(booking.time)+'</b></div></div>';
@@ -613,6 +646,7 @@ function render(){
 }
 
 document.getElementById('app').addEventListener('input',e=>{
+  if(e.target.id==='bookingCode')bookingProof.code=e.target.value.replace(/[^0-9]/g,'').slice(0,6);
   if(step===4&&['name','phone','email','notes'].includes(e.target.id))updateBookingButton();
   if(e.target.id==='myCode'){
     myCode=e.target.value.replace(/[^0-9]/g,'').slice(0,6);e.target.value=myCode;
@@ -623,6 +657,8 @@ document.getElementById('app').addEventListener('input',e=>{
 setInterval(()=>{
   const button=document.querySelector('[data-a="requestMyCode"]');
   if(button&&myStep==='code')button.disabled=myBusy||Date.now()<myResendAt;
+  if(step===4&&bookingProof.phase==='verified')updateBookingButton();
+  const resend=document.querySelector('[data-a="bookingSend"]');if(resend&&bookingProof.phase==='code')resend.disabled=bookingProof.busy||Date.now()<bookingProof.resendAt;
 },1000);
 
 document.getElementById('app').addEventListener('change',e=>{
@@ -653,7 +689,10 @@ document.getElementById('app').addEventListener('click',e=>{
   else if(a==='proDirect'){booking.professional=professionals.find(x=>x.id===t.dataset.id)||null;booking.service=null;clearAvailabilitySelection();view='home';step=1;render()}
   else if(a==='pro'){booking.professional=professionals.find(x=>x.id===t.dataset.id)||null;clearAvailabilitySelection();step=3;render()}
   else if(a==='time'){booking.time=t.dataset.v;render()}
-  else if(a==='book'){booking.name=document.getElementById('name').value;booking.phoneCountry=document.getElementById('phoneCountry').value;booking.phone=document.getElementById('phone').value;booking.email=document.getElementById('email').value;booking.notes=document.getElementById('notes').value;booking.reminder=document.getElementById('rem').checked;book()}
+  else if(a==='bookingIdentify'){bookingEmailAction('options')}
+  else if(a==='bookingSend'){bookingEmailAction('request')}
+  else if(a==='bookingVerify'){bookingEmailAction('verify')}
+  else if(a==='book'){booking.name=document.getElementById('name').value;booking.phoneCountry=document.getElementById('phoneCountry').value;booking.phone=document.getElementById('phone').value;if(document.getElementById('email'))booking.email=document.getElementById('email').value;booking.notes=document.getElementById('notes').value;booking.reminder=document.getElementById('rem').checked;book()}
   else if(a==='my'){view='my';step=0;myStep=myToken?'list':myStep;menuOpen=false;message='';if(myToken){myBusy=true;render();loadMyAppointments().catch(e=>error=e.message).finally(()=>{myBusy=false;render()})}else render()}
   else if(a==='home'){view='home';step=0;error='';message='';menuOpen=false;render()}
   else if(a==='identifyMy'){identifyMyAppointments()}
