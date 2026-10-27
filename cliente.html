@@ -213,7 +213,16 @@ body:not(.modalOpen){overflow-y:auto}
 /* El modal usa el viewport dinámico real del móvil y su cuerpo hace el scroll. */
 .overlay{height:100vh;height:100dvh}
 .bookingPanel{height:100vh;height:100dvh;max-height:100dvh;min-height:0}
-.panelBody{min-height:0;-webkit-overflow-scrolling:touch}
+.panelBody{min-height:0;-webkit-overflow-scrolling:touch;overflow-anchor:none}
+.emailProofCard{margin:18px 0;padding:16px;border:2px solid #c7b1ac;border-radius:16px;background:#fffaf7;scroll-margin:16px}
+.emailProofCard h4{margin:0 0 8px;font-size:1.05rem}
+.emailProofCard .btn{min-height:48px;margin-top:12px;border-width:2px}
+.emailProofCard .btn.p{background:#744b4b;border-color:#744b4b;color:#fff;box-shadow:0 3px 8px #744b4b22}
+.emailProofCard .btn:disabled{opacity:1;background:#eee8e6;border-color:#d7cecb;color:#726967;box-shadow:none}
+.emailProofCard .otpInput{margin:6px 0;padding:16px;border:2px solid #8b6b64;background:#fff;font-size:1.5rem;font-weight:700;letter-spacing:.35em;text-align:center;min-height:60px}
+.emailProofCard :focus-visible{outline:3px solid #744b4b;outline-offset:3px}
+.emailProofCard .ok{margin:0}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 
 @media(max-width:640px){
   body{
@@ -364,22 +373,36 @@ function fmtShortDate(date){
 let bookingProof={phase:'identify',token:'',bound:'',busy:false};
 function bookingIdentity(){return normalizePhone(booking.phoneCountry,booking.phone)}
 function bookingProofHtml(){
-  const p=bookingProof;
-  if(p.phase==='identify')return '<p class="phoneHelp">Consulta el teléfono para verificar el correo de tu reserva.</p><button class="btn full" data-a="bookingIdentify" '+(p.busy?'disabled':'')+'>'+(p.busy?'Consultando…':'Continuar con este teléfono')+'</button>';
-  let h=p.requires_email?'<label for="email">Correo obligatorio</label><input id="email" type="email" autocomplete="email" value="'+esc(booking.email)+'" '+(p.phase==='code'?'readonly':'')+'>':'<p>Usaremos tu correo registrado: <b>'+esc(p.email_hint||'')+'</b></p>';
-  if(p.phase==='verified')return '<div class="ok">✓ Correo verificado: '+esc(booking.email)+'</div><button class="btn full" data-a="bookingSend" '+(p.busy?'disabled':'')+'>Enviar un nuevo código</button>';
-  if(p.phase==='code')h+='<label for="bookingCode">Código de 6 dígitos</label><input id="bookingCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value="'+esc(p.code||'')+'"><button class="btn full" data-a="bookingVerify" '+(p.busy?'disabled':'')+'>Verificar correo</button><button class="btn full" data-a="bookingSend" '+(p.busy||Date.now()<(p.resendAt||0)?'disabled':'')+'>Reenviar código</button><small class="phoneHelp">El código vence en 5 minutos. Puedes reenviarlo después de 60 segundos.</small>';
-  else h+='<button class="btn full" data-a="bookingSend" '+(p.busy?'disabled':'')+'>Enviar código al correo</button>';
-  return h;
+  const p=bookingProof,disabled=p.busy?'disabled':'';
+  let h='<section class="emailProofCard" aria-labelledby="bookingEmailTitle" aria-busy="'+Boolean(p.busy)+'"><h4 id="bookingEmailTitle" tabindex="-1">Verifica tu correo</h4>';
+  if(p.feedback)h+='<div class="err" role="alert">'+esc(p.feedback)+'</div>';
+  if(p.phase==='identify')return h+'<p class="phoneHelp">Consulta el teléfono para verificar el correo de tu reserva.</p><button class="btn p full" data-a="bookingIdentify" '+disabled+'>'+(p.busy?'Consultando…':'Continuar con este teléfono')+'</button></section>';
+  if(p.phase==='verified')return h+'<div class="ok" id="bookingEmailVerified" role="status" tabindex="-1">✓ Correo verificado: '+esc(booking.email)+'<br>Ya puedes completar tus datos y pulsar <b>Confirmar cita</b>.</div></section>';
+  h+=p.requires_email?'<label for="email">Correo obligatorio</label><input id="email" type="email" autocomplete="email" value="'+esc(booking.email)+'" '+(p.phase==='code'||p.busy?'readonly':'')+'>':'<p>Usaremos tu correo registrado: <b>'+esc(p.email_hint||'')+'</b></p>';
+  if(p.phase==='code')h+='<p class="phoneHelp" role="status">Código enviado. Revisa tu correo y la carpeta de spam.</p><label for="bookingCode">Escribe el código de 6 dígitos</label><input class="otpInput" id="bookingCode" aria-describedby="bookingCodeHelp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" value="'+esc(p.code||'')+'" '+(p.busy?'readonly':'')+'><button class="btn p full" data-a="bookingVerify" '+(p.busy||!/^[0-9]{6}$/.test(p.code||'')?'disabled':'')+'>'+(p.busy?'Procesando…':'Verificar correo')+'</button><button class="btn full" data-a="bookingSend" '+(p.busy||Date.now()<(p.resendAt||0)?'disabled':'')+'>Reenviar código</button><small id="bookingCodeHelp" class="phoneHelp">El código vence en 5 minutos. Puedes reenviarlo después de 60 segundos.</small>';
+  else h+='<button class="btn p full" data-a="bookingSend" '+disabled+'>'+(p.busy?'Enviando código…':'Enviar código al correo')+'</button>';
+  return h+'</section>';
+}
+function refreshBookingProof(reveal=false){
+  const block=document.getElementById('bookingEmailProof');if(!block)return;
+  block.innerHTML=bookingProofHtml();
+  updateBookingButton();
+  if(!reveal)return;
+  const target=block.querySelector(bookingProof.feedback?'[role="alert"]':bookingProof.phase==='verified'?'#bookingEmailVerified':bookingProof.phase==='code'?'#bookingCode':bookingProof.requires_email?'#email':'#bookingEmailTitle');
+  if(target){
+    target.focus?.({preventScroll:true});
+    target.scrollIntoView?.({block:'center',behavior:'auto'});
+  }
 }
 async function bookingEmailAction(action){
-  readBookingFields();if(bookingProof.busy)return;
+  readBookingFields();if(bookingProof.busy||bookingProof.phase==='verified')return;
+  if(action==='request'&&bookingProof.phase==='code'&&Date.now()<(bookingProof.resendAt||0))return;
   const identity=bookingIdentity();const base={business_id:business.id,phone:identity};
-  if(localPhoneDigits(booking.phoneCountry,booking.phone).length<7){error='Escribe un teléfono válido.';render();return}
+  if(localPhoneDigits(booking.phoneCountry,booking.phone).length<7){bookingProof.feedback='Escribe un teléfono válido.';refreshBookingProof(true);return}
   if(action==='verify')bookingProof.code=document.getElementById('bookingCode')?.value||'';
-  if(action==='request'&&bookingProof.requires_email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(booking.email.trim())){error='Escribe un correo electrónico válido.';render();return}
-  if(action==='verify'&&!/^[0-9]{6}$/.test(bookingProof.code||'')){error='Escribe los 6 dígitos del código.';render();return}
-  bookingProof.busy=true;error='';render();
+  if(action==='request'&&bookingProof.requires_email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(booking.email.trim())){bookingProof.feedback='Escribe un correo electrónico válido.';refreshBookingProof(true);return}
+  if(action==='verify'&&!/^[0-9]{6}$/.test(bookingProof.code||''))return;
+  bookingProof.busy=true;bookingProof.feedback='';error='';refreshBookingProof();
   try{
     let body=base;
     if(action==='request')body={...base,...(bookingProof.requires_email?{email:booking.email.trim()}: {})};
@@ -389,8 +412,8 @@ async function bookingEmailAction(action){
     if(action==='options')bookingProof={...x,phase:'send',bound:identity,token:''};
     if(action==='request')bookingProof={...bookingProof,...x,phase:'code',token:'',expiresAt:0,code:'',resendAt:Date.now()+60000};
     if(action==='verify'){booking.email=x.email;bookingProof={...bookingProof,phase:'verified',token:x.booking_verification_token,bound:identity,expiresAt:Date.now()+x.expires_in_seconds*1000}}
-  }catch(e){if(identity===bookingIdentity())error=typeof e.message==='string'?e.message:'Revisa los datos e intenta nuevamente.'}
-  finally{bookingProof.busy=false;render()}
+  }catch(e){if(identity===bookingIdentity())bookingProof.feedback=typeof e.message==='string'?e.message:'Revisa los datos e intenta nuevamente.'}
+  finally{bookingProof.busy=false;refreshBookingProof(identity===bookingIdentity())}
 }
 function bookingDetailsValid(){
   const digits=localPhoneDigits(booking.phoneCountry,booking.phone);
@@ -648,7 +671,11 @@ function render(){
 }
 
 document.getElementById('app').addEventListener('input',e=>{
-  if(e.target.id==='bookingCode')bookingProof.code=e.target.value.replace(/[^0-9]/g,'').slice(0,6);
+  if(e.target.id==='bookingCode'){
+    bookingProof.code=e.target.value.replace(/[^0-9]/g,'').slice(0,6);e.target.value=bookingProof.code;
+    const verify=document.querySelector('[data-a="bookingVerify"]');
+    if(verify)verify.disabled=bookingProof.busy||!/^[0-9]{6}$/.test(bookingProof.code);
+  }
   if(step===4&&['name','phone','email','notes'].includes(e.target.id))updateBookingButton();
   if(e.target.id==='myCode'){
     myCode=e.target.value.replace(/[^0-9]/g,'').slice(0,6);e.target.value=myCode;
@@ -659,7 +686,10 @@ document.getElementById('app').addEventListener('input',e=>{
 setInterval(()=>{
   const button=document.querySelector('[data-a="requestMyCode"]');
   if(button&&myStep==='code')button.disabled=myBusy||Date.now()<myResendAt;
-  if(step===4&&bookingProof.phase==='verified')updateBookingButton();
+  if(step===4&&bookingProof.phase==='verified'){
+    if(Date.now()>=bookingProof.expiresAt){bookingProof={...bookingProof,phase:'send',token:'',feedback:'La verificación venció. Solicita un nuevo código para continuar.'};refreshBookingProof()}
+    else updateBookingButton();
+  }
   const resend=document.querySelector('[data-a="bookingSend"]');if(resend&&bookingProof.phase==='code')resend.disabled=bookingProof.busy||Date.now()<bookingProof.resendAt;
 },1000);
 
