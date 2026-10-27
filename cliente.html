@@ -739,15 +739,23 @@ setInterval(()=>{
   const resend=document.querySelector('[data-a="bookingSend"]');if(resend&&bookingProof.phase==='code')resend.disabled=bookingProof.busy||Date.now()<bookingProof.resendAt;
 },1000);
 
+function revealContactAfterConsent(kind){
+  // Reveal the next field without focusing it or opening the mobile keyboard.
+  const target=kind==='booking'?(document.getElementById('name')?.value.trim()?document.getElementById('phone'):document.getElementById('name')):document.getElementById('myPhone');
+  const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+  target?.scrollIntoView?.({block:'center',behavior:reducedMotion?'auto':'smooth'});
+}
+
 document.getElementById('app').addEventListener('change',e=>{
   if(e.target.id==='bookingPrivacy'){
     bookingPrivacyAccepted=e.target.checked;
     if(!bookingPrivacyAccepted){bookingProof={phase:'identify',token:'',bound:'',busy:false};refreshBookingProof()}
-    updateBookingButton();if(bookingPrivacyAccepted)scheduleBookingPhoneLookup(true);
+    updateBookingButton();if(bookingPrivacyAccepted){revealContactAfterConsent('booking');scheduleBookingPhoneLookup(true);}
   }
   if(e.target.id==='myPrivacy'){
     myPrivacyAccepted=e.target.checked;
     const button=document.querySelector('[data-a="identifyMy"]');if(button)button.disabled=myBusy||!myPrivacyAccepted;
+    if(myPrivacyAccepted)revealContactAfterConsent('my');
   }
   if(step===4&&['phoneCountry','rem'].includes(e.target.id))updateBookingButton();
   if(step===4&&['phone','phoneCountry'].includes(e.target.id))scheduleBookingPhoneLookup(true);
