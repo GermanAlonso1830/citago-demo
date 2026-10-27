@@ -54,5 +54,18 @@ const fill=(id,value)=>{const el=d.getElementById(id);assert(el,'missing '+id);e
  w.eval('bookingBusy=false;render()');click('book');await tick();assert(d.body.textContent.includes('Enviamos la confirmación a tu correo.'));
  receiptAccepted=false;w.eval("step=4;bookingProof={phase:'verified',token:'proof2',bound:bookingIdentity(),expiresAt:Date.now()+600000,busy:false};render()");click('book');await tick();assert(d.body.textContent.includes('no necesitas volver a reservar'));
  receiptAccepted=true;receiptStatus='PENDING';w.eval("step=4;bookingProof={phase:'verified',token:'proof3',bound:bookingIdentity(),expiresAt:Date.now()+600000,busy:false};render()");click('book');await tick();assert(d.body.textContent.includes('falta la aprobación del negocio'));
+ // Completing the phone reveals the next step without finding the hidden Continue button.
+ w.eval("view='home';step=4;booking.phoneCountry='+57';booking.phone='';bookingProof={phase:'identify',token:'',bound:'',busy:false};render()");
+ const autoPanel=d.querySelector('.panelBody');autoPanel.scrollTop=300;
+ let optionsBefore=requests.filter(r=>r.path.endsWith('/email/options')).length;
+ const sendsBefore=requests.filter(r=>r.path.endsWith('/email/request')).length;
+ fill('phone','300123456');await new Promise(r=>setTimeout(r,750));assert.equal(requests.filter(r=>r.path.endsWith('/email/options')).length,optionsBefore,'partial phone must not trigger lookup');
+ fill('phone','3001234567');await new Promise(r=>setTimeout(r,750));
+ assert.equal(requests.filter(r=>r.path.endsWith('/email/options')).length,optionsBefore+1);
+ assert.equal(w.lastRevealed,'bookingEmailTitle');assert(d.body.textContent.includes('o***@e***'));assert.equal(d.querySelector('.panelBody'),autoPanel);
+ await new Promise(r=>setTimeout(r,750));assert.equal(requests.filter(r=>r.path.endsWith('/email/options')).length,optionsBefore+1,'no repeated lookup');
+ fill('phone','3011234567');d.getElementById('phone').dispatchEvent(new w.Event('change',{bubbles:true}));await tick();
+ assert.equal(w.lastRevealed,'email');assert(d.getElementById('email'),'new number reveals email entry');
+ assert.equal(requests.filter(r=>r.path.endsWith('/email/request')).length,sendsBefore,'lookup must not send a code');
  assert(!requests.some(r=>r.path.includes('dev-access')));assert.deepEqual(errors,[]);console.log('Booking validation and DOM flow PASS: OTP, wrong code, disabled controls, list, logout, unavailable email, expired session, no dev-access');dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exit(1)});

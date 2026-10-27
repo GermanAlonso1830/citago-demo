@@ -394,8 +394,23 @@ function refreshBookingProof(reveal=false){
     target.scrollIntoView?.({block:'center',behavior:'auto'});
   }
 }
+let bookingPhoneTimer;
+function scheduleBookingPhoneLookup(committed=false){
+  clearTimeout(bookingPhoneTimer);
+  readBookingFields();
+  const identity=bookingIdentity(),digits=localPhoneDigits(booking.phoneCountry,booking.phone);
+  // Known local lengths allow advancing after typing; other countries advance on leaving the field.
+  const expected={'+57':10,'+51':9}[booking.phoneCountry];
+  const complete=expected?digits.length===expected:committed&&digits.length>=7;
+  if(!complete||cleanPhoneDigits(identity).length>15)return;
+  bookingPhoneTimer=setTimeout(()=>{
+    if(view!=='home'||step!==4||!document.getElementById('phone')||bookingIdentity()!==identity||bookingProof.busy||bookingProof.phase!=='identify')return;
+    bookingEmailAction('options');
+  },committed?0:700);
+}
 async function bookingEmailAction(action){
   readBookingFields();if(bookingProof.busy||bookingProof.phase==='verified')return;
+  if(action==='options'&&bookingProof.phase!=='identify')return;
   if(action==='request'&&bookingProof.phase==='code'&&Date.now()<(bookingProof.resendAt||0))return;
   const identity=bookingIdentity();const base={business_id:business.id,phone:identity};
   if(localPhoneDigits(booking.phoneCountry,booking.phone).length<7){bookingProof.feedback='Escribe un teléfono válido.';refreshBookingProof(true);return}
@@ -413,7 +428,7 @@ async function bookingEmailAction(action){
     if(action==='request')bookingProof={...bookingProof,...x,phase:'code',token:'',expiresAt:0,code:'',resendAt:Date.now()+60000};
     if(action==='verify'){booking.email=x.email;bookingProof={...bookingProof,phase:'verified',token:x.booking_verification_token,bound:identity,expiresAt:Date.now()+x.expires_in_seconds*1000}}
   }catch(e){if(identity===bookingIdentity())bookingProof.feedback=typeof e.message==='string'?e.message:'Revisa los datos e intenta nuevamente.'}
-  finally{bookingProof.busy=false;refreshBookingProof(identity===bookingIdentity())}
+  finally{bookingProof.busy=false;refreshBookingProof(identity===bookingIdentity());if(identity!==bookingIdentity())scheduleBookingPhoneLookup(true)}
 }
 function bookingDetailsValid(){
   const digits=localPhoneDigits(booking.phoneCountry,booking.phone);
@@ -677,6 +692,7 @@ document.getElementById('app').addEventListener('input',e=>{
     if(verify)verify.disabled=bookingProof.busy||!/^[0-9]{6}$/.test(bookingProof.code);
   }
   if(step===4&&['name','phone','email','notes'].includes(e.target.id))updateBookingButton();
+  if(step===4&&e.target.id==='phone')scheduleBookingPhoneLookup();
   if(e.target.id==='myCode'){
     myCode=e.target.value.replace(/[^0-9]/g,'').slice(0,6);e.target.value=myCode;
     const button=document.querySelector('[data-a="verifyMyCode"]');
@@ -695,6 +711,7 @@ setInterval(()=>{
 
 document.getElementById('app').addEventListener('change',e=>{
   if(step===4&&['phoneCountry','rem'].includes(e.target.id))updateBookingButton();
+  if(step===4&&['phone','phoneCountry'].includes(e.target.id))scheduleBookingPhoneLookup(true);
   if(e.target.id==='date'){
     const selected=e.target.value;
     if(selected&&selected<todayInBusinessTz()){booking.date='';booking.time='';availability=[];error='Selecciona una fecha de hoy en adelante.';render();return}
