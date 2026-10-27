@@ -5,6 +5,9 @@ const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
 const dom=new JSDOM(fs.readFileSync(require('node:path').join(__dirname,'../cliente.html'),'utf8'),{url:'https://test.local/?biz=test',runScripts:'dangerously',virtualConsole:vc,beforeParse(w){
  w.fetch=async(url,opts={})=>{const path=new URL(url).pathname;const data=opts.body?JSON.parse(opts.body):{};requests.push({path,data});let body={},status=200;
  if(path.endsWith('/catalog'))body={business:{id:'b',name:'Test',timezone:'UTC'},services:[],professionals:[]};
+ else if(path.endsWith('/email/options'))body={requires_email:data.phone!=='+573001234567',email_hint:'o***@e***'};
+ else if(path.endsWith('/email/request'))body={challenge_id:'booking-c',resend_after_seconds:60};
+ else if(path.endsWith('/email/verify')){if(data.code!=='123456'){status=401;body={detail:'Código incorrecto'}}else body={booking_verification_token:'booking-proof',email:'owner@example.com',expires_in_seconds:600}}
  else if(path.endsWith('/otp/options'))body={methods:[{channel:'email',available},{channel:'whatsapp',available:false}]};
  else if(path.endsWith('/otp/request'))body={challenge_id:'c',resend_after_seconds:60,message:'Código enviado'};
  else if(path.endsWith('/otp/verify')){if(data.code!=='123456'){status=401;body={detail:'Código incorrecto'}}else body={access_token:'token'}}
@@ -28,13 +31,16 @@ const fill=(id,value)=>{const el=d.getElementById(id);assert(el,'missing '+id);e
  const reserve=()=>d.querySelector('[data-a="book"]');
  assert(reserve().disabled,'empty booking must be disabled');
  fill('name','   ');fill('phone','3001234567');assert(reserve().disabled,'whitespace name');
- fill('name','Maria');assert(!reserve().disabled,'email remains optional');
- fill('phone','123');assert(reserve().disabled,'short phone');
- fill('phone','3001234567');fill('email','invalid');assert(reserve().disabled,'invalid optional email');
- fill('email','maria@example.com');assert(!reserve().disabled,'complete data');
- fill('name','');assert(reserve().disabled,'cleared name');fill('name','Maria');
- fill('phone','1234567890123456');assert(reserve().disabled,'overlong international number');
- fill('phone','999123456');d.getElementById('phoneCountry').value='+51';d.getElementById('phoneCountry').dispatchEvent(new w.Event('change',{bubbles:true}));assert(!reserve().disabled,'Peru phone');
+ fill('name','Maria');assert(reserve().disabled,'unverified email must block booking');
+ click('bookingIdentify');await tick();assert(!d.getElementById('email'),'existing email must not need typing');assert(d.body.textContent.includes('o***@e***'));
+ assert(!d.body.textContent.includes('owner@example.com'),'full email hidden before OTP');
+ click('bookingSend');await tick();fill('bookingCode','000000');click('bookingVerify');await tick();assert(reserve().disabled);
+ fill('bookingCode','123456');click('bookingVerify');await tick();assert(!reserve().disabled);assert(d.body.textContent.includes('owner@example.com'));
+ fill('name','');assert(reserve().disabled);fill('name','Maria');assert(!reserve().disabled);
+ fill('phone','999123456');d.getElementById('phoneCountry').value='+51';d.getElementById('phoneCountry').dispatchEvent(new w.Event('change',{bubbles:true}));assert(reserve().disabled,'phone change must invalidate proof');
+ click('bookingIdentify');await tick();assert(d.getElementById('email'),'new client must enter email');
+ fill('email','invalid');click('bookingSend');await tick();assert(reserve().disabled);assert(d.body.textContent.includes('Escribe un correo electrónico válido.'));
+ fill('email','new@example.com');click('bookingSend');await tick();fill('bookingCode','123456');click('bookingVerify');await tick();assert(!reserve().disabled);
  w.eval('bookingBusy=true;render()');assert(reserve().disabled,'double submit blocked');
  assert.equal(requests.filter(r=>r.path==='/appointments').length,0,'validation must not create appointments');
  assert(!requests.some(r=>r.path.includes('dev-access')));assert.deepEqual(errors,[]);console.log('Booking validation and DOM flow PASS: OTP, wrong code, disabled controls, list, logout, unavailable email, expired session, no dev-access');dom.window.close();
