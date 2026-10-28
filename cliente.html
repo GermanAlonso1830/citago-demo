@@ -261,7 +261,7 @@ sessionStorage.removeItem("booking_my_token");sessionStorage.removeItem("citago_
 let myMethods=[],myChallenge="",myCode="",myResendAt=0,myGeneration=0;
 const myStorageKey="client_otp_v2:"+BUSINESS_SLUG;
 let menuOpen=false;
-const PRIVACY_VERSION='2026-10-27';
+const PRIVACY_VERSION='2026-10-28';
 let bookingPrivacyAccepted=false,myPrivacyAccepted=false;
 
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -384,15 +384,15 @@ function bookingIdentity(){return normalizePhone(booking.phoneCountry,booking.ph
 function privacyConsentHtml(kind){
   const bookingFlow=kind==='booking',accepted=bookingFlow?bookingPrivacyAccepted:myPrivacyAccepted;
   const operation=bookingFlow?'gestionar mi reserva, verificar mi acceso y enviar las comunicaciones necesarias del servicio':'verificar mi acceso y consultar mis citas';
-  const notice='Autorizo a '+business.name+' y a Germán Alonso Rodríguez Arenis, operador de NUVALITE, según sus respectivas funciones, a tratar mis datos de contacto y reserva para '+operation+', conforme a la Política de tratamiento de datos personales, versión '+PRIVACY_VERSION+'. Puedo consultar, corregir y solicitar la supresión de mis datos cuando proceda mediante german_rodriguez_ing@hotmail.com, +57 300 286 6493 o Carrera 14A #45C-30, Soledad 2000, Soledad, Atlántico. No incluye publicidad ni datos sensibles. Los recordatorios son opcionales.';
-  return '<section class="privacyCard"><b>Tu privacidad</b><p>Usamos tus datos para '+(bookingFlow?'gestionar la reserva y verificar tu acceso.':'verificar tu acceso y mostrar tus citas.')+'</p><a href="legal/privacidad-2026-10-27.html" class="privacyLink" data-a="privacy" target="_blank" rel="noopener">Tratamiento de datos personales</a><details><summary>Consultar la autorización</summary><p>'+esc(notice)+'</p></details><label><input type="checkbox" id="'+(bookingFlow?'bookingPrivacy':'myPrivacy')+'" '+(accepted?'checked':'')+'> Autorizo el tratamiento de mis datos para las finalidades indicadas.</label><small>Marca la casilla para continuar. No autoriza publicidad.</small></section>';
+  const notice='Autorizo a '+business.name+' y a NUVALITE, según sus respectivas funciones, a tratar mis datos de contacto y reserva para '+operation+', conforme a la Política de tratamiento de datos personales, versión '+PRIVACY_VERSION+'. Puedo consultar, corregir y solicitar la supresión de mis datos cuando proceda mediante contacto@nuvlite.com. No incluye publicidad ni datos sensibles. Los recordatorios son opcionales.';
+  return '<section class="privacyCard"><b>Tu privacidad</b><p>Usamos tus datos para '+(bookingFlow?'gestionar la reserva y verificar tu acceso.':'verificar tu acceso y mostrar tus citas.')+'</p><a href="legal/privacidad-2026-10-28.html" class="privacyLink" data-a="privacy" target="_blank" rel="noopener">Tratamiento de datos personales</a><details><summary>Consultar la autorización</summary><p>'+esc(notice)+'</p></details><label><input type="checkbox" id="'+(bookingFlow?'bookingPrivacy':'myPrivacy')+'" '+(accepted?'checked':'')+'> Autorizo el tratamiento de mis datos para las finalidades indicadas.</label><small>Marca la casilla para continuar. No autoriza publicidad.</small></section>';
 }
 function openPrivacyPolicy(){
   const origin=document.activeElement;
   let dialog=document.getElementById('privacyDialog');
   if(!dialog){
     dialog=document.createElement('dialog');dialog.id='privacyDialog';dialog.className='privacyDialog';dialog.setAttribute('aria-label','Tratamiento de datos personales');
-    dialog.innerHTML='<div class="dialogInner"><header><b>Tu privacidad · NUVALITE</b><button type="button" class="btn" id="closePrivacy">Cerrar</button></header><iframe title="Política de tratamiento de datos personales" src="legal/privacidad-2026-10-27.html"></iframe></div>';
+    dialog.innerHTML='<div class="dialogInner"><header><b>Tu privacidad · NUVALITE</b><button type="button" class="btn" id="closePrivacy">Cerrar</button></header><iframe title="Política de tratamiento de datos personales" src="legal/privacidad-2026-10-28.html"></iframe></div>';
     document.body.appendChild(dialog);dialog.querySelector('#closePrivacy').addEventListener('click',()=>dialog.close());
     dialog.addEventListener('close',()=>{if(dialog.returnFocus?.isConnected)dialog.returnFocus.focus({preventScroll:true})});
   }
@@ -635,7 +635,7 @@ function contactSection(){
     '<div class="contactLine"><div>🕐</div><div><b>Horarios</b><span>'+esc(hours)+'</span></div></div>'+
   '</div></div></section>';
 }
-function landing(){return publicHeader()+heroSection()+featureStrip()+servicesSection()+teamSection()+contactSection()+'<footer class="footer">Reservas digitales para '+esc(business.name)+'<br><a class="privacyLink" data-a="privacy" href="legal/privacidad-2026-10-27.html" target="_blank" rel="noopener">Tratamiento de datos personales</a></footer>'}
+function landing(){return publicHeader()+heroSection()+featureStrip()+servicesSection()+teamSection()+contactSection()+'<footer class="footer">Reservas digitales para '+esc(business.name)+'<br><a class="privacyLink" data-a="privacy" href="legal/privacidad-2026-10-28.html" target="_blank" rel="noopener">Tratamiento de datos personales</a></footer>'}
 
 function bookingHeader(title="Reservar cita"){
   return '<div class="panelHead"><h2>'+esc(title)+'</h2><button class="closeBtn" data-a="closeBooking" aria-label="Cerrar">×</button></div>';

@@ -36,7 +36,8 @@ const fill=(id,value)=>{const el=d.getElementById(id);assert(el,'missing '+id);e
  assert(d.querySelector('[data-a="bookingIdentify"]').disabled);
  assert(!d.getElementById('rem').checked,'reminders must be an independent unchecked choice');
  const policyPanel=d.querySelector('.panelBody'),nameBeforePolicy=d.getElementById('name');policyPanel.scrollTop=240;nameBeforePolicy.focus();
- click('privacy');assert(d.getElementById('privacyDialog').open);assert(d.querySelector('#privacyDialog iframe').src.endsWith('/legal/privacidad-2026-10-27.html'));
+ assert(d.body.textContent.includes('contacto@nuvlite.com'));assert(!/Germán Alonso|hotmail.com|Soledad/.test(d.body.textContent));
+ click('privacy');assert(d.getElementById('privacyDialog').open);assert(d.querySelector('#privacyDialog iframe').src.endsWith('/legal/privacidad-2026-10-28.html'));
  d.getElementById('closePrivacy').click();assert(!d.getElementById('privacyDialog').open);assert.equal(d.querySelector('.panelBody'),policyPanel);assert.equal(policyPanel.scrollTop,240);assert.equal(d.getElementById('name'),nameBeforePolicy);
  const noConsentCount=requests.length;fill('phone','3001234567');await new Promise(r=>setTimeout(r,750));assert.equal(requests.length,noConsentCount);
  fill('phone','');const acceptanceRequests=requests.length;accept('bookingPrivacy');assert.equal(w.lastRevealed,'name','accepting privacy reveals the first contact field');assert.equal(d.querySelector('.panelBody'),policyPanel);assert.equal(d.getElementById('name'),nameBeforePolicy);assert.equal(requests.length,acceptanceRequests,'accepting without a number must not send a request');
@@ -81,6 +82,6 @@ const fill=(id,value)=>{const el=d.getElementById(id);assert(el,'missing '+id);e
  const consent=d.getElementById('bookingPrivacy');consent.checked=false;consent.dispatchEvent(new w.Event('change',{bubbles:true}));
  assert(reserve().disabled);assert(d.querySelector('[data-a="bookingIdentify"]').disabled);
  assert(!d.getElementById('bookingCode'));
- for(const req of requests.filter(r=>r.path.endsWith('/options')||r.path.endsWith('/request'))){assert.equal(req.data.privacy_accepted,true);assert.equal(req.data.privacy_version,'2026-10-27')}
+ for(const req of requests.filter(r=>r.path.endsWith('/options')||r.path.endsWith('/request'))){assert.equal(req.data.privacy_accepted,true);assert.equal(req.data.privacy_version,'2026-10-28')}
  assert(!requests.some(r=>r.path.includes('dev-access')));assert.deepEqual(errors,[]);console.log('Booking validation and DOM flow PASS: OTP, wrong code, disabled controls, list, logout, unavailable email, expired session, no dev-access');dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exit(1)});
