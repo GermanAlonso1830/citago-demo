@@ -112,6 +112,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0
 .summary{border:1px solid var(--line);border-radius:18px;padding:16px;background:#fffdfc;margin-bottom:16px}
 .summaryRow{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--line)}.summaryRow:last-child{border-bottom:0}.summaryRow span{color:var(--mut)}
 .err{background:#fbe0dd;color:var(--bad);padding:11px 12px;border-radius:12px;margin-bottom:14px}.ok{background:#e4f4eb;color:var(--ok);padding:11px 12px;border-radius:12px;margin-bottom:14px}
+.bookingNotice{padding:12px 14px;border:1px solid #d9c49e;border-radius:12px;background:#fff6e6;color:#684914;margin-bottom:16px}
+.fieldError{color:var(--bad);font-size:.9rem;font-weight:600;margin:7px 0 12px;scroll-margin:20px}
+.phoneField .fieldError{grid-column:1/-1;margin-bottom:0}
+[aria-invalid="true"]{outline:2px solid var(--bad);outline-offset:3px;scroll-margin:24px}
 .tag{display:inline-block;border-radius:999px;padding:4px 9px;font-size:.75rem;font-weight:800;background:#e4f4eb;color:var(--ok)}
 .tag.w{background:#fff0d6;color:var(--warn)}.tag.x{background:#fbe0dd;color:var(--bad)}
 .item{border:1px solid var(--line);background:#fff;border-radius:16px;padding:14px;margin:10px 0}.apptMeta{display:grid;gap:5px;margin-top:8px}.apptMeta span{color:var(--mut);font-size:.9rem}
@@ -380,6 +384,7 @@ function fmtShortDate(date){
   return new Intl.DateTimeFormat("es-CO",{weekday:"long",day:"numeric",month:"long"}).format(d);
 }
 let bookingProof={phase:'identify',token:'',bound:'',busy:false};
+let bookingValidationIssue=null,bookingResultStatus='';
 function bookingIdentity(){return normalizePhone(booking.phoneCountry,booking.phone)}
 function privacyConsentHtml(kind){
   const bookingFlow=kind==='booking',accepted=bookingFlow?bookingPrivacyAccepted:myPrivacyAccepted;
@@ -440,7 +445,7 @@ async function bookingEmailAction(action){
   if(action==='options'&&bookingProof.phase!=='identify')return;
   if(action==='request'&&bookingProof.phase==='code'&&Date.now()<(bookingProof.resendAt||0))return;
   const identity=bookingIdentity();const base={business_id:business.id,phone:identity,privacy_accepted:bookingPrivacyAccepted,privacy_version:PRIVACY_VERSION};
-  if(localPhoneDigits(booking.phoneCountry,booking.phone).length<7){bookingProof.feedback='Escribe un teléfono válido.';refreshBookingProof(true);return}
+  if(!bookingPhoneValid()){bookingProof.feedback='Escribe un número de teléfono válido para el país seleccionado.';refreshBookingProof(true);return}
   if(action==='verify')bookingProof.code=document.getElementById('bookingCode')?.value||'';
   if(action==='request'&&bookingProof.requires_email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(booking.email.trim())){bookingProof.feedback='Escribe un correo electrónico válido.';refreshBookingProof(true);return}
   if(action==='verify'&&!/^[0-9]{6}$/.test(bookingProof.code||''))return;
@@ -458,9 +463,47 @@ async function bookingEmailAction(action){
   finally{bookingProof.busy=false;refreshBookingProof(identity===bookingIdentity());if(identity!==bookingIdentity())scheduleBookingPhoneLookup(true)}
 }
 function bookingDetailsValid(){
+  return !bookingFirstIssue();
+}
+function bookingPhoneValid(){
   const digits=localPhoneDigits(booking.phoneCountry,booking.phone);
-  const email=booking.email.trim();
-  return bookingPrivacyAccepted&&Boolean(booking.name.trim())&&digits.length>=7&&cleanPhoneDigits(normalizePhone(booking.phoneCountry,booking.phone)).length<=15&&bookingProof.phase==='verified'&&!bookingProof.busy&&Boolean(bookingProof.token)&&bookingProof.bound===bookingIdentity()&&Date.now()<bookingProof.expiresAt;
+  const expected={'+57':10,'+51':9}[booking.phoneCountry];
+  return (expected?digits.length===expected:digits.length>=7)&&cleanPhoneDigits(bookingIdentity()).length<=15;
+}
+function bookingFirstIssue(){
+  if(!bookingPrivacyAccepted)return {id:'bookingPrivacy',text:'Para reservar, debes aceptar el tratamiento de tus datos personales. Marca la casilla si estás de acuerdo.'};
+  if(!booking.name.trim())return {id:'name',text:'Escribe tu nombre para continuar.'};
+  if(!bookingPhoneValid())return {id:'phone',text:'Escribe un número de teléfono válido para el país seleccionado.'};
+  if(bookingProof.busy)return {id:'bookingEmailTitle',text:'Estamos procesando la verificación. Espera un momento y continúa.'};
+  if(bookingProof.phase==='verified'&&bookingProof.token&&bookingProof.bound===bookingIdentity()&&Date.now()<bookingProof.expiresAt)return null;
+  if(bookingProof.phase==='identify')return {id:'bookingEmailTitle',text:'Pulsa «Continuar con este teléfono» para comenzar la verificación de tu correo.'};
+  if(bookingProof.requires_email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(booking.email.trim()))return {id:'email',text:'Escribe un correo electrónico válido, por ejemplo nombre@correo.com.'};
+  if(bookingProof.phase==='code')return {id:'bookingCode',text:/^[0-9]{6}$/.test(bookingProof.code||'')?'Pulsa «Verificar correo» para validar el código antes de confirmar tu cita.':'Revisa tu correo y escribe el código de 6 dígitos. Después pulsa «Verificar correo».'};
+  return {id:'bookingEmailTitle',text:'Pulsa «Enviar código al correo» y luego ingresa el código recibido para verificar tu correo.'};
+}
+function clearBookingValidation(){
+  const previous=document.getElementById('bookingFieldError');
+  const target=previous&&document.getElementById(previous.dataset.field);
+  if(target){
+    target.removeAttribute('aria-invalid');
+    const described=(target.getAttribute('aria-describedby')||'').split(' ').filter(id=>id&&id!=='bookingFieldError');
+    if(described.length)target.setAttribute('aria-describedby',described.join(' '));else target.removeAttribute('aria-describedby');
+  }
+  previous?.remove();
+  bookingValidationIssue=null;
+}
+function showBookingValidation(issue){
+  clearBookingValidation();
+  const target=document.getElementById(issue.id);if(!target)return;
+  bookingValidationIssue=issue;
+  const feedback=document.createElement('p');
+  feedback.id='bookingFieldError';feedback.className='fieldError';feedback.dataset.field=issue.id;
+  feedback.setAttribute('role','alert');feedback.textContent=issue.text;
+  target.insertAdjacentElement('afterend',feedback);
+  if(['INPUT','SELECT','TEXTAREA'].includes(target.tagName))target.setAttribute('aria-invalid','true');
+  target.setAttribute('aria-describedby',((target.getAttribute('aria-describedby')||'')+' bookingFieldError').trim());
+  target.focus({preventScroll:true});
+  target.scrollIntoView({block:'center',behavior:'auto'});
 }
 function readBookingFields(){
   for(const id of ['name','phoneCountry','phone','email','notes']){
@@ -472,16 +515,23 @@ function updateBookingButton(){
   readBookingFields();
   if(bookingProof.bound&&bookingProof.bound!==bookingIdentity()){bookingProof={phase:'identify',token:'',bound:'',busy:false};booking.email='';const block=document.getElementById('bookingEmailProof');if(block)block.innerHTML=bookingProofHtml()}
   const button=document.querySelector('[data-a="book"]');
-  if(button)button.disabled=bookingBusy||!bookingDetailsValid();
+  if(button)button.disabled=bookingBusy;
   const identify=document.querySelector('[data-a="bookingIdentify"]');if(identify)identify.disabled=bookingProof.busy||!bookingPrivacyAccepted;
   const help=document.getElementById('bookingDataHelp');
   if(help)help.textContent=!bookingPrivacyAccepted?'Autoriza el tratamiento de datos para continuar.':bookingDetailsValid()?'Datos completos. Ya puedes confirmar tu cita.':'Completa tu nombre y teléfono, y verifica tu correo antes de confirmar.';
+  if(bookingValidationIssue){
+    const current=bookingFirstIssue();
+    if(!current||current.id!==bookingValidationIssue.id||current.text!==bookingValidationIssue.text)clearBookingValidation();
+  }
 }
 async function book(){
   if(bookingBusy)return;
+  readBookingFields();
+  // Keep the action available, but never submit incomplete or unverified data.
+  const issue=bookingFirstIssue();
+  if(issue){showBookingValidation(issue);return}
+  clearBookingValidation();
   const normalizedPhone=normalizePhone(booking.phoneCountry,booking.phone);
-  const localDigits=localPhoneDigits(booking.phoneCountry,booking.phone);
-  if(!bookingDetailsValid()){error="Completa tu nombre y teléfono, y verifica tu correo para continuar.";render();return}
   let professionalId=booking.professional?.id||null;
   if(!professionalId){
     const available=availability.find(x=>(x.slots||[]).includes(booking.time));
@@ -496,7 +546,8 @@ async function book(){
       date:booking.date,start_time:booking.time,notes:booking.notes||null,reminder_opt_in:booking.reminder
     })});
     bookingProof={phase:'identify',token:'',bound:'',busy:false};
-    message="Tu cita quedó registrada correctamente. Estado: "+statusLabel(x.appointment.status)+".";
+    bookingResultStatus=x.appointment.status;
+    message="Tu cita quedó registrada correctamente. Estado: "+statusLabel(bookingResultStatus)+".";
     if(x.email_confirmation?.accepted)message+=(x.appointment.status==='PENDING'?' Enviamos al correo la recepción de tu solicitud; falta la aprobación del negocio.':' Enviamos la confirmación a tu correo.');
     else if(x.email_confirmation)message+=' Tu cita está registrada, pero no pudimos confirmar el envío del correo. Puedes consultarla en Mis citas; no necesitas volver a reservar.';
     step=5;
@@ -662,12 +713,14 @@ function bookingStepContent(){
       h+='</div>';
     }
   }else if(step===4){
-    h+='<h3 class="stepTitle">Tus datos</h3><p class="stepSub">Revisa la reserva y completa tus datos de contacto.</p>';
+    h+='<h3 class="stepTitle">Tus datos</h3><p class="stepSub">Revisa la reserva y completa tus datos de contacto.</p><div class="bookingNotice"><b>Tu cita aún no está reservada.</b> Completa tus datos, autoriza su tratamiento y verifica tu correo. Luego pulsa «Confirmar cita» para finalizar.</div>';
     h+='<div class="summary"><div class="summaryRow"><span>Servicio</span><b>'+esc(booking.service?.name||'')+'</b></div><div class="summaryRow"><span>Profesional</span><b>'+esc(currentProfessionalName())+'</b></div><div class="summaryRow"><span>Fecha</span><b>'+esc(fmtShortDate(booking.date))+'</b></div><div class="summaryRow"><span>Hora</span><b>'+esc(booking.time)+'</b></div><div class="summaryRow"><span>Total</span><b>'+money(booking.service?.price)+'</b></div></div>';
     h+=privacyConsentHtml('booking');
     h+='<p id="bookingDataHelp" class="phoneHelp" role="status" aria-live="polite">Completa tu nombre y teléfono, y verifica tu correo antes de confirmar.</p><label>Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label>WhatsApp</label>'+phoneFieldHtml("phoneCountry","phone",booking.phoneCountry,booking.phone,"Ej. 3001234567")+'<div id="bookingEmailProof">'+bookingProofHtml()+'</div><label>Notas de logística (opcional; no incluyas datos de salud)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea><label style="display:flex;gap:8px;align-items:center"><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?'checked':'')+'> Quiero recordatorios</label>';
   }else if(step===5){
-    h+='<div class="ok">'+esc(message||"Cita creada correctamente.")+'</div><h3 class="stepTitle">¡Reserva lista! 🎉</h3><p class="stepSub">Tu cita quedó registrada. Puedes consultar tus citas desde este mismo enlace.</p>';
+    const pending=bookingResultStatus==='PENDING';
+    const title=pending?'Solicitud enviada':bookingResultStatus==='CONFIRMED'?'¡Reserva confirmada! 🎉':'¡Reserva registrada!';
+    h+='<div class="ok" role="status">'+esc(message||"Cita creada correctamente.")+'</div><h3 class="stepTitle">'+title+'</h3><p class="stepSub">'+(pending?'Tu solicitud está pendiente de confirmación del negocio.':'Tu cita quedó registrada.')+' Puedes consultar tus citas desde este mismo enlace.</p>';
     h+='<div class="summary"><div class="summaryRow"><span>Servicio</span><b>'+esc(booking.service?.name||'')+'</b></div><div class="summaryRow"><span>Fecha</span><b>'+esc(fmtShortDate(booking.date))+'</b></div><div class="summaryRow"><span>Hora</span><b>'+esc(booking.time)+'</b></div></div>';
   }
   return h;
@@ -676,7 +729,7 @@ function bookingFooter(){
   if(step===1)return '<div class="panelFoot"><button class="btn" data-a="closeBooking">Cerrar</button></div>';
   if(step===2)return '<div class="panelFoot"><button class="btn" data-a="back">← Volver</button></div>';
   if(step===3)return '<div class="panelFoot"><button class="btn" data-a="back">← Volver</button><button class="btn p" data-a="next" '+(!booking.time?'disabled':'')+'>Continuar</button></div>';
-  if(step===4)return '<div class="panelFoot"><button class="btn" data-a="back" '+(bookingBusy?'disabled':'')+'>← Volver</button><button class="btn p" data-a="book" '+(bookingBusy||!bookingDetailsValid()?'disabled':'')+'>'+(bookingBusy?'Guardando…':'Confirmar cita')+'</button></div>';
+  if(step===4)return '<div class="panelFoot"><button class="btn" data-a="back" '+(bookingBusy?'disabled':'')+'>← Volver</button><button class="btn p" data-a="book" '+(bookingBusy?'disabled':'')+'>'+(bookingBusy?'Guardando…':'Confirmar cita')+'</button></div>';
   return '<div class="panelFoot"><button class="btn" data-a="my">Mis citas</button><button class="btn p" data-a="reset">Reservar otra</button></div>';
 }
 function bookingOverlay(){return '<div class="overlay"><section class="bookingPanel">'+bookingHeader()+ '<div class="panelBody">'+bookingStepContent()+'</div>'+bookingFooter()+'</section></div>'}
@@ -720,6 +773,7 @@ document.getElementById('app').addEventListener('input',e=>{
     bookingProof.code=e.target.value.replace(/[^0-9]/g,'').slice(0,6);e.target.value=bookingProof.code;
     const verify=document.querySelector('[data-a="bookingVerify"]');
     if(verify)verify.disabled=bookingProof.busy||!/^[0-9]{6}$/.test(bookingProof.code);
+    updateBookingButton();
   }
   if(step===4&&['name','phone','email','notes'].includes(e.target.id))updateBookingButton();
   if(step===4&&e.target.id==='phone')scheduleBookingPhoneLookup();
@@ -806,4 +860,5 @@ loadBase();
 </script>
 </body>
 </html>
+
 
