@@ -1,4 +1,5 @@
-// Run: npm install --no-save jsdom && node tests/client-otp.cjs
+// Run: npm install --no-save --package-lock=false --ignore-scripts jsdom@26 && node tests/client-otp.cjs
+// Confirm stays clickable to explain missing data; invalid attempts must never create appointments.
 const {JSDOM,VirtualConsole}=require('jsdom');const fs=require('fs');const assert=require('node:assert/strict');
 let available=true,expire=false,requests=[],receiptAccepted=true,receiptStatus="CONFIRMED";const errors=[];
 const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
@@ -42,25 +43,39 @@ const fill=(id,value)=>{const el=d.getElementById(id);assert(el,'missing '+id);e
  const noConsentCount=requests.length;fill('phone','3001234567');await new Promise(r=>setTimeout(r,750));assert.equal(requests.length,noConsentCount);
  fill('phone','');const acceptanceRequests=requests.length;accept('bookingPrivacy');assert.equal(w.lastRevealed,'name','accepting privacy reveals the first contact field');assert.equal(d.querySelector('.panelBody'),policyPanel);assert.equal(d.getElementById('name'),nameBeforePolicy);assert.equal(requests.length,acceptanceRequests,'accepting without a number must not send a request');
  const reserve=()=>d.querySelector('[data-a="book"]');
- assert(reserve().disabled,'empty booking must be disabled');
- fill('name','   ');fill('phone','3001234567');assert(reserve().disabled,'whitespace name');
- fill('name','Maria');assert(reserve().disabled,'unverified email must block booking');
+ const assertBlocked=(field,label)=>{
+  assert(!reserve().disabled,label+': action must explain missing data');
+  const before=requests.filter(r=>r.path==='/appointments').length;
+  click('book');
+  assert.equal(requests.filter(r=>r.path==='/appointments').length,before,label+': no appointment request');
+  const feedback=d.getElementById('bookingFieldError');
+  assert(feedback,label+': visible validation message');
+  assert.equal(feedback.dataset.field,field,label+': first invalid field');
+  assert.equal(feedback.getAttribute('role'),'alert');
+  assert(feedback.textContent.trim(),label+': nonempty guidance');
+  assert.equal(w.lastRevealed,field,label+': reveal invalid field');
+ };
+
+ assertBlocked('name','empty booking');
+ fill('name','   ');fill('phone','3001234567');assertBlocked('name','whitespace name');
+ fill('name','Maria');assertBlocked('bookingEmailTitle','unverified email');
+ fill('phone','');assertBlocked('phone','missing phone');fill('phone','123');assertBlocked('phone','short phone');fill('phone','3001234567');
  const panel=d.querySelector('.panelBody'),nameInput=d.getElementById('name');panel.scrollTop=280;
  click('bookingIdentify');await tick();assert.equal(d.querySelector('.panelBody'),panel);assert.equal(panel.scrollTop,280);assert.equal(d.getElementById('name'),nameInput);assert.equal(w.lastRevealed,'bookingEmailTitle');assert(!d.getElementById('email'),'existing email must not need typing');assert(d.body.textContent.includes('o***@e***'));
  assert(!d.body.textContent.includes('owner@example.com'),'full email hidden before OTP');
- click('bookingSend');await tick();assert.equal(w.lastRevealed,'bookingCode');assert.equal(d.querySelector('.panelBody'),panel);assert.equal(panel.scrollTop,280);assert(d.querySelector('[data-a="bookingVerify"]').disabled);fill('bookingCode','12ab');assert.equal(d.getElementById('bookingCode').value,'12');assert(d.querySelector('[data-a="bookingVerify"]').disabled);fill('bookingCode','000000');click('bookingVerify');await tick();assert(reserve().disabled);
+ click('bookingSend');await tick();assert.equal(w.lastRevealed,'bookingCode');assert.equal(d.querySelector('.panelBody'),panel);assert.equal(panel.scrollTop,280);assert(d.querySelector('[data-a="bookingVerify"]').disabled);fill('bookingCode','12ab');assert.equal(d.getElementById('bookingCode').value,'12');assert(d.querySelector('[data-a="bookingVerify"]').disabled);fill('bookingCode','000000');click('bookingVerify');await tick();assertBlocked('bookingCode','wrong verification code');
  fill('bookingCode','123456');click('bookingVerify');await tick();assert(!reserve().disabled);assert(d.body.textContent.includes('owner@example.com'));
  assert.equal(w.lastRevealed,'bookingEmailVerified');assert.equal(d.querySelector('.panelBody'),panel);assert.equal(panel.scrollTop,280);
  assert(!d.querySelector('[data-a="bookingVerify"]'),'verified state removes verify action');
  assert(!d.querySelector('[data-a="bookingSend"]'),'verified state removes resend action');
  const requestCount=requests.length;await w.eval("bookingEmailAction('request')");assert.equal(requests.length,requestCount,'verified state rejects accidental resend');
- w.eval('bookingProof.expiresAt=Date.now()-1');await new Promise(r=>setTimeout(r,1100));assert(reserve().disabled);assert(d.querySelector('[data-a="bookingSend"]'));click('bookingSend');await tick();fill('bookingCode','123456');click('bookingVerify');await tick();assert(!reserve().disabled);
- fill('name','');assert(reserve().disabled);fill('name','Maria');assert(!reserve().disabled);
- fill('phone','999123456');d.getElementById('phoneCountry').value='+51';d.getElementById('phoneCountry').dispatchEvent(new w.Event('change',{bubbles:true}));assert(reserve().disabled,'phone change must invalidate proof');
+ w.eval('bookingProof.expiresAt=Date.now()-1');await new Promise(r=>setTimeout(r,1100));assertBlocked('bookingEmailTitle','expired proof');assert(d.querySelector('[data-a="bookingSend"]'));click('bookingSend');await tick();fill('bookingCode','123456');click('bookingVerify');await tick();assert(!reserve().disabled);
+ fill('name','');assertBlocked('name','name removed after verification');fill('name','Maria');assert(!reserve().disabled);
+ fill('phone','999123456');d.getElementById('phoneCountry').value='+51';d.getElementById('phoneCountry').dispatchEvent(new w.Event('change',{bubbles:true}));assertBlocked('bookingEmailTitle','phone change invalidates proof');
  click('bookingIdentify');await tick();assert(d.getElementById('email'),'new client must enter email');assert.equal(w.lastRevealed,'email');
- fill('email','invalid');click('bookingSend');await tick();assert(reserve().disabled);assert(d.body.textContent.includes('Escribe un correo electrónico válido.'));
+ fill('email','invalid');click('bookingSend');await tick();assertBlocked('email','invalid email');assert(d.body.textContent.includes('Escribe un correo electrónico válido.'));
  fill('email','new@example.com');click('bookingSend');await tick();fill('bookingCode','123456');click('bookingVerify');await tick();assert(!reserve().disabled);
- w.eval('bookingBusy=true;render()');assert(reserve().disabled,'double submit blocked');
+ w.eval('bookingBusy=true;render()');assert(reserve().disabled,'double submit blocked');const busyCount=requests.filter(r=>r.path==='/appointments').length;click('book');await tick();assert.equal(requests.filter(r=>r.path==='/appointments').length,busyCount,'busy submit must not create another appointment');
  assert.equal(requests.filter(r=>r.path==='/appointments').length,0,'validation must not create appointments');
  w.eval('bookingBusy=false;render()');click('book');await tick();assert(d.body.textContent.includes('Enviamos la confirmación a tu correo.'));
  receiptAccepted=false;w.eval("step=4;bookingProof={phase:'verified',token:'proof2',bound:bookingIdentity(),expiresAt:Date.now()+600000,busy:false};render()");click('book');await tick();assert(d.body.textContent.includes('no necesitas volver a reservar'));
@@ -80,9 +95,10 @@ const fill=(id,value)=>{const el=d.getElementById(id);assert(el,'missing '+id);e
  assert.equal(requests.filter(r=>r.path.endsWith('/email/request')).length,sendsBefore,'lookup must not send a code');
  // Revoking authorization immediately invalidates the current booking proof.
  const consent=d.getElementById('bookingPrivacy');consent.checked=false;consent.dispatchEvent(new w.Event('change',{bubbles:true}));
- assert(reserve().disabled);assert(d.querySelector('[data-a="bookingIdentify"]').disabled);
+ assertBlocked('bookingPrivacy','consent revoked');assert(d.querySelector('[data-a="bookingIdentify"]').disabled);
  assert(!d.getElementById('bookingCode'));
  for(const req of requests.filter(r=>r.path.endsWith('/options')||r.path.endsWith('/request'))){assert.equal(req.data.privacy_accepted,true);assert.equal(req.data.privacy_version,'2026-10-28')}
- assert(!requests.some(r=>r.path.includes('dev-access')));assert.deepEqual(errors,[]);console.log('Booking validation and DOM flow PASS: OTP, wrong code, disabled controls, list, logout, unavailable email, expired session, no dev-access');dom.window.close();
+ assert.equal(requests.filter(r=>r.path==='/appointments').length,3,'only the three valid confirmation scenarios submit');
+ assert(!requests.some(r=>r.path.includes('dev-access')));assert.deepEqual(errors,[]);console.log('Booking validation and DOM flow PASS: OTP, wrong code, incomplete data guidance with zero submissions, valid confirmations, double-submit guard, list, logout, unavailable email, expired session, no dev-access');dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exit(1)});
 
