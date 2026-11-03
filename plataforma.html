@@ -1,5 +1,14 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="es"><head><meta charset="utf-8">
+<script>
+// Remove only legacy NUVALITE data; never restore a persistent access token.
+(function () {
+  ['nuvalite_access_token', 'nuvalite_session', 'citago_demo_final_v1'].forEach(function (key) {
+    try { window.localStorage.removeItem(key); } catch (error) { /* Storage can be disabled. */ }
+  });
+})();
+</script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CitaGo · Plataforma</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"><style>
 :root{
   --bg:#fbf5f7;--sf:#fff;--ink:#251c2c;--mut:#746a7a;--line:#eadfe5;
@@ -332,3 +341,4 @@ document.getElementById("app").addEventListener("click",e=>{
 });
 initAuth();
 </script></body></html>
+

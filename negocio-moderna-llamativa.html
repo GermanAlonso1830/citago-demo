@@ -2,6 +2,15 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<script>
+// Remove only legacy NUVALITE data; never restore a persistent access token.
+(function () {
+  ['nuvalite_access_token', 'nuvalite_session', 'citago_demo_final_v1'].forEach(function (key) {
+    try { window.localStorage.removeItem(key); } catch (error) { /* Storage can be disabled. */ }
+  });
+})();
+</script>
+
 <title>CitaLite · Panel Moderna Llamativa</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
@@ -449,7 +458,7 @@ const API_BASE =
     ? "http://127.0.0.1:8000"
     : "https://citago-backend.onrender.com";
 const BUSINESS_ID = new URLSearchParams(window.location.search).get("id");
-const ACCESS_TOKEN = localStorage.getItem("nuvalite_access_token") || "";
+const ACCESS_TOKEN = sessionStorage.getItem("nuvalite_access_token") || "";
 const _nativeFetch = window.fetch.bind(window);
 let AUTHORIZED_BUSINESS = null;
 
@@ -479,8 +488,8 @@ async function verifyBusinessSession(){
     });
 
     if(response.status === 401){
-      localStorage.removeItem("nuvalite_access_token");
-      localStorage.removeItem("nuvalite_session");
+      sessionStorage.removeItem("nuvalite_access_token");
+      sessionStorage.removeItem("nuvalite_session");
       goToLogin();
       return false;
     }
@@ -518,8 +527,8 @@ window.fetch = async function(input, init){
   const response = await _nativeFetch(input, init);
 
   if(url.indexOf(API_BASE) === 0 && response.status === 401){
-    localStorage.removeItem("nuvalite_access_token");
-    localStorage.removeItem("nuvalite_session");
+    sessionStorage.removeItem("nuvalite_access_token");
+    sessionStorage.removeItem("nuvalite_session");
     goToLogin();
   }else if(url.indexOf(API_BASE) === 0 && response.status === 403){
     goToMyAccount("No tienes permisos para acceder a ese negocio.");
@@ -1284,7 +1293,6 @@ function alerts(){var al=[];REC.forEach(function(r,i){r.log.forEach(function(e){
  al.forEach(function(o){h+='<div style="border-top:1px solid var(--line);padding:8px 0;margin-top:8px"><b>'+esc(REC[o.i].bz.name)+'</b><div>'+esc(o.e.x)+'</div><small style="color:var(--mute)">'+new Date(o.e.ts).toLocaleString("es",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})+'</small></div>'});
  return h+'</div>'}
 var PLN={"Prueba":{p:0,d:14},"Básico":{p:59900},"Pro":{p:94900},"Premium":{p:139900}},RP=0,RM="",BE="",BF={pro:0,mot:"Almuerzo",rep:"daily",from:"",to:"",days:[1,2,3,4,5],all:false,t1:"12:00",t2:"13:00"};
-var DEMO_KEY="citago_demo_final_v1",SYNCING=false;
 function businessFromQuery(){
  try{
   var q=new URLSearchParams(location.search).get("biz");
@@ -1294,34 +1302,7 @@ function businessFromQuery(){
  }catch(e){}
  return null
 }
-function hydrateShared(){
- try{
-  var raw=localStorage.getItem(DEMO_KEY);if(!raw)return;
-  var d=JSON.parse(raw);
-  if(d&&d.TPL)TPL=d.TPL;
-  if(d&&Array.isArray(d.REC)&&d.REC.length)REC=d.REC;
-  if(d&&d.PLN)PLN=d.PLN;
- }catch(e){}
-}
-function persistShared(){
- if(SYNCING)return;
- try{localStorage.setItem(DEMO_KEY,JSON.stringify({TPL:TPL,REC:REC,PLN:PLN,ts:Date.now()}))}catch(e){}
-}
-function refreshShared(){
- try{
-  var raw=localStorage.getItem(DEMO_KEY);if(!raw)return;
-  var d=JSON.parse(raw);SYNCING=true;
-  if(d&&d.TPL)TPL=d.TPL;
-  if(d&&Array.isArray(d.REC)&&d.REC.length)REC=d.REC;
-  if(d&&d.PLN)PLN=d.PLN;
-  var qi=businessFromQuery();if(qi!==null)CUR=qi;else if(CUR>=REC.length)CUR=0;
-  pick(CUR);render();SYNCING=false;
- }catch(e){SYNCING=false}
-}
-hydrateShared();
 var QB=businessFromQuery();if(QB!==null)CUR=QB;else if(CUR>=REC.length)CUR=0;pick(CUR);
-window.addEventListener("storage",function(e){if(e.key===DEMO_KEY)refreshShared()});
-window.addEventListener("focus",refreshShared);
 
 function live(a){return a.st==="Confirmada"||a.st==="Pendiente"}
 function busy(a){return a.st!=="Cancelada"&&a.st!=="Rechazada"}
@@ -1416,7 +1397,6 @@ function adm(){
  h+='</table></div>'+hist()+'<div class="pn" style="overflow:visible"><h2>Nuevo negocio</h2><label>Nombre del negocio</label><input id="nn" placeholder="Ej. Clínica Dental Norte"><label>Tipo de negocio (crea más en "Tipos de negocio")</label><select id="nt">'+Object.keys(TPL).map(tp2).join("")+'</select><label>Plan</label><select id="np">'+planOpts()+'</select><button class="cta" data-a="anew">Crear y configurar negocio</button><p style="color:var(--mute);font-size:.85rem">Se crea vacío, solo con los colores y las especialidades de la plantilla. El negocio agrega sus propios servicios (con sugerencias) y su equipo.</p></div>';
  return'<div class="sh" style="--side:#1B2150">'+nav([["home","🏠 Inicio"],["types","🧩 Tipos de negocio"],["plans","💎 Planes y precios"]],AV,"CitaGo")+'<main class="mn">'+(AV==="types"?typesPanel():AV==="plans"?'<h1>Planes y precios</h1><div style="margin-top:14px">'+plans()+'</div>':h)+'</main></div>'}
 function render(){
- persistShared();
  var un=unread();document.querySelector('.bar [data-v="a"]').textContent="Plataforma"+(un?" 🔔 "+un:"");
  var sl=document.getElementById("sel");sl.innerHTML=REC.map(function(r,i){return'<option value="'+i+'"'+(i===CUR?' selected':'')+'>'+esc(r.bz.name)+'</option>'}).join("");sl.style.display=V==="a"?"none":"";
  document.documentElement.style.setProperty("--acc",V==="a"?"#4F46C8":BZ.color);
@@ -1587,3 +1567,4 @@ bootBusinessPanel();
 </script>
 </body>
 </html>
+

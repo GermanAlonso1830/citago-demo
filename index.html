@@ -2,6 +2,15 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
+<script>
+// Remove only legacy NUVALITE data; never restore a persistent access token.
+(function () {
+  ['nuvalite_access_token', 'nuvalite_session', 'citago_demo_final_v1'].forEach(function (key) {
+    try { window.localStorage.removeItem(key); } catch (error) { /* Storage can be disabled. */ }
+  });
+})();
+</script>
+
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CitaGo Demo</title>
 <style>
