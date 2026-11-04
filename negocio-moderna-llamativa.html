@@ -1282,7 +1282,7 @@ function bizCfg(){
  return h
 }
 function biz(){var s=NV==="home"?bizHome():NV==="cit"?bizCitas():NV==="svc"?bizSvc():NV==="team"?bizTeam():NV==="blk"?bizBlk():NV==="rem"?bizRem():NV==="rep"?bizRep():NV==="plan"?bizPlan():bizCfg();
- return'<div class="sh">'+nav([["home","Inicio"],["cit","Citas"+(pc()?" ("+pc()+")":"")],["svc","Servicios"],["team",W.pros],["blk","Bloqueos"],["rem","Recordatorios"],["rep","Reportes"],["cfg","Configuración"],["plan","Mi plan"]],NV,esc(BZ.name))+'<main class="mn">'+(who==="Plataforma"?'<span class="tg w">Editando como plataforma</span>':'')+s+'</main></div>'}
+ return'<div class="sh">'+nav([["account","← Mi cuenta"],["home","Inicio"],["cit","Citas"+(pc()?" ("+pc()+")":"")],["svc","Servicios"],["team",W.pros],["blk","Bloqueos"],["rem","Recordatorios"],["rep","Reportes"],["cfg","Configuración"],["plan","Mi plan"]],NV,esc(BZ.name))+'<main class="mn">'+(who==="Plataforma"?'<span class="tg w">Editando como plataforma</span>':'')+s+'</main></div>'}
 function canBook(){return SV.some(function(v){return!v.off&&PR.some(function(p){return p.sv.indexOf(v.id)>-1})})}
 function sugg(){var t=TPL[BZ.type].sv,c=t.map(function(x,i){return SV.some(function(v){return v.n===x[0]})?'':'<button data-a="sug" data-i="'+i+'">+ '+esc(x[0])+' · '+P(x[2])+'</button>'}).join("");
  return c?'<div class="pn" style="overflow:visible"><h2>Sugerencias para tu tipo de negocio</h2><p style="color:var(--mute);margin:0 0 8px;font-size:.88rem">Toca para agregar y luego ajusta el precio y la duración.</p><div class="chips">'+c+'</div></div>':''}
@@ -1466,6 +1466,7 @@ app.onclick=function(e){
   st.pro=pid;st.done={id:nid++,pro:pid,svc:s.n,m:s.m,date:st.date,time:st.time,name:st.name.trim(),phone:st.phone.trim(),notes:st.notes.trim(),cf:false,st:BZ.auto?"Confirmada":"Pendiente"};A.push(st.done);st.s=5}
  else if(a==="reset")st=JSON.parse(JSON.stringify(st0));
  else if(a==="nav"){
+  if(V==="b"&&t.dataset.i==="account"){goToMyAccount();return}
   if(V==="a")AV=t.dataset.i;
   else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;loadServices();return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";loadProfessionals();return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
   MO=false
