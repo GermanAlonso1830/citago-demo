@@ -11,7 +11,7 @@
 })();
 </script>
 
-<title>CitaLite · Panel Moderna Llamativa</title>
+<title>Panel de negocio · CitaLite</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
 <style>
@@ -462,6 +462,11 @@ const ACCESS_TOKEN = sessionStorage.getItem("nuvalite_access_token") || "";
 const _nativeFetch = window.fetch.bind(window);
 let AUTHORIZED_BUSINESS = null;
 
+function updateBusinessPageTitle(name){
+  const businessName = String(name || "").trim();
+  document.title = businessName ? "Panel · " + businessName : "Panel de negocio · CitaLite";
+}
+
 function goToLogin(){
   const next = encodeURIComponent(window.location.href);
   window.location.replace("login.html?next=" + next);
@@ -506,6 +511,7 @@ async function verifyBusinessSession(){
       goToMyAccount("No tienes acceso a ese negocio.");
       return false;
     }
+    updateBusinessPageTitle(AUTHORIZED_BUSINESS.name);
     return true;
   }catch(error){
     console.error("Error validando acceso al negocio:", error);
@@ -803,6 +809,7 @@ async function reactivateRealService(id){
 function trimTime(v){return String(v||"").slice(0,5)}
 function applySettingsToView(x){
  if(!x)return;
+ if(x.name)updateBusinessPageTitle(x.name);
  BZ.name=x.name||BZ.name;BZ.tag=x.tagline||"";BZ.logo=x.logo_url||null;BZ.cover=x.cover_image_url||null;BZ.background=x.background_image_url||null;BZ.color=x.primary_color||BZ.color;BZ.wa=x.whatsapp||"";BZ.open=trimTime(x.default_open_time)||BZ.open;BZ.close=trimTime(x.default_close_time)||BZ.close;BZ.step=Number(x.slot_minutes||BZ.step);BZ.auto=(x.booking_mode||"AUTO")==="AUTO";BZ.active=x.is_active!==false;
 }
 async function loadBusinessSettings(){
