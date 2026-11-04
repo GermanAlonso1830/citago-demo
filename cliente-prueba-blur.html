@@ -138,12 +138,12 @@ input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0
 .privacyDialog{width:min(850px,calc(100% - 20px));height:90vh;height:90dvh;max-height:90dvh;padding:0;border:1px solid #bda7a1;border-radius:16px;background:#fff}
 .privacyDialog::backdrop{background:#201a1a99}.privacyDialog .dialogInner{display:flex;flex-direction:column;height:100%;min-height:0}.privacyDialog header{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line)}.privacyDialog iframe{width:100%;flex:1;min-height:0;border:0}
 /* Teléfono internacional: prefijo de país + número local */
-.phoneField{display:grid;grid-template-columns:minmax(138px,42%) minmax(0,1fr);gap:8px;align-items:center}
+.phoneField{display:grid;grid-template-columns:minmax(138px,46%) minmax(0,1fr);gap:8px;align-items:center}
 .phoneField select,.phoneField input{margin:0;min-width:0}
-.phoneField select{font-weight:700}
+.phoneField select{font-weight:700; font-size: 13px;}
 .phoneHelp{display:block;margin-top:5px;color:var(--mut);font-size:.76rem;line-height:1.35}
 @media(max-width:390px){
-  .phoneField{grid-template-columns:minmax(126px,44%) minmax(0,1fr);gap:7px}
+  .phoneField{grid-template-columns:minmax(126px,48%) minmax(0,1fr);gap:7px}
   .phoneField select,.phoneField input{padding-left:10px;padding-right:10px}
 }
 
@@ -274,6 +274,18 @@ body:not(.modalOpen){overflow-y:auto}
 .bookingGuideStage .emailProofCard{margin:0;border:0;padding:0;background:transparent}
 .bookingGuideStage :focus-visible{outline:3px solid #744b4b;outline-offset:3px}
 @media(prefers-reduced-motion:reduce){.guideContent{transition:none}}
+
+.booking-contact-label {
+    font-size: 16px;
+    font-weight: 600;
+    color: #49413e;
+}
+#guide-contact #name,
+#guide-contact #phone {
+  border-color: #a99c98;
+  background-color: #fff;
+}
+
 
 </style>
 </head>
@@ -779,7 +791,7 @@ function bookingStepContent(){
     h+=bookingGuideStage('privacy','1','Autoriza el tratamiento de tus datos',privacyConsentHtml('booking'));
 
     h+='<p id="bookingDataHelp" class="phoneHelp">Autoriza el tratamiento de datos para continuar.</p>';
-    h+=bookingGuideStage('contact','2','Completa tus datos de contacto','<label>Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label>WhatsApp</label>'+phoneFieldHtml("phoneCountry","phone",booking.phoneCountry,booking.phone,"Ej. 3001234567"));
+    h+=bookingGuideStage('contact','2','Completa tus datos de contacto','<label class="booking-contact-label">Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label class="booking-contact-label">WhatsApp</label>'+phoneFieldHtml("phoneCountry","phone",booking.phoneCountry,booking.phone,"Ej. 3001234567"));
     h+=bookingGuideStage('verify','3','Verifica tu correo','<div id="bookingEmailProof">'+bookingProofHtml()+'</div>');
     h+=bookingGuideStage('confirm','4','Revisa y confirma tu cita','<label>Notas de logística (opcional; no incluyas datos de salud)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea><label style="display:flex;gap:8px;align-items:center"><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?'checked':'')+'> Quiero recordatorios</label>');
 
