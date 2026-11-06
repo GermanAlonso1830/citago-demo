@@ -12,7 +12,7 @@
 </script>
 
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Reservas · Cliente</title>
+<title>Prueba de guía · Reservas · Cliente</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
@@ -138,12 +138,12 @@ input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0
 .privacyDialog{width:min(850px,calc(100% - 20px));height:90vh;height:90dvh;max-height:90dvh;padding:0;border:1px solid #bda7a1;border-radius:16px;background:#fff}
 .privacyDialog::backdrop{background:#201a1a99}.privacyDialog .dialogInner{display:flex;flex-direction:column;height:100%;min-height:0}.privacyDialog header{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line)}.privacyDialog iframe{width:100%;flex:1;min-height:0;border:0}
 /* Teléfono internacional: prefijo de país + número local */
-.phoneField{display:grid;grid-template-columns:minmax(138px,42%) minmax(0,1fr);gap:8px;align-items:center}
+.phoneField{display:grid;grid-template-columns:minmax(138px,46%) minmax(0,1fr);gap:8px;align-items:center}
 .phoneField select,.phoneField input{margin:0;min-width:0}
-.phoneField select{font-weight:700}
+.phoneField select{font-weight:700; font-size: 13px;}
 .phoneHelp{display:block;margin-top:5px;color:var(--mut);font-size:.76rem;line-height:1.35}
 @media(max-width:390px){
-  .phoneField{grid-template-columns:minmax(126px,44%) minmax(0,1fr);gap:7px}
+  .phoneField{grid-template-columns:minmax(126px,48%) minmax(0,1fr);gap:7px}
   .phoneField select,.phoneField input{padding-left:10px;padding-right:10px}
 }
 
@@ -256,6 +256,36 @@ body:not(.modalOpen){overflow-y:auto}
   #contacto{padding-bottom:78px}
   .footer{padding-bottom:calc(34px + env(safe-area-inset-bottom,0px))}
 }
+
+
+/* Prueba aislada: guía solo desde la autorización de datos. */
+.bookingGuideProgress{margin:20px 0 12px;padding:14px 16px;border-radius:14px;background:var(--acc-soft);color:var(--ink);font-weight:600}
+.bookingGuideStage{margin:14px 0;padding:16px;border:1px solid var(--line);border-radius:18px;background:#fff;scroll-margin:16px}
+.bookingGuideStage[data-state="current"]{border:2px solid #744b4b;box-shadow:0 3px 16px #744b4b12}
+.bookingGuideStage h4{display:flex;align-items:center;gap:10px;margin:0 0 8px;font-size:1rem}
+.guideNumber{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#eee8e6;color:#653f42;flex-shrink:0}
+.bookingGuideStage[data-state="current"] .guideNumber{background:#744b4b;color:#fff}
+.bookingGuideStage[data-state="done"] .guideNumber{background:#e8f3eb;color:#27673d}
+.guideHint{margin:0 0 12px;color:var(--mut);font-size:.88rem;line-height:1.5}
+.guideContent{margin:0;padding:0;border:0;min-width:0;transition:filter .2s ease,opacity .2s ease}
+.bookingGuideStage[data-state="locked"] .guideContent{filter:blur(2px);opacity:.45;max-height:72px;overflow:hidden;pointer-events:none;user-select:none}
+.bookingGuideStage[data-state="locked"]{background:#faf9f8}
+.bookingGuideStage .privacyCard{margin:0}
+.bookingGuideStage .emailProofCard{margin:0;border:0;padding:0;background:transparent}
+.bookingGuideStage :focus-visible{outline:3px solid #744b4b;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.guideContent{transition:none}}
+
+.booking-contact-label {
+    font-size: 16px;
+    font-weight: 600;
+    color: #49413e;
+}
+#guide-contact #name,
+#guide-contact #phone {
+  border-color: #a99c98;
+  background-color: #fff;
+}
+
 
 </style>
 </head>
@@ -442,7 +472,7 @@ function scheduleBookingPhoneLookup(committed=false){
   // Known local lengths allow advancing after typing; other countries advance on leaving the field.
   const expected={'+57':10,'+51':9}[booking.phoneCountry];
   const complete=expected?digits.length===expected:committed&&digits.length>=7;
-  if(!bookingPrivacyAccepted||!complete||cleanPhoneDigits(identity).length>15)return;
+  if(!bookingPrivacyAccepted||!booking.name.trim()||!complete||cleanPhoneDigits(identity).length>15)return;
   bookingPhoneTimer=setTimeout(()=>{
     if(view!=='home'||step!==4||!document.getElementById('phone')||bookingIdentity()!==identity||bookingProof.busy||bookingProof.phase!=='identify')return;
     bookingEmailAction('options');
@@ -450,7 +480,7 @@ function scheduleBookingPhoneLookup(committed=false){
 }
 async function bookingEmailAction(action){
   readBookingFields();if(bookingProof.busy||bookingProof.phase==='verified')return;
-  if(!bookingPrivacyAccepted)return;
+  if(!bookingPrivacyAccepted||!booking.name.trim())return;
   if(action==='options'&&bookingProof.phase!=='identify')return;
   if(action==='request'&&bookingProof.phase==='code'&&Date.now()<(bookingProof.resendAt||0))return;
   const identity=bookingIdentity();const base={business_id:business.id,phone:identity,privacy_accepted:bookingPrivacyAccepted,privacy_version:PRIVACY_VERSION};
@@ -528,6 +558,7 @@ function updateBookingButton(){
   const identify=document.querySelector('[data-a="bookingIdentify"]');if(identify)identify.disabled=bookingProof.busy||!bookingPrivacyAccepted;
   const help=document.getElementById('bookingDataHelp');
   if(help)help.textContent=!bookingPrivacyAccepted?'Autoriza el tratamiento de datos para continuar.':bookingDetailsValid()?'Datos completos. Ya puedes confirmar tu cita.':'Completa tu nombre y teléfono, y verifica tu correo antes de confirmar.';
+  updateBookingGuide();
   if(bookingValidationIssue){
     const current=bookingFirstIssue();
     if(!current||current.id!==bookingValidationIssue.id||current.text!==bookingValidationIssue.text)clearBookingValidation();
@@ -697,6 +728,38 @@ function contactSection(){
 }
 function landing(){return publicHeader()+heroSection()+featureStrip()+servicesSection()+teamSection()+contactSection()+'<footer class="footer">Reservas digitales para '+esc(business.name)+'<br><a class="privacyLink" data-a="privacy" href="legal/privacidad-2026-10-28.html" target="_blank" rel="noopener">Tratamiento de datos personales</a></footer>'}
 
+function bookingGuideStage(id,number,title,content){
+  return '<section class="bookingGuideStage" id="guide-'+id+'" data-state="locked" aria-labelledby="guide-title-'+id+'"><h4 id="guide-title-'+id+'"><span class="guideNumber" aria-hidden="true">'+number+'</span>'+title+'</h4><p class="guideHint" id="guide-hint-'+id+'"></p><fieldset class="guideContent" aria-label="'+title+'" disabled inert aria-hidden="true">'+content+'</fieldset></section>';
+}
+function updateBookingGuide(){
+  if(step!==4)return;
+  const contactReady=bookingPrivacyAccepted&&Boolean(booking.name.trim())&&bookingPhoneValid();
+  const verified=contactReady&&bookingProof.phase==='verified'&&Boolean(bookingProof.token)&&bookingProof.bound===bookingIdentity()&&Date.now()<bookingProof.expiresAt;
+  const active=!bookingPrivacyAccepted?0:!contactReady?1:!verified?2:3;
+  const stages=['privacy','contact','verify','confirm'];
+  const hints=[
+    bookingPrivacyAccepted?'Autorización marcada. Puedes consultar la política o retirar tu autorización.':'Lee la autorización y marca la casilla si estás de acuerdo para continuar.',
+    !bookingPrivacyAccepted?'Primero autoriza el tratamiento de tus datos.':contactReady?'Puedes corregir tu nombre o teléfono si lo necesitas.':'Escribe tu nombre y tu número de WhatsApp, incluido el país correcto.',
+    !contactReady?'Primero completa tu nombre y un teléfono válido.':verified?'Correo verificado. Continúa con la confirmación.':'Solicita el código, búscalo en tu correo y escríbelo aquí para verificarlo.',
+    !verified?'Primero verifica tu correo para poder confirmar la cita.':'Revisa el resumen de tu cita. Los recordatorios son opcionales. Luego pulsa «Confirmar cita».'
+  ];
+  stages.forEach((id,index)=>{
+    const stage=document.getElementById('guide-'+id);if(!stage)return;
+    const locked=index>active,content=stage.querySelector('.guideContent');
+    stage.dataset.state=locked?'locked':index===active?'current':'done';
+    if(index===active)stage.setAttribute('aria-current','step');else stage.removeAttribute('aria-current');
+    stage.querySelector('.guideHint').textContent=hints[index];
+    content.disabled=locked;
+    content.toggleAttribute('inert',locked);
+    if(locked)content.setAttribute('aria-hidden','true');else content.removeAttribute('aria-hidden');
+  });
+  const progress=document.getElementById('bookingGuideProgress');
+  const text='Paso '+(active+1)+' de 4 · '+['Autorización de datos','Datos de contacto','Verificación del correo','Confirmación de la cita'][active];
+  if(progress&&progress.textContent!==text)progress.textContent=text;
+  const button=document.querySelector('[data-a="book"]');
+  if(button&&!bookingBusy)button.textContent=verified?'Confirmar cita':'Continuar';
+}
+
 function bookingHeader(title="Reservar cita"){
   return '<div class="panelHead"><h2>'+esc(title)+'</h2><button class="closeBtn" data-a="closeBooking" aria-label="Cerrar">×</button></div>';
 }
@@ -724,8 +787,14 @@ function bookingStepContent(){
   }else if(step===4){
     h+='<h3 class="stepTitle">Tus datos</h3><p class="stepSub">Revisa la reserva y completa tus datos de contacto.</p><div class="bookingNotice"><b>Tu cita aún no está reservada.</b> Completa tus datos, autoriza su tratamiento y verifica tu correo. Luego pulsa «Confirmar cita» para finalizar.</div>';
     h+='<div class="summary"><div class="summaryRow"><span>Servicio</span><b>'+esc(booking.service?.name||'')+'</b></div><div class="summaryRow"><span>Profesional</span><b>'+esc(currentProfessionalName())+'</b></div><div class="summaryRow"><span>Fecha</span><b>'+esc(fmtShortDate(booking.date))+'</b></div><div class="summaryRow"><span>Hora</span><b>'+esc(booking.time)+'</b></div><div class="summaryRow"><span>Total</span><b>'+money(booking.service?.price)+'</b></div></div>';
-    h+=privacyConsentHtml('booking');
-    h+='<p id="bookingDataHelp" class="phoneHelp" role="status" aria-live="polite">Completa tu nombre y teléfono, y verifica tu correo antes de confirmar.</p><label>Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label>WhatsApp</label>'+phoneFieldHtml("phoneCountry","phone",booking.phoneCountry,booking.phone,"Ej. 3001234567")+'<div id="bookingEmailProof">'+bookingProofHtml()+'</div><label>Notas de logística (opcional; no incluyas datos de salud)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea><label style="display:flex;gap:8px;align-items:center"><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?'checked':'')+'> Quiero recordatorios</label>';
+    h+='<div id="bookingGuideProgress" class="bookingGuideProgress" role="status" aria-live="polite"></div>';
+    h+=bookingGuideStage('privacy','1','Autoriza el tratamiento de tus datos',privacyConsentHtml('booking'));
+
+    h+='<p id="bookingDataHelp" class="phoneHelp">Autoriza el tratamiento de datos para continuar.</p>';
+    h+=bookingGuideStage('contact','2','Completa tus datos de contacto','<label class="booking-contact-label">Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label class="booking-contact-label">WhatsApp</label>'+phoneFieldHtml("phoneCountry","phone",booking.phoneCountry,booking.phone,"Ej. 3001234567"));
+    h+=bookingGuideStage('verify','3','Verifica tu correo','<div id="bookingEmailProof">'+bookingProofHtml()+'</div>');
+    h+=bookingGuideStage('confirm','4','Revisa y confirma tu cita','<label>Notas de logística (opcional; no incluyas datos de salud)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea><label style="display:flex;gap:8px;align-items:center"><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?'checked':'')+'> Quiero recordatorios</label>');
+
   }else if(step===5){
     const pending=bookingResultStatus==='PENDING';
     const title=pending?'Solicitud enviada':bookingResultStatus==='CONFIRMED'?'¡Reserva confirmada! 🎉':'¡Reserva registrada!';
@@ -775,6 +844,7 @@ function render(){
   const modal=view==="my"?myAppointmentsOverlay():(step>0?bookingOverlay():"");
   if(modal){document.body.classList.add('modalOpen');h+=modal}else document.body.classList.remove('modalOpen');
   document.getElementById('app').innerHTML=h;
+  if(step===4)updateBookingButton();
 }
 
 document.getElementById('app').addEventListener('input',e=>{
@@ -821,7 +891,7 @@ document.getElementById('app').addEventListener('change',e=>{
     if(myPrivacyAccepted)revealContactAfterConsent('my');
   }
   if(step===4&&['phoneCountry','rem'].includes(e.target.id))updateBookingButton();
-  if(step===4&&['phone','phoneCountry'].includes(e.target.id))scheduleBookingPhoneLookup(true);
+  if(step===4&&['name','phone','phoneCountry'].includes(e.target.id))scheduleBookingPhoneLookup(true);
   if(e.target.id==='date'){
     const selected=e.target.value;
     if(selected&&selected<todayInBusinessTz()){booking.date='';booking.time='';availability=[];error='Selecciona una fecha de hoy en adelante.';render();return}
