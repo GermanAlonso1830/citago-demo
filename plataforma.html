@@ -257,7 +257,8 @@ async function load(){
  try{
   businesses=await api("/businesses");
   types=await api("/business-types");
-  try{plans=await api("/platform/plans")}catch(_){plans=[]}
+  plansError="";
+  try{plans=await api("/platform/plans")}catch(e){plans=[];plansError="No se pudieron cargar los planes. "+e.message}
  }catch(e){error=e.message}finally{loading=false;render()}
 }
 async function createBusiness(){
@@ -307,8 +308,67 @@ function businessPanel(){
 function typesPanel(){
  return '<h1>Tipos de negocio</h1><p class="sub">La plantilla define vocabulario y valores base; cada negocio crea sus servicios.</p>'+types.map(t=>'<div class="item"><b>'+esc(t.icon||"📅")+' '+esc(t.name)+'</b><small>'+esc(t.slug)+' · '+esc(t.professional_plural||"Profesionales")+' · '+t.default_slot_minutes+' min</small></div>').join("")+'<div class="card"><h3>Nuevo tipo</h3><div class="g2"><input id="tn" placeholder="Nombre"><input id="ts" placeholder="slug"></div><button class="btn p" data-a="createType" style="margin-top:10px">Crear tipo</button></div>';
 }
+const planFeatures={
+ whatsapp_enabled:"WhatsApp",
+ reports_enabled:"Reportes",
+ payments_enabled:"Pagos",
+ multi_location_enabled:"Múltiples sedes"
+};
+let planSaving=false,planMessage="",plansError="";
+
+async function savePlan(form){
+ if(planSaving||!form.reportValidity())return;
+ const fields=new FormData(form);
+ const max=fields.get("max_professionals");
+ const changes={
+  price_cop:Number(fields.get("price_cop")),
+  trial_days:Number(fields.get("trial_days")),
+  max_professionals:max===""?null:Number(max)
+ };
+ for(const key of Object.keys(planFeatures))changes[key]=fields.has(key);
+ const plan=plans.find(item=>item.id===form.dataset.editPlan);
+ if(!plan)return;
+ const patch=Object.fromEntries(Object.entries(changes).filter(([key,value])=>plan[key]!==value));
+ const feedback=form.querySelector("[role=status]");
+ if(!Object.keys(patch).length){feedback.textContent="No hay cambios para guardar.";return}
+ const controls=form.querySelector("fieldset");
+ planSaving=true;
+ controls.disabled=true;
+ feedback.textContent="Guardando…";
+ try{
+  await api("/platform/plans/"+encodeURIComponent(plan.id),{
+   method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(patch)
+  });
+  Object.assign(plan,patch);
+  planMessage="Plan "+plan.name+" actualizado.";
+  render();
+ }catch(e){
+  if(!authUser)render();
+  else feedback.textContent="No se pudo guardar. "+e.message;
+ }finally{
+  planSaving=false;
+  controls.disabled=false;
+ }
+}
+
+function planFields(plan){
+ const features=Object.entries(planFeatures).map(([key,label])=>
+  '<label><input style="width:auto" type="checkbox" name="'+key+'"'+(plan[key]?' checked':'')+'> '+label+'</label>'
+ ).join("");
+ return '<form class="card" data-edit-plan="'+esc(plan.id)+'"><h2>'+esc(plan.name)+'</h2>'+
+  '<fieldset style="border:0;padding:0;margin:0">'+
+  '<label>Precio mensual (COP)<input name="price_cop" type="number" min="0" step="1" required value="'+esc(plan.price_cop)+'"></label>'+
+  '<label>Días de prueba<input name="trial_days" type="number" min="0" step="1" required value="'+esc(plan.trial_days)+'"></label>'+
+  '<label>Límite de profesionales (vacío = sin límite)<input name="max_professionals" type="number" min="1" step="1" value="'+esc(plan.max_professionals)+'"></label>'+
+  '<div class="row">'+features+'</div><button class="btn p" type="submit">Guardar cambios</button></fieldset>'+
+  '<p class="muted" role="status"></p></form>';
+}
+
 function plansPanel(){
- return '<h1>Planes</h1><p class="sub">Precios y capacidades globales de CitaGo</p>'+(plans.length?plans.map(p=>'<div class="card"><div class="row" style="justify-content:space-between"><h2>'+esc(p.name)+'</h2><b>'+money(p.price_cop)+'</b></div><p class="muted">Profesionales: '+(p.max_professionals??"Ilimitados")+' · Prueba: '+p.trial_days+' días</p><div class="row"><span class="tag">'+(p.whatsapp_enabled?"WhatsApp":"Sin WhatsApp")+'</span><span class="tag">'+(p.reports_enabled?"Reportes":"Sin reportes")+'</span></div></div>').join(""):'<div class="card"><b>El frontend está listo.</b><p class="muted">Para cargar planes aquí falta instalar los endpoints de Plataforma que no venían en el ZIP anterior.</p></div>');
+ return '<h1>Planes</h1><p class="sub">Precios y funciones del catálogo de CitaGo</p>'+
+  (planMessage?'<p role="status">'+esc(planMessage)+'</p>':'')+
+  (plansError?'<div class="err">'+esc(plansError)+' <button class="btn" data-a="reloadPlans">Reintentar</button></div>':
+   plans.length?plans.map(planFields).join(""):'<div class="card">No hay planes registrados.</div>');
 }
 function loginView(){
  return '<div class="authScreen"><div class="authCard"><div class="authLogo">CG</div><h1>Plataforma CitaGo</h1><p class="sub">Acceso administrativo</p>'+(loginError?'<div class="err">'+esc(loginError)+'</div>':'')+'<form id="loginForm"><label>Correo</label><input id="loginEmail" type="email" autocomplete="username" value="'+esc(loginEmail)+'" placeholder="correo@ejemplo.com" required><label>Contraseña</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Tu contraseña" required><button class="btn p" type="submit" '+(loginBusy?'disabled':'')+'>'+(loginBusy?'Ingresando…':'Iniciar sesión')+'</button></form><div class="authMeta">Acceso exclusivo para administración de CitaGo</div></div></div>';
@@ -321,11 +381,13 @@ function render(){
 }
 document.getElementById("app").addEventListener("submit",e=>{
  if(e.target.id==="loginForm"){e.preventDefault();loginPlatform()}
+ if(e.target.matches("[data-edit-plan]")){e.preventDefault();savePlan(e.target)}
 });
 document.getElementById("app").addEventListener("click",e=>{
- const n=e.target.closest("[data-v]");if(n){view=n.dataset.v;render();return}
+ const n=e.target.closest("[data-v]");if(n){if(!planSaving){view=n.dataset.v;planMessage="";render()}return}
  const a=e.target.closest("[data-a]");
  if(a&&a.dataset.a==="logout"){logoutPlatform();return}
+ if(a&&a.dataset.a==="reloadPlans"){load();return}
  if(a&&a.dataset.a==="createBusiness")createBusiness();
  if(a&&a.dataset.a==="createType")createType();
  const openClient=e.target.closest("[data-open-client]");
