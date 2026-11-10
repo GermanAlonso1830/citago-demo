@@ -2362,12 +2362,84 @@ function bizRem(){
  h+='<p style="color:#8A5A00;background:#FFF6D8;border:1px solid #F2D88A;border-radius:12px;padding:10px 12px;font-size:.84rem;margin:12px 0 0"><b>Envío automático aún no activado.</b> Esta configuración ya se guarda en Neon y la vista previa usa citas reales. Para enviar recordatorios automáticamente debemos conectar una plantilla de mensaje aprobada de WhatsApp Cloud API.</p></div>';
  return h;
 }
-function bizRep(){if(lvl()<2)return lockBox("Reportes","Pro");
- var n=function(x){return A.filter(function(a){return a.st===x}).length},pf=function(a){var v=SV.filter(function(y){return y.n===a.svc})[0];return v?v.p:0},
- inc=function(l){return l.filter(function(a){return a.st==="Confirmada"||a.st==="Completada"}).reduce(function(t,a){return t+pf(a)},0)},dn=n("Completada"),ns=n("No asistió");
- var h='<h1>Reportes</h1><div class="kp"><div class="kc"><b>'+A.filter(live).length+'</b><span>Activas</span></div><div class="kc"><b>'+dn+'</b><span>Completadas</span></div><div class="kc"><b>'+n("Cancelada")+'</b><span>Canceladas</span></div><div class="kc"><b>'+n("Rechazada")+'</b><span>Rechazadas</span></div><div class="kc"><b>'+ns+'</b><span>No asistió</span></div><div class="kc"><b>'+(dn+ns?Math.round(ns*100/(dn+ns))+"%":"–")+'</b><span>Tasa de no asistencia</span></div><div class="kc"><b>'+P(inc(A))+'</b><span>Ingresos estimados</span></div></div><div class="pn"><h2>Por '+W.pro+'</h2><table><tr><th>Nombre</th><th>Activas</th><th>Completadas</th><th>No asistió</th><th>Ingresos</th></tr>';
- PR.forEach(function(p){var m=A.filter(function(a){return a.pro===p.id});h+='<tr><td><b>'+esc(p.n)+'</b></td><td>'+m.filter(live).length+'</td><td>'+m.filter(function(a){return a.st==="Completada"}).length+'</td><td>'+m.filter(function(a){return a.st==="No asistió"}).length+'</td><td>'+P(inc(m))+'</td></tr>'});
- return h+'</table></div>'+(lvl()<3?'<p style="color:var(--mute);font-size:.85rem">Estadísticas avanzadas y pagos: plan Premium.</p>':'')}
+const REPORT_PERIODS={today:"Hoy",week:"Esta semana",month:"Este mes",custom:"Personalizado"};
+const REPORT_STATUS={PENDING:"Pendientes",CONFIRMED:"Confirmadas",COMPLETED:"Completadas",CANCELLED:"Canceladas",NO_SHOW:"No asistieron",REJECTED:"Rechazadas"};
+let reportPeriod="month",reportFrom="",reportTo="",reportData=null,reportLoading=false,reportError="";
+
+function reportRange(period,today){
+ const start=new Date(today+"T00:00:00Z");
+ if(period==="week")start.setUTCDate(start.getUTCDate()-(start.getUTCDay()+6)%7);
+ if(period==="month")start.setUTCDate(1);
+ return [start.toISOString().slice(0,10),today];
+}
+
+async function loadBusinessReport(period=reportPeriod){
+ if(lvl()<2||reportLoading){render();return}
+ reportPeriod=period;
+ reportError="";
+ reportData=null;
+ if(period==="custom"&&(!reportFrom||!reportTo||reportFrom>reportTo)){
+  reportError="Selecciona un rango de fechas válido.";
+  render();
+  return;
+ }
+ reportLoading=true;
+ render();
+ try{
+  const base=API_BASE+"/businesses/"+BUSINESS_ID;
+  if(period!=="custom"){
+   let timezone=SETTINGS?.timezone;
+   if(!timezone){
+    const settings=await fetch(base+"/settings");
+    if(!settings.ok)throw new Error("Error HTTP "+settings.status);
+    timezone=(await settings.json()).timezone;
+   }
+   [reportFrom,reportTo]=reportRange(period,blockLocalParts(Date.now(),timezone).date);
+  }
+  const query=new URLSearchParams({date_from:reportFrom,date_to:reportTo});
+  const response=await fetch(base+"/reports/summary?"+query);
+  if(!response.ok)throw new Error("Error HTTP "+response.status);
+  reportData=await response.json();
+ }catch(error){
+  console.error(error);
+  reportError="No se pudo cargar el reporte. Intenta de nuevo.";
+ }finally{
+  reportLoading=false;
+  if(V==="b"&&NV==="rep")render();
+ }
+}
+
+function bizRep(){
+ if(lvl()<2)return lockBox("Reportes","Pro");
+ const disabled=reportLoading?' disabled':'';
+ const datesDisabled=reportLoading||reportPeriod!=="custom"?' disabled':'';
+ const options=Object.entries(REPORT_PERIODS).map(([key,label])=>
+  '<option value="'+key+'"'+(key===reportPeriod?' selected':'')+'>'+label+'</option>'
+ ).join("");
+ let html='<h1>Reportes</h1><div class="pn" style="margin-bottom:14px">'+
+  '<label for="report-period">Período</label><select id="report-period"'+disabled+'>'+options+'</select>'+
+  '<div class="g2"><div><label for="report-from">Desde</label><input id="report-from" type="date" value="'+esc(reportFrom)+'"'+datesDisabled+'></div>'+
+  '<div><label for="report-to">Hasta</label><input id="report-to" type="date" value="'+esc(reportTo)+'"'+datesDisabled+'></div></div>'+
+  '<button class="btn p" data-a="applyReport"'+disabled+'>Aplicar filtros</button></div>';
+ if(reportLoading)return html+'<p role="status">Cargando reporte…</p>';
+ if(reportError)return html+'<p role="alert">'+esc(reportError)+'</p>';
+ if(!reportData)return html;
+ const {totals,by_status,by_service,by_professional}=reportData;
+ if(!totals.appointments)return html+'<p role="status">No hay citas en el período seleccionado.</p>';
+ const statusCounts=Object.fromEntries(by_status.map(row=>[row.status,row.total]));
+ const outcomes=totals.completed+totals.no_show;
+ const cards=[
+  ["Total de citas",totals.appointments],
+  ...Object.entries(REPORT_STATUS).map(([status,label])=>[label,statusCounts[status]||0]),
+  ["Tasa de inasistencia",outcomes?Math.round(totals.no_show*100/outcomes)+"%":"–"],
+  ["Valor de citas completadas",P(totals.completed_revenue)]
+ ];
+ html+='<div class="kp">'+cards.map(([label,value])=>'<div class="kc"><b>'+esc(String(value))+'</b><span>'+label+'</span></div>').join("")+'</div>';
+ html+='<div class="pn"><h2>Por servicio</h2><table><tr><th>Servicio</th><th>Citas</th><th>Valor completado</th></tr>'+
+  by_service.map(row=>'<tr><td>'+esc(row.service_name||"Sin servicio")+'</td><td>'+row.total+'</td><td>'+P(row.completed_revenue)+'</td></tr>').join("")+'</table></div>';
+ return html+'<div class="pn" style="margin-top:14px"><h2>Por profesional</h2><table><tr><th>Profesional</th><th>Citas</th><th>Completadas</th></tr>'+
+  by_professional.map(row=>'<tr><td>'+esc(row.professional_name)+'</td><td>'+row.total+'</td><td>'+row.completed+'</td></tr>').join("")+'</table></div>';
+}
 function bizPlan(){var r=REC[CUR],F=[["Página de reservas",1],["Agenda",1],["1 profesional",1],["Reservas",1],["WhatsApp automático",2],["Equipo",2],["Reportes",2],["Pagos",3],["Múltiples sedes",3],["Estadísticas avanzadas",3]],N=["","Básico","Pro","Premium"];
  return'<h1>Mi plan</h1><div class="pn" style="margin-top:14px;overflow:visible"><h2 style="margin:0">'+r.pl+(r.price?' · '+P(r.price)+'/mes':'')+'</h2><p style="color:var(--mute);margin:4px 0 0">'+(r.pl==="Prueba"?"Tu prueba gratis de "+PLN.Prueba.d+" días incluye las funciones del plan Pro.":"Próximo pago: "+r.nx)+'</p></div><div class="pn" style="overflow:visible"><h2>Qué incluye</h2>'+F.map(function(f){return'<div class="rw" style="border-top:1px solid var(--line)"><span class="grow">'+f[0]+'</span>'+(lvl()>=f[1]?'<span class="tg">Incluido</span>':'<span class="tg w">Desde '+N[f[1]]+'</span>')+'</div>'}).join("")+'<p style="color:var(--mute);font-size:.85rem;margin:8px 0 0">Para cambiar de plan, escribe a la plataforma.</p></div>'}
 function plans(){var F={"Básico":["Página de reservas","Agenda","1 profesional","Reservas"],"Pro":["Todo Básico","WhatsApp automático","Equipo","Reportes"],"Premium":["Todo Pro","Pagos","Múltiples sedes","Estadísticas avanzadas"]},K=["Básico","Pro","Premium"];
@@ -2514,6 +2586,12 @@ app.oninput=function(e){
  updateCreateButtonStates();
 };
 app.onchange=function(e){
+ if(e.target.id==="report-period"){
+  const custom=e.target.value==="custom";
+  document.getElementById("report-from").disabled=!custom;
+  document.getElementById("report-to").disabled=!custom;
+  return;
+ }
  var pcs=e.target.dataset.proPickerService;
  if(pcs!==undefined){
   pcs=String(pcs);
@@ -2609,7 +2687,7 @@ app.onclick=function(e){
   if(V==="b"&&t.dataset.i==="account"){goToMyAccount();return}
   SERVICE_CREATE_OPEN=false;PRO_CREATE_OPEN=false;resetProfessionalServicePicker();resetProfessionalCreatePhoto();resetProfessionalCreateDraft();resetPanelScroll();
   if(V==="a")AV=t.dataset.i;
-  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="blk"){MO=false;resetBlockForm();resetPanelScroll();loadRealBlocks();setTimeout(resetPanelScroll,0);return}if(NV==="rem"){MO=false;resetPanelScroll();loadReminderCenter();setTimeout(resetPanelScroll,0);return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
+  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="blk"){MO=false;resetBlockForm();resetPanelScroll();loadRealBlocks();setTimeout(resetPanelScroll,0);return}if(NV==="rem"){MO=false;resetPanelScroll();loadReminderCenter();setTimeout(resetPanelScroll,0);return}if(NV==="rep"){MO=false;loadBusinessReport();return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
   MO=false
  }
  else if(a==="copyBookingLink"){copyBookingLink();return}
@@ -2618,6 +2696,12 @@ app.onclick=function(e){
  else if(a==="downloadBookingQr"){downloadBookingQr();return}
  else if(a==="menu")MO=!MO;
  else if(a==="day"){bo=Math.max(0,bo+i);loadDashboard();return}
+ else if(a==="applyReport"){
+  reportFrom=document.getElementById("report-from").value;
+  reportTo=document.getElementById("report-to").value;
+  loadBusinessReport(document.getElementById("report-period").value);
+  return;
+ }
  else if(a==="reloadReminders"){loadReminderCenter();return}
  else if(a==="toggleReminder24"){toggleReminderSetting(24);return}
  else if(a==="toggleReminder2"){toggleReminderSetting(2);return}
