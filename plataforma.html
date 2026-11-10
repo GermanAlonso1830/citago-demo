@@ -124,7 +124,9 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
 .plan-summary .btn{flex-shrink:0}
 .plan-dialog{width:min(560px,calc(100% - 32px));max-height:90dvh;overflow:auto;border:0;border-radius:18px;padding:24px;color:var(--text,#172033)}
 .plan-dialog::backdrop{background:rgba(15,23,42,.55)}
-.plan-dialog h2{margin-top:0}.plan-dialog fieldset{min-width:0}
+.plan-dialog h2{margin-top:0;outline:none}.plan-dialog fieldset{min-width:0}
+.plan-dialog input,.plan-dialog select,.plan-dialog textarea{font-size:16px}
+.plan-dialog{box-sizing:border-box;max-width:calc(100vw - 32px)}
 .plan-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
 .plan-features{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
 .plan-features label{margin:0}
@@ -368,7 +370,7 @@ function planFields(plan){
  const features=Object.entries(planFeatures).map(([key,label])=>
   '<label><input style="width:auto" type="checkbox" name="'+key+'"'+(plan[key]?' checked':'')+'> '+label+'</label>'
  ).join("");
- return '<form data-edit-plan="'+esc(plan.id)+'"><h2>'+esc(plan.name)+'</h2>'+
+ return '<form data-edit-plan="'+esc(plan.id)+'"><h2 tabindex="-1" autofocus>'+esc(plan.name)+'</h2>'+
   '<fieldset style="border:0;padding:0;margin:0">'+
   '<label>Precio mensual (COP)<input name="price_cop" type="number" min="0" step="1" required value="'+esc(plan.price_cop)+'"></label>'+
   '<label>Días de prueba<input name="trial_days" type="number" min="0" step="1" required value="'+esc(plan.trial_days)+'"></label>'+
