@@ -118,6 +118,17 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
   .businessTable td{grid-template-columns:1fr;gap:6px}
   .businessTable td::before{margin-bottom:-2px}
 }
+
+.plan-summary{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
+.plan-summary h2{margin-top:0}.plan-summary ul{padding-left:20px;margin-bottom:0}
+.plan-summary .btn{flex-shrink:0}
+.plan-dialog{width:min(560px,calc(100% - 32px));max-height:90dvh;overflow:auto;border:0;border-radius:18px;padding:24px;color:var(--text,#172033)}
+.plan-dialog::backdrop{background:rgba(15,23,42,.55)}
+.plan-dialog h2{margin-top:0}.plan-dialog fieldset{min-width:0}
+.plan-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.plan-features{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.plan-features label{margin:0}
+@media(max-width:480px){.plan-dialog{padding:18px}.plan-features{grid-template-columns:1fr}}
 </style></head>
 <body><div id="app"></div><script>
 const API=(location.hostname==="127.0.0.1"||location.hostname==="localhost")
@@ -314,7 +325,7 @@ const planFeatures={
  payments_enabled:"Pagos",
  multi_location_enabled:"Múltiples sedes"
 };
-let planSaving=false,planMessage="",plansError="";
+let planSaving=false,planMessage="",plansError="",editingPlanId=null;
 
 async function savePlan(form){
  if(planSaving||!form.reportValidity())return;
@@ -341,7 +352,9 @@ async function savePlan(form){
   });
   Object.assign(plan,patch);
   planMessage="Plan "+plan.name+" actualizado.";
+  editingPlanId=null;
   render();
+  document.querySelector('[data-edit-plan-button="'+plan.id+'"]')?.focus();
  }catch(e){
   if(!authUser)render();
   else feedback.textContent="No se pudo guardar. "+e.message;
@@ -355,20 +368,35 @@ function planFields(plan){
  const features=Object.entries(planFeatures).map(([key,label])=>
   '<label><input style="width:auto" type="checkbox" name="'+key+'"'+(plan[key]?' checked':'')+'> '+label+'</label>'
  ).join("");
- return '<form class="card" data-edit-plan="'+esc(plan.id)+'"><h2>'+esc(plan.name)+'</h2>'+
+ return '<form data-edit-plan="'+esc(plan.id)+'"><h2>'+esc(plan.name)+'</h2>'+
   '<fieldset style="border:0;padding:0;margin:0">'+
   '<label>Precio mensual (COP)<input name="price_cop" type="number" min="0" step="1" required value="'+esc(plan.price_cop)+'"></label>'+
   '<label>Días de prueba<input name="trial_days" type="number" min="0" step="1" required value="'+esc(plan.trial_days)+'"></label>'+
   '<label>Límite de profesionales (vacío = sin límite)<input name="max_professionals" type="number" min="1" step="1" value="'+esc(plan.max_professionals)+'"></label>'+
-  '<div class="row">'+features+'</div><button class="btn p" type="submit">Guardar cambios</button></fieldset>'+
+  '<div class="plan-features">'+features+'</div><div class="plan-actions"><button class="btn" type="button" data-a="cancelPlan">Cancelar</button><button class="btn p" type="submit">Guardar cambios</button></div></fieldset>'+
   '<p class="muted" role="status"></p></form>';
 }
 
+function planSummary(plan){
+ const included=Object.entries(planFeatures).filter(([key])=>plan[key]).map(([,label])=>'<li>'+label+'</li>').join("");
+ return '<section class="card plan-summary"><div><h2>'+esc(plan.name)+'</h2><b>'+money(plan.price_cop)+' / mes</b>'+
+  '<ul><li>'+esc(plan.max_professionals==null?'Profesionales sin límite':plan.max_professionals+' profesional(es)')+'</li>'+
+  (plan.trial_days?'<li>'+esc(plan.trial_days)+' días de prueba</li>':'')+included+'</ul></div>'+
+  '<button class="btn" data-edit-plan-button="'+esc(plan.id)+'">Editar</button></section>';
+}
+function closePlanEditor(){
+ if(planSaving)return;
+ const id=editingPlanId;
+ editingPlanId=null;
+ render();
+ document.querySelector('[data-edit-plan-button="'+id+'"]')?.focus();
+}
 function plansPanel(){
  return '<h1>Planes</h1><p class="sub">Precios y funciones del catálogo de CitaGo</p>'+
   (planMessage?'<p role="status">'+esc(planMessage)+'</p>':'')+
   (plansError?'<div class="err">'+esc(plansError)+' <button class="btn" data-a="reloadPlans">Reintentar</button></div>':
-   plans.length?plans.map(planFields).join(""):'<div class="card">No hay planes registrados.</div>');
+   plans.length?plans.map(planSummary).join(""):'<div class="card">No hay planes registrados.</div>')+
+  (editingPlanId?'<dialog class="plan-dialog" id="plan-dialog" aria-label="Editar plan">'+planFields(plans.find(p=>p.id===editingPlanId))+'</dialog>':'');
 }
 function loginView(){
  return '<div class="authScreen"><div class="authCard"><div class="authLogo">CG</div><h1>Plataforma CitaGo</h1><p class="sub">Acceso administrativo</p>'+(loginError?'<div class="err">'+esc(loginError)+'</div>':'')+'<form id="loginForm"><label>Correo</label><input id="loginEmail" type="email" autocomplete="username" value="'+esc(loginEmail)+'" placeholder="correo@ejemplo.com" required><label>Contraseña</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="Tu contraseña" required><button class="btn p" type="submit" '+(loginBusy?'disabled':'')+'>'+(loginBusy?'Ingresando…':'Iniciar sesión')+'</button></form><div class="authMeta">Acceso exclusivo para administración de CitaGo</div></div></div>';
@@ -384,8 +412,18 @@ document.getElementById("app").addEventListener("submit",e=>{
  if(e.target.matches("[data-edit-plan]")){e.preventDefault();savePlan(e.target)}
 });
 document.getElementById("app").addEventListener("click",e=>{
- const n=e.target.closest("[data-v]");if(n){if(!planSaving){view=n.dataset.v;planMessage="";render()}return}
+ const n=e.target.closest("[data-v]");if(n){if(!planSaving){view=n.dataset.v;editingPlanId=null;planMessage="";render()}return}
+ const edit=e.target.closest("[data-edit-plan-button]");
+ if(edit){
+  editingPlanId=edit.dataset.editPlanButton;
+  render();
+  const dialog=document.getElementById("plan-dialog");
+  dialog.showModal();
+  dialog.addEventListener("cancel",event=>{event.preventDefault();closePlanEditor()});
+  return;
+ }
  const a=e.target.closest("[data-a]");
+ if(a&&a.dataset.a==="cancelPlan"){closePlanEditor();return}
  if(a&&a.dataset.a==="logout"){logoutPlatform();return}
  if(a&&a.dataset.a==="reloadPlans"){load();return}
  if(a&&a.dataset.a==="createBusiness")createBusiness();
