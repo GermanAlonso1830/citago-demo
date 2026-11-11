@@ -84,40 +84,19 @@ table{border-collapse:collapse;width:100%}th,td{padding:8px;border-bottom:1px so
   .slots{grid-template-columns:repeat(2,1fr)}
   h1{font-size:1.55rem}
 
-  .businessTable{background:transparent;border:0;padding:0}
-  .businessTable table,
-  .businessTable tbody{display:block;width:100%}
-  .businessTable tr:first-child{display:none}
-  .businessTable tr{
-    display:block;width:100%;background:var(--sf);
-    border:1px solid var(--line);border-radius:16px;
-    padding:12px;margin-bottom:12px
-  }
-  .businessTable td{
-    display:grid;grid-template-columns:92px minmax(0,1fr);
-    gap:10px;align-items:start;width:100%;
-    padding:10px 0;border-bottom:1px solid var(--line)
-  }
-  .businessTable td:last-child{border-bottom:0}
-  .businessTable td::before{
-    content:attr(data-label);color:var(--mut);
-    font-size:.7rem;font-weight:800;text-transform:uppercase;
-    letter-spacing:.03em
-  }
-  .businessTable select{width:100%;min-width:0}
-  .businessTable td .row{
-    display:grid;grid-template-columns:1fr 1fr;
-    gap:8px;width:100%
-  }
-  .businessTable td .row .btn{
-    width:100%;min-height:44px;padding:8px 6px
-  }
 }
 @media(max-width:420px){
   .side{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .businessTable td{grid-template-columns:1fr;gap:6px}
-  .businessTable td::before{margin-bottom:-2px}
 }
+
+.business-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.business-row .row{min-width:0}
+.business-row strong,.business-editor h2{overflow-wrap:anywhere}
+.business-row .tag,.business-row .btn{flex-shrink:0}
+.business-editor .plan-actions{flex-wrap:wrap}
+.business-editor .btn:disabled{opacity:.5;cursor:default}
+.business-editor [role=status]:empty{display:none}
+.business-links{margin-top:16px}
 
 .plan-summary{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
 .plan-summary h2{margin-top:0}.plan-summary ul{padding-left:20px;margin-bottom:0}
@@ -249,7 +228,7 @@ async function loginPlatform(){
 }
 
 function logoutPlatform(){
- loginError="";error="";businesses=[];types=[];plans=[];
+ loginError="";error="";businessMessage="";businesses=[];types=[];plans=[];
  clearSession();
 }
 
@@ -284,38 +263,127 @@ async function createType(){
  if(!name||!slug)return alert("Completa nombre y slug.");
  await api("/business-types",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,slug,icon:"📅",color:"#6d5bd0",professional_singular:"profesional",professional_plural:"Profesionales",notes_label:"Notas",notes_placeholder:"",default_open_time:"08:00",default_close_time:"18:00",default_slot_minutes:30})});load();
 }
-async function toggleBusiness(id,active){
- try{await api("/platform/businesses/"+id+"/active",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({is_active:active})});load()}catch(e){alert("Falta endpoint de plataforma: "+e.message)}
+let businessSaving=false,businessMessage="";
+
+function businessChanges(form,business){
+ const isActive=form.elements.is_active.value==="true";
+ const planId=form.elements.plan_id.value;
+ return {
+  isActive,
+  activeChanged:isActive!==(business.is_active!==false),
+  plan:planId!==String(business.plan_id||"")?plans.find(plan=>String(plan.id)===planId):null
+ };
 }
-async function assignPlan(id){
- const el=document.getElementById("plan-"+id);
- if(!el||!el.value)return;
- const plan=plans.find(p=>p.id===el.value);
- if(!plan)return alert("No se encontró el plan seleccionado.");
- const status=Number(plan.trial_days||0)>0?"TRIAL":"ACTIVE";
+function updateBusinessSaveButton(form,business){
+ const {activeChanged,plan}=businessChanges(form,business);
+ form.querySelector('[type="submit"]').disabled=businessSaving||(!activeChanged&&!plan);
+}
+function focusBusinessEdit(id){
+ document.getElementById("edit-business-"+id)?.focus({preventScroll:true});
+}
+async function saveBusiness(form,business){
+ if(businessSaving||!form.reportValidity())return;
+ const {isActive,activeChanged,plan}=businessChanges(form,business);
+ if(!activeChanged&&!plan)return;
+
+ const controls=form.querySelector("fieldset");
+ const feedback=form.querySelector("[role=status]");
+ const url="/platform/businesses/"+encodeURIComponent(business.id);
+ const headers={"Content-Type":"application/json"};
+ businessSaving=true;
+ controls.disabled=true;
+ feedback.textContent="Guardando…";
+ let activeSaved=false;
  try{
-  await api("/platform/businesses/"+id+"/subscription",{
-   method:"PUT",
-   headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({plan_id:plan.id,status})
-  });
-  await load();
-  alert(status==="TRIAL"?"Plan de prueba activado correctamente":"Plan actualizado correctamente");
+  if(activeChanged){
+   const result=await api(url+"/active",{method:"PATCH",headers,body:JSON.stringify({is_active:isActive})});
+   business.is_active=result.is_active;
+   activeSaved=true;
+  }
+  if(plan){
+   const status=Number(plan.trial_days||0)>0?"TRIAL":"ACTIVE";
+   const result=await api(url+"/subscription",{
+    method:"PUT",headers,body:JSON.stringify({plan_id:plan.id,status})
+   });
+   Object.assign(business,{plan_id:result.plan_id,plan_name:plan.name,subscription_status:result.status,trial_ends_at:null});
+  }
  }catch(e){
-  alert("No se pudo actualizar el plan: "+e.message);
+  if(!authUser)render();
+  else feedback.textContent=(activeSaved?"Estado guardado. No se pudo guardar el plan. ":"No se pudieron guardar los cambios. ")+e.message;
+  return;
+ }finally{
+  businessSaving=false;
+  controls.disabled=false;
+  updateBusinessSaveButton(form,business);
  }
+ businessMessage="Negocio "+business.name+" actualizado.";
+ if(plan)await load();
+ else render();
+ focusBusinessEdit(business.id);
 }
 function nav(){return '<aside class="side"><h2>CitaGo</h2><button data-v="businesses" class="'+(view==="businesses"?"on":"")+'">🏢 Negocios</button><button data-v="types" class="'+(view==="types"?"on":"")+'">🧩 Tipos</button><button data-v="plans" class="'+(view==="plans"?"on":"")+'">💎 Planes</button><div class="sideUser"><b>'+esc(authUser?.full_name||"Administrador")+'</b><span>'+esc(authUser?.email||"")+'</span></div><button data-a="logout">↪ Cerrar sesión</button></aside>'}
 function businessPanel(){
- let rows=businesses.map(b=>{
-  const currentPlanId=String(b.plan_id||"");
-  const planOptions='<option value=""'+(!currentPlanId?' selected':'')+'>Asignar plan…</option>'+plans.map(p=>'<option value="'+p.id+'"'+(String(p.id)===currentPlanId?' selected':'')+'>'+esc(p.name)+' · '+money(p.price_cop)+'</option>').join("");
-  const subStatus=subscriptionLabel(b.subscription_status);
-  const trialEnd=b.subscription_status==="TRIAL"&&b.trial_ends_at?" · vence "+dateCO(b.trial_ends_at):"";
-  const planMeta=b.plan_name?'<small class="muted" style="display:block;margin-top:6px"><b>'+esc(b.plan_name)+'</b>'+(subStatus?' · '+esc(subStatus):'')+esc(trialEnd)+'</small>':'<small class="muted" style="display:block;margin-top:6px">Sin plan asignado</small>';
-  return '<tr><td data-label="Negocio"><b>'+esc(b.name)+'</b><br><small class="muted">'+esc(b.slug)+'</small></td><td data-label="Tipo">'+esc(b.business_type_name||b.business_type_id||"—")+'</td><td data-label="Estado"><span class="tag '+(b.is_active===false?"x":"")+'">'+(b.is_active===false?"Suspendido":"Activo")+'</span></td><td data-label="Plan"><select id="plan-'+b.id+'">'+planOptions+'</select>'+planMeta+'</td><td data-label="Acciones"><div class="row"><button class="btn" data-open-client="'+esc(b.slug)+'">🌐 Abrir cliente</button><button class="btn" data-copy-client="'+esc(b.slug)+'">🔗 Copiar cliente</button><button class="btn" data-open-business="'+esc(b.id)+'">🏪 Abrir negocio</button><button class="btn" data-copy-business="'+esc(b.id)+'">📋 Copiar negocio</button><button class="btn" data-plan="'+b.id+'">Guardar plan</button><button class="btn '+(b.is_active===false?"p":"bad")+'" data-toggle="'+b.id+'" data-active="'+(b.is_active===false?"1":"0")+'">'+(b.is_active===false?"Activar":"Suspender")+'</button></div></td></tr>';
+ const rows=businesses.map(b=>{
+  const active=b.is_active!==false;
+  return '<div class="card business-row"><div class="row"><strong>'+esc(b.name)+'</strong>'+
+   '<span class="tag'+(active?'':' x')+'">'+(active?'Activo':'Inactivo')+'</span></div>'+
+   '<button class="btn" id="edit-business-'+esc(b.id)+'" data-edit-business="'+esc(b.id)+'" aria-label="Editar '+esc(b.name)+'">Editar</button></div>';
  }).join("");
- return '<h1>Plataforma CitaGo</h1><p class="sub">Administración central</p><div class="card businessTable"><table><tr><th>Negocio</th><th>Tipo</th><th>Estado</th><th>Plan</th><th>Acciones</th></tr>'+rows+'</table></div><div class="card"><h3>Nuevo negocio</h3><label>Nombre</label><input id="bn" placeholder="Ej. Colegio Público"><label>Slug</label><input id="bs" placeholder="colegio-publico"><label>Tipo</label><select id="bt"><option value="">Selecciona…</option>'+types.map(t=>'<option value="'+t.id+'">'+esc(t.name)+'</option>').join("")+'</select><button class="btn p" data-a="createBusiness" style="margin-top:10px">Crear negocio</button></div>';
+ return '<h1>Negocios</h1><p class="sub">Administración central</p>'+
+  (businessMessage?'<p role="status">'+esc(businessMessage)+'</p>':'')+
+  (rows||'<div class="card">No hay negocios registrados.</div>')+
+  '<div class="card"><h3>Nuevo negocio</h3><label>Nombre</label><input id="bn" placeholder="Ej. Colegio Público"><label>Slug</label><input id="bs" placeholder="colegio-publico"><label>Tipo</label><select id="bt"><option value="">Selecciona…</option>'+types.map(t=>'<option value="'+t.id+'">'+esc(t.name)+'</option>').join("")+'</select><button class="btn p" data-a="createBusiness" style="margin-top:10px">Crear negocio</button></div>';
+}
+
+function openBusinessEditor(business){
+ const active=business.is_active!==false;
+ const currentPlanId=String(business.plan_id||"");
+ const currentPlanName=business.plan_name||"Plan actual";
+ const hasCurrentPlan=plans.some(plan=>String(plan.id)===currentPlanId);
+ const planOptions=(currentPlanId&&!hasCurrentPlan
+  ? '<option value="'+esc(currentPlanId)+'" selected>'+esc(currentPlanName)+'</option>'
+  : currentPlanId?'':'<option value="" selected>Sin plan asignado</option>')+
+  plans.map(plan=>'<option value="'+esc(plan.id)+'"'+(String(plan.id)===currentPlanId?' selected':'')+'>'+esc(plan.name)+' · '+money(plan.price_cop)+'</option>').join("");
+ const trialEnd=business.subscription_status==="TRIAL"&&business.trial_ends_at
+  ?" · vence "+dateCO(business.trial_ends_at):"";
+ const subscription=subscriptionLabel(business.subscription_status);
+ const app=document.getElementById("app");
+ app.insertAdjacentHTML("beforeend",
+  '<dialog class="plan-dialog business-editor" id="business-editor" aria-labelledby="business-editor-title">'+
+  '<form><h2 id="business-editor-title" tabindex="-1" autofocus>'+esc(business.name)+'</h2>'+
+  '<p class="muted">Slug: '+esc(business.slug)+'<br>Tipo: '+esc(business.business_type_name||business.business_type_id||"—")+'</p>'+
+  '<fieldset style="border:0;padding:0;margin:0">'+
+  '<label>Estado del negocio<select name="is_active"><option value="true"'+(active?' selected':'')+'>Activo</option><option value="false"'+(active?'':' selected')+'>Inactivo</option></select></label>'+
+  '<label>Plan<select name="plan_id"'+(plans.length?'':' disabled')+'>'+planOptions+'</select></label>'+
+  (subscription?'<small class="muted">'+esc(currentPlanName+' · '+subscription+trialEnd)+'</small>':'')+
+  (plansError?'<p class="muted">'+esc(plansError)+'</p>':'')+
+  '<div class="row business-links"><button class="btn" type="button" data-open-client="'+esc(business.slug)+'">Abrir cliente</button>'+
+  '<button class="btn" type="button" data-copy-client="'+esc(business.slug)+'">Copiar cliente</button>'+
+  '<button class="btn" type="button" data-open-business="'+esc(business.id)+'">Abrir negocio</button>'+
+  '<button class="btn" type="button" data-copy-business="'+esc(business.id)+'">Copiar negocio</button></div>'+
+  '<div class="plan-actions"><button class="btn" type="button" data-cancel-business>Cancelar</button>'+
+  '<button class="btn p" type="submit" disabled>Guardar</button></div></fieldset>'+
+  '<p class="muted" role="status"></p></form></dialog>');
+ const dialog=document.getElementById("business-editor");
+ const form=dialog.querySelector("form");
+ const cancel=()=>{
+  if(businessSaving)return;
+  const row=document.getElementById("edit-business-"+business.id)?.closest(".business-row");
+  if(row){
+   const active=business.is_active!==false;
+   const tag=row.querySelector(".tag");
+   tag.textContent=active?"Activo":"Inactivo";
+   tag.classList.toggle("x",!active);
+  }
+  dialog.close();
+  dialog.remove();
+  focusBusinessEdit(business.id);
+ };
+ form.addEventListener("change",()=>updateBusinessSaveButton(form,business));
+ form.addEventListener("submit",event=>{event.preventDefault();saveBusiness(form,business)});
+ dialog.querySelector("[data-cancel-business]").addEventListener("click",cancel);
+ dialog.addEventListener("cancel",event=>{event.preventDefault();cancel()});
+ dialog.showModal();
 }
 
 function typesPanel(){
@@ -438,8 +506,11 @@ document.getElementById("app").addEventListener("click",e=>{
  if(openBusiness){openBusinessPanel(openBusiness.dataset.openBusiness);return}
  const copyBusiness=e.target.closest("[data-copy-business]");
  if(copyBusiness){copyBusinessLink(copyBusiness.dataset.copyBusiness);return}
- const tg=e.target.closest("[data-toggle]");if(tg)toggleBusiness(tg.dataset.toggle,tg.dataset.active==="1");
- const pl=e.target.closest("[data-plan]");if(pl)assignPlan(pl.dataset.plan);
+ const editBusiness=e.target.closest("[data-edit-business]");
+ if(editBusiness){
+  const business=businesses.find(b=>String(b.id)===editBusiness.dataset.editBusiness);
+  if(business)openBusinessEditor(business);
+ }
 });
 initAuth();
 </script></body></html>
