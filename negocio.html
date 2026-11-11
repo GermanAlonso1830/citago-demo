@@ -94,6 +94,9 @@ input[type=color]{height:44px;padding:3px}
 .kc b{display:block;font-size:1.6rem;line-height:1.1}.kc span{font-size:.8rem;color:var(--mute)}
 .pn{background:var(--sf);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px;overflow-x:auto}
 .pn h2{margin:0 0 10px;font-size:1.05rem}
+.business-plan h1{margin-bottom:14px}
+.business-plan-catalog{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px}
+.business-plan-catalog .pn{margin:0}
 table{border-collapse:collapse;width:100%;min-width:480px}
 th{font-size:.78rem;text-align:left;color:var(--mute);padding:6px;font-weight:600}
 td{border-top:1px solid var(--line);padding:6px;vertical-align:top;font-size:.85rem}
@@ -2117,7 +2120,7 @@ function downloadBookingQr(){
 }
 
 function biz(){var s=NV==="home"?bizHome():NV==="cit"?bizCitas():NV==="svc"?bizSvc():NV==="team"?bizTeam():NV==="blk"?bizBlk():NV==="rem"?bizRem():NV==="rep"?bizRep():NV==="link"?bizLink():NV==="plan"?bizPlan():bizCfg();
- return'<div class="sh">'+nav([["account","← Mi cuenta"],["home","Inicio"],["cit","Citas"+(pc()?" ("+pc()+")":"")],["svc","Servicios"],["team",W.pros],["blk","Bloqueos"],["rem","Recordatorios"],["rep","Reportes"],["link","Mi link de reservas"],["cfg","Configuración"],["plan","Mi plan"]],NV,esc(BZ.name))+'<main class="mn'+((NV==="svc"||NV==="team")?" module-with-fab":"")+'">'+(who==="Plataforma"?'<span class="tg w">Editando como plataforma</span>':'')+s+'</main></div>'}
+ return'<div class="sh">'+nav([["account","← Mi cuenta"],["home","Inicio"],["cit","Citas"+(pc()?" ("+pc()+")":"")],["svc","Servicios"],["team",W.pros],["blk","Bloqueos"],["rem","Recordatorios"],["rep","Reportes"],["link","Mi link de reservas"],["cfg","Configuración"],["plan","Mi plan"]],NV,esc(BZ.name))+'<main class="mn'+((NV==="svc"||NV==="team")?" module-with-fab":"")+(NV==="plan"?" business-plan":"")+'">'+(who==="Plataforma"?'<span class="tg w">Editando como plataforma</span>':'')+s+'</main></div>'}
 function canBook(){return SV.some(function(v){return!v.off&&PR.some(function(p){return p.sv.indexOf(v.id)>-1})})}
 function sugg(){var t=TPL[BZ.type].sv,c=t.map(function(x,i){return SV.some(function(v){return v.n===x[0]})?'':'<button data-a="sug" data-i="'+i+'">+ '+esc(x[0])+' · '+P(x[2])+'</button>'}).join("");
  return c?'<div class="pn" style="overflow:visible"><h2>Sugerencias para tu tipo de negocio</h2><p style="color:var(--mute);margin:0 0 8px;font-size:.88rem">Toca para agregar y luego ajusta el precio y la duración.</p><div class="chips">'+c+'</div></div>':''}
@@ -2440,8 +2443,94 @@ function bizRep(){
  return html+'<div class="pn" style="margin-top:14px"><h2>Por profesional</h2><table><tr><th>Profesional</th><th>Citas</th><th>Completadas</th></tr>'+
   by_professional.map(row=>'<tr><td>'+esc(row.professional_name)+'</td><td>'+row.total+'</td><td>'+row.completed+'</td></tr>').join("")+'</table></div>';
 }
-function bizPlan(){var r=REC[CUR],F=[["Página de reservas",1],["Agenda",1],["1 profesional",1],["Reservas",1],["WhatsApp automático",2],["Equipo",2],["Reportes",2],["Pagos",3],["Múltiples sedes",3],["Estadísticas avanzadas",3]],N=["","Básico","Pro","Premium"];
- return'<h1>Mi plan</h1><div class="pn" style="margin-top:14px;overflow:visible"><h2 style="margin:0">'+r.pl+(r.price?' · '+P(r.price)+'/mes':'')+'</h2><p style="color:var(--mute);margin:4px 0 0">'+(r.pl==="Prueba"?"Tu prueba gratis de "+PLN.Prueba.d+" días incluye las funciones del plan Pro.":"Próximo pago: "+r.nx)+'</p></div><div class="pn" style="overflow:visible"><h2>Qué incluye</h2>'+F.map(function(f){return'<div class="rw" style="border-top:1px solid var(--line)"><span class="grow">'+f[0]+'</span>'+(lvl()>=f[1]?'<span class="tg">Incluido</span>':'<span class="tg w">Desde '+N[f[1]]+'</span>')+'</div>'}).join("")+'<p style="color:var(--mute);font-size:.85rem;margin:8px 0 0">Para cambiar de plan, escribe a la plataforma.</p></div>'}
+const BUSINESS_PLAN_STATUS={
+ TRIAL:"En prueba",
+ ACTIVE:"Activo",
+ PAST_DUE:"Pago pendiente",
+ SUSPENDED:"Suspendido",
+ CANCELLED:"Cancelado"
+};
+const BUSINESS_PLAN_FEATURES={
+ whatsapp:"WhatsApp automático",
+ reports:"Reportes",
+ payments:"Pagos",
+ multi_location:"Múltiples sedes"
+};
+let businessPlanData=null,businessPlanLoading=false,businessPlanError="";
+
+async function loadBusinessPlan(){
+ if(businessPlanLoading)return;
+ businessPlanLoading=true;
+ businessPlanData=null;
+ businessPlanError="";
+ render();
+ try{
+  const response=await fetch(API_BASE+"/businesses/"+encodeURIComponent(BUSINESS_ID)+"/subscription",{cache:"no-store"});
+  if(!response.ok)throw new Error("HTTP "+response.status);
+  const data=await response.json();
+  if(!data||!Object.hasOwn(data,"subscription"))throw new Error("Respuesta del plan incompleta.");
+  businessPlanData=data;
+ }catch(error){
+  console.error(error);
+  businessPlanError="No se pudo cargar la información de tu plan.";
+ }finally{
+  businessPlanLoading=false;
+  if(V==="b"&&NV==="plan")render();
+ }
+}
+function businessPlanDate(value){
+ if(!value)return "";
+ const date=new Date(value);
+ if(Number.isNaN(date.getTime()))return "";
+ return date.toLocaleDateString("es-CO",{day:"numeric",month:"short",year:"numeric",timeZone:"America/Bogota"});
+}
+function businessPlanFeatures(plan,showExcluded){
+ const limit=plan.max_professionals;
+ const professionals=limit==null?"Profesionales sin límite":limit===1?"1 profesional":limit+" profesionales";
+ const features=[
+  [professionals,true],
+  ...Object.entries(BUSINESS_PLAN_FEATURES).map(([key,label])=>[label,plan.features?.[key]===true])
+ ];
+ return features.filter(([,included])=>showExcluded||included).map(([label,included])=>
+  '<div class="rw" style="border-top:1px solid var(--line)"><span class="grow">'+esc(label)+'</span>'+
+  (showExcluded?'<span class="tg'+(included?'':' w')+'">'+(included?'Incluido':'No incluido')+'</span>':'')+'</div>'
+ ).join("");
+}
+function bizPlan(){
+ const heading='<h1>Mi plan</h1>';
+ if(businessPlanLoading||(!businessPlanData&&!businessPlanError))return heading+'<p role="status">Cargando tu plan…</p>';
+ if(businessPlanError)return heading+'<div class="pn"><p role="alert">'+esc(businessPlanError)+'</p><button class="btn p" data-a="reloadBusinessPlan">Reintentar</button></div>';
+
+ const subscription=businessPlanData.subscription;
+ const currentPlan=subscription?.plan;
+ let html=heading;
+ if(currentPlan){
+  const inTrial=subscription.status==="TRIAL";
+  const end=businessPlanDate(inTrial?subscription.trial_ends_at:subscription.current_period_end);
+  const status=BUSINESS_PLAN_STATUS[subscription.status]||subscription.status||"";
+  html+='<div class="pn"><h2>'+esc(currentPlan.name)+' · '+esc(P(currentPlan.monthly_price))+'/mes</h2>'+
+   (status?'<span class="tg'+(subscription.status==="ACTIVE"?'':' w')+'">'+esc(status)+'</span>':'')+
+   (end?'<p style="color:var(--mute)">'+(inTrial?'Fin de la prueba: ':'Fin del período: ')+esc(end)+'</p>':'')+'</div>'+
+   '<div class="pn"><h2>Qué incluye</h2>'+businessPlanFeatures(currentPlan,true)+'</div>';
+ }else{
+  html+='<div class="pn"><p>Tu negocio aún no tiene un plan asignado.</p></div>';
+ }
+
+ html+='<h2>Planes disponibles</h2>';
+ const catalog=businessPlanData.plans;
+ if(!Array.isArray(catalog))html+='<div class="pn"><p>El catálogo no está disponible en este momento.</p><button class="btn p" data-a="reloadBusinessPlan">Reintentar</button></div>';
+ else if(!catalog.length)html+='<p>No hay planes disponibles.</p>';
+ else{
+  html+='<div class="business-plan-catalog">'+catalog.map(plan=>
+   '<article class="pn"><div class="rw"><h3 class="grow">'+esc(plan.name)+'</h3>'+
+   (plan.id===currentPlan?.id?'<span class="tg">Tu plan</span>':'')+'</div>'+
+   '<p><b>'+esc(P(plan.monthly_price))+'/mes</b></p>'+
+   (plan.trial_days>0?'<p style="color:var(--mute)">'+esc(plan.trial_days)+' días de prueba</p>':'')+
+   businessPlanFeatures(plan,false)+'</article>'
+  ).join("")+'</div>';
+ }
+ return html+'<p style="color:var(--mute)">Para cambiar de plan, escribe a la plataforma.</p>';
+}
 function plans(){var F={"Básico":["Página de reservas","Agenda","1 profesional","Reservas"],"Pro":["Todo Básico","WhatsApp automático","Equipo","Reportes"],"Premium":["Todo Pro","Pagos","Múltiples sedes","Estadísticas avanzadas"]},K=["Básico","Pro","Premium"];
  var h='<div class="pn"><h2>Planes y precios</h2><table style="min-width:520px"><tr>'+K.map(function(k){return'<th style="font-size:.95rem;color:var(--ink)">'+k+(k==="Pro"?' ⭐':'')+'</th>'}).join("")+'</tr>';
  for(var i=0;i<4;i++)h+='<tr>'+K.map(function(k){return'<td>'+F[k][i]+'</td>'}).join("")+'</tr>';
@@ -2687,7 +2776,7 @@ app.onclick=function(e){
   if(V==="b"&&t.dataset.i==="account"){goToMyAccount();return}
   SERVICE_CREATE_OPEN=false;PRO_CREATE_OPEN=false;resetProfessionalServicePicker();resetProfessionalCreatePhoto();resetProfessionalCreateDraft();resetPanelScroll();
   if(V==="a")AV=t.dataset.i;
-  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="blk"){MO=false;resetBlockForm();resetPanelScroll();loadRealBlocks();setTimeout(resetPanelScroll,0);return}if(NV==="rem"){MO=false;resetPanelScroll();loadReminderCenter();setTimeout(resetPanelScroll,0);return}if(NV==="rep"){MO=false;loadBusinessReport();return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
+  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="blk"){MO=false;resetBlockForm();resetPanelScroll();loadRealBlocks();setTimeout(resetPanelScroll,0);return}if(NV==="rem"){MO=false;resetPanelScroll();loadReminderCenter();setTimeout(resetPanelScroll,0);return}if(NV==="rep"){MO=false;loadBusinessReport();return}if(NV==="plan"){MO=false;resetPanelScroll();loadBusinessPlan();return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
   MO=false
  }
  else if(a==="copyBookingLink"){copyBookingLink();return}
@@ -2703,6 +2792,7 @@ app.onclick=function(e){
   return;
  }
  else if(a==="reloadReminders"){loadReminderCenter();return}
+ else if(a==="reloadBusinessPlan"){loadBusinessPlan();return}
  else if(a==="toggleReminder24"){toggleReminderSetting(24);return}
  else if(a==="toggleReminder2"){toggleReminderSetting(2);return}
  else if(a==="saveReminderSettings"){saveReminderSettings();return}
