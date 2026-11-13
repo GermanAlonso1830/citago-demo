@@ -2457,12 +2457,48 @@ const BUSINESS_PLAN_FEATURES={
  multi_location:"Múltiples sedes"
 };
 let businessPlanData=null,businessPlanLoading=false,businessPlanError="";
+let checkoutBusy=false,checkoutError="";
+
+async function startPlanPayment(planId){
+ if(checkoutBusy||!businessPlanData?.checkout_mode)return;
+ const plan=businessPlanData.plans?.find(item=>item.id===planId&&item.monthly_price>0);
+ if(!plan)return;
+ checkoutBusy=true;
+ checkoutError="";
+ render();
+ let leaving=false;
+ try{
+  const response=await fetch(API_BASE+"/businesses/"+encodeURIComponent(BUSINESS_ID)+"/plan-payments",{
+   method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({plan_id:plan.id})
+  });
+  const data=await response.json();
+  if(response.status===409&&data.detail?.reference){
+   location.assign("pago-resultado.html?"+new URLSearchParams({negocio:BUSINESS_ID,referencia:data.detail.reference}));
+   leaving=true;
+   return;
+  }
+  if(!response.ok)throw new Error(typeof data.detail==="string"?data.detail:"No se pudo iniciar el pago.");
+  const checkout=new URL(data.checkout_url);
+  if(checkout.origin!=="https://checkout.wompi.co"||checkout.pathname!=="/p/")throw new Error("El enlace de pago no es válido.");
+  location.assign(checkout.href);
+  leaving=true;
+ }catch(error){
+  checkoutError=error.message||"No se pudo abrir el checkout.";
+ }finally{
+  if(!leaving){
+   checkoutBusy=false;
+   if(V==="b"&&NV==="plan")render();
+  }
+ }
+}
+
 
 async function loadBusinessPlan(){
  if(businessPlanLoading)return;
  businessPlanLoading=true;
  businessPlanData=null;
  businessPlanError="";
+ checkoutError="";
  render();
  try{
   const response=await fetch(API_BASE+"/businesses/"+encodeURIComponent(BUSINESS_ID)+"/subscription",{cache:"no-store"});
@@ -2518,6 +2554,11 @@ function bizPlan(){
 
  html+='<h2>Planes disponibles</h2>';
  const catalog=businessPlanData.plans;
+ const checkoutMode=businessPlanData.checkout_mode;
+ if(checkoutMode==="test")html+='<p role="status">Modo de pruebas. Los pagos no cambian tu suscripción.</p>';
+ if(checkoutMode)html+='<p style="color:var(--mute)">Pago de un mes, sin renovación automática. El importe final aparece en Wompi.</p>';
+ if(checkoutBusy)html+='<p role="status">Abriendo el checkout…</p>';
+ if(checkoutError)html+='<p role="alert">'+esc(checkoutError)+'</p>';
  if(!Array.isArray(catalog))html+='<div class="pn"><p>El catálogo no está disponible en este momento.</p><button class="btn p" data-a="reloadBusinessPlan">Reintentar</button></div>';
  else if(!catalog.length)html+='<p>No hay planes disponibles.</p>';
  else{
@@ -2526,10 +2567,14 @@ function bizPlan(){
    (plan.id===currentPlan?.id?'<span class="tg">Tu plan</span>':'')+'</div>'+
    '<p><b>'+esc(P(plan.monthly_price))+'/mes</b></p>'+
    (plan.trial_days>0?'<p style="color:var(--mute)">'+esc(plan.trial_days)+' días de prueba</p>':'')+
-   businessPlanFeatures(plan,false)+'</article>'
+   businessPlanFeatures(plan,false)+
+   (checkoutMode&&plan.monthly_price>0
+    ?'<button class="btn p" style="margin-top:12px" data-a="payBusinessPlan" data-plan-id="'+esc(plan.id)+'"'+(checkoutBusy?' disabled':'')+'>'+
+     (plan.id===currentPlan?.id?'Renovar':'Pagar plan')+'</button>'
+    :'')+'</article>'
   ).join("")+'</div>';
  }
- return html+'<p style="color:var(--mute)">Para cambiar de plan, escribe a la plataforma.</p>';
+ return checkoutMode?html:html+'<p style="color:var(--mute)">Para cambiar de plan, escribe a la plataforma.</p>';
 }
 function plans(){var F={"Básico":["Página de reservas","Agenda","1 profesional","Reservas"],"Pro":["Todo Básico","WhatsApp automático","Equipo","Reportes"],"Premium":["Todo Pro","Pagos","Múltiples sedes","Estadísticas avanzadas"]},K=["Básico","Pro","Premium"];
  var h='<div class="pn"><h2>Planes y precios</h2><table style="min-width:520px"><tr>'+K.map(function(k){return'<th style="font-size:.95rem;color:var(--ink)">'+k+(k==="Pro"?' ⭐':'')+'</th>'}).join("")+'</tr>';
@@ -2793,6 +2838,7 @@ app.onclick=function(e){
  }
  else if(a==="reloadReminders"){loadReminderCenter();return}
  else if(a==="reloadBusinessPlan"){loadBusinessPlan();return}
+ else if(a==="payBusinessPlan"){startPlanPayment(t.dataset.planId);return}
  else if(a==="toggleReminder24"){toggleReminderSetting(24);return}
  else if(a==="toggleReminder2"){toggleReminderSetting(2);return}
  else if(a==="saveReminderSettings"){saveReminderSettings();return}
@@ -2891,10 +2937,21 @@ console.info("CitaLite Panel · Concepto B Moderna Llamativa");
 async function bootBusinessPanel(){
   const allowed = await verifyBusinessSession();
   if(!allowed) return;
+  if(new URLSearchParams(location.search).get("vista")==="plan"){
+    NV="plan";
+    await Promise.all([loadBusinessSettings(),loadBusinessPlan()]);
+    return;
+  }
   render();
   await Promise.all([loadBusinessSettings(), loadDashboard()]);
 }
 
+window.addEventListener("pageshow",event=>{
+ if(event.persisted&&checkoutBusy){
+  checkoutBusy=false;
+  if(V==="b"&&NV==="plan")loadBusinessPlan();
+ }
+});
 bootBusinessPanel();
 
 // CITAGO_NEGOCIO_V8_R2_MEDIA_FIX_V2_AUTH
