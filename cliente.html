@@ -306,6 +306,9 @@ const myStorageKey="client_otp_v2:"+BUSINESS_SLUG;
 let menuOpen=false;
 const PRIVACY_VERSION='2026-10-28';
 let bookingPrivacyAccepted=false,myPrivacyAccepted=false;
+let myEmail='',bookingGeneration=0;
+function emailOnly(){return business?.client_identity_mode==='email'}
+function validEmail(value){return /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(value.trim())&&value.trim().length<=254}
 
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money=n=>"$"+Number(n||0).toLocaleString("es-CO");
@@ -424,7 +427,7 @@ function fmtShortDate(date){
 }
 let bookingProof={phase:'identify',token:'',bound:'',busy:false};
 let bookingValidationIssue=null,bookingResultStatus='';
-function bookingIdentity(){return normalizePhone(booking.phoneCountry,booking.phone)}
+function bookingIdentity(){return emailOnly()?booking.email.trim().toLowerCase():normalizePhone(booking.phoneCountry,booking.phone)}
 function privacyConsentHtml(kind){
   const bookingFlow=kind==='booking',accepted=bookingFlow?bookingPrivacyAccepted:myPrivacyAccepted;
   const operation=bookingFlow?'gestionar mi reserva, verificar mi acceso y enviar las comunicaciones necesarias del servicio':'verificar mi acceso y consultar mis citas';
@@ -442,7 +445,41 @@ function openPrivacyPolicy(){
   }
   dialog.returnFocus=origin;dialog.showModal();dialog.querySelector('#closePrivacy').focus({preventScroll:true});
 }
+function basicBookingProofHtml(){
+  const p=bookingProof;
+  let h='<section class="emailProofCard" aria-labelledby="bookingEmailTitle" aria-busy="'+Boolean(p.busy)+'"><h4 id="bookingEmailTitle" tabindex="-1">Verifica tu correo</h4>';
+  if(p.feedback)h+='<div class="err" role="alert">'+esc(p.feedback)+'</div>';
+  if(p.phase==='verified')return h+'<div class="ok" id="bookingEmailVerified" role="status" tabindex="-1">Correo verificado. Completa tu nombre y confirma tu cita.</div></section>';
+  if(p.phase==='code'){
+    h+='<p>Código enviado. Revisa también spam.</p><label for="bookingCode">Código de 6 dígitos</label><input class="otpInput" id="bookingCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value="'+esc(p.code||'')+'"><button class="btn p full" data-a="bookingVerify" '+(p.busy||!/^[0-9]{6}$/.test(p.code||'')?'disabled':'')+'>Verificar correo</button><button class="btn full" data-a="bookingSend" '+(p.busy||Date.now()<(p.resendAt||0)?'disabled':'')+'>Reenviar código</button><small>El código vence en 5 minutos. Puedes reenviarlo después de 60 segundos.</small>';
+  }else h+='<button class="btn p full" data-a="bookingSend" '+(p.busy||!bookingPrivacyAccepted||!validEmail(booking.email)?'disabled':'')+'>'+(p.busy?'Enviando…':'Enviar código')+'</button>';
+  return h+'</section>';
+}
+async function basicBookingEmailAction(action){
+  readBookingFields();
+  if(bookingProof.busy||bookingProof.phase==='verified'||!bookingPrivacyAccepted||!validEmail(booking.email))return;
+  if(action==='request'&&bookingProof.phase==='code'&&Date.now()<(bookingProof.resendAt||0))return;
+  const identity=bookingIdentity(),generation=++bookingGeneration;
+  const base={business_id:business.id,email:identity,privacy_accepted:true,privacy_version:PRIVACY_VERSION};
+  const body=action==='verify'?{...base,challenge_id:bookingProof.challenge_id,code:bookingProof.code}:base;
+  if(action==='verify'&&!/^[0-9]{6}$/.test(body.code||''))return;
+  bookingProof={...bookingProof,busy:true,bound:identity,feedback:''};refreshBookingProof();
+  try{
+    if(action==='request')await api('/public/client-email/booking/options',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(base)});
+    if(generation!==bookingGeneration||identity!==bookingIdentity()||!bookingPrivacyAccepted)return;
+    const x=await api('/public/client-email/booking/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(generation!==bookingGeneration||identity!==bookingIdentity()||!bookingPrivacyAccepted)return;
+    if(action==='request')bookingProof={...bookingProof,...x,phase:'code',token:'',code:'',resendAt:Date.now()+x.resend_after_seconds*1000};
+    if(action==='verify'){
+      booking.email=x.email;
+      if(x.full_name){booking.name=x.full_name;const name=document.getElementById('name');if(name)name.value=x.full_name}
+      bookingProof={...bookingProof,phase:'verified',token:x.booking_verification_token,expiresAt:Date.now()+x.expires_in_seconds*1000};
+    }
+  }catch(e){if(generation===bookingGeneration)bookingProof.feedback=e.message}
+  finally{if(generation===bookingGeneration){bookingProof.busy=false;refreshBookingProof(true)}}
+}
 function bookingProofHtml(){
+  if(emailOnly())return basicBookingProofHtml();
   const p=bookingProof,disabled=p.busy||!bookingPrivacyAccepted?'disabled':'';
   let h='<section class="emailProofCard" aria-labelledby="bookingEmailTitle" aria-busy="'+Boolean(p.busy)+'"><h4 id="bookingEmailTitle" tabindex="-1">Verifica tu correo</h4>';
   if(p.feedback)h+='<div class="err" role="alert">'+esc(p.feedback)+'</div>';
@@ -466,6 +503,7 @@ function refreshBookingProof(reveal=false){
 }
 let bookingPhoneTimer;
 function scheduleBookingPhoneLookup(committed=false){
+  if(emailOnly())return;
   clearTimeout(bookingPhoneTimer);
   readBookingFields();
   const identity=bookingIdentity(),digits=localPhoneDigits(booking.phoneCountry,booking.phone);
@@ -479,6 +517,7 @@ function scheduleBookingPhoneLookup(committed=false){
   },committed?0:700);
 }
 async function bookingEmailAction(action){
+  if(emailOnly())return basicBookingEmailAction(action);
   readBookingFields();if(bookingProof.busy||bookingProof.phase==='verified')return;
   if(!bookingPrivacyAccepted||!booking.name.trim())return;
   if(action==='options'&&bookingProof.phase!=='identify')return;
@@ -510,6 +549,13 @@ function bookingPhoneValid(){
   return (expected?digits.length===expected:digits.length>=7)&&cleanPhoneDigits(bookingIdentity()).length<=15;
 }
 function bookingFirstIssue(){
+  if(emailOnly()){
+    if(!bookingPrivacyAccepted)return {id:'bookingPrivacy',text:'Autoriza el tratamiento de datos para continuar.'};
+    if(!validEmail(booking.email))return {id:'email',text:'Escribe un correo electrónico válido.'};
+    if(bookingProof.phase!=='verified'||!bookingProof.token||bookingProof.bound!==bookingIdentity()||Date.now()>=bookingProof.expiresAt)return {id:bookingProof.phase==='code'?'bookingCode':'bookingEmailTitle',text:'Solicita el código y verifica tu correo para continuar.'};
+    if(!booking.name.trim()||booking.name.trim().length>200)return {id:'name',text:'Escribe tu nombre completo, de hasta 200 caracteres.'};
+    return null;
+  }
   if(!bookingPrivacyAccepted)return {id:'bookingPrivacy',text:'Para reservar, debes aceptar el tratamiento de tus datos personales. Marca la casilla si estás de acuerdo.'};
   if(!booking.name.trim())return {id:'name',text:'Escribe tu nombre para continuar.'};
   if(!bookingPhoneValid())return {id:'phone',text:'Escribe un número de teléfono válido para el país seleccionado.'};
@@ -552,12 +598,13 @@ function readBookingFields(){
 }
 function updateBookingButton(){
   readBookingFields();
-  if(bookingProof.bound&&bookingProof.bound!==bookingIdentity()){bookingProof={phase:'identify',token:'',bound:'',busy:false};booking.email='';const block=document.getElementById('bookingEmailProof');if(block)block.innerHTML=bookingProofHtml()}
+  if(bookingProof.bound&&bookingProof.bound!==bookingIdentity()){bookingGeneration++;bookingProof={phase:'identify',token:'',bound:'',busy:false};if(!emailOnly())booking.email='';const block=document.getElementById('bookingEmailProof');if(block)block.innerHTML=bookingProofHtml()}
   const button=document.querySelector('[data-a="book"]');
   if(button)button.disabled=bookingBusy;
   const identify=document.querySelector('[data-a="bookingIdentify"]');if(identify)identify.disabled=bookingProof.busy||!bookingPrivacyAccepted;
+  const send=document.querySelector('[data-a="bookingSend"]');if(emailOnly()&&send&&bookingProof.phase!=='code')send.disabled=bookingProof.busy||!bookingPrivacyAccepted||!validEmail(booking.email);
   const help=document.getElementById('bookingDataHelp');
-  if(help)help.textContent=!bookingPrivacyAccepted?'Autoriza el tratamiento de datos para continuar.':bookingDetailsValid()?'Datos completos. Ya puedes confirmar tu cita.':'Completa tu nombre y teléfono, y verifica tu correo antes de confirmar.';
+  if(help)help.textContent=!bookingPrivacyAccepted?'Autoriza el tratamiento de datos para continuar.':bookingDetailsValid()?'Datos completos. Ya puedes confirmar tu cita.':emailOnly()?'Verifica tu correo y completa tu nombre antes de confirmar.':'Completa tu nombre y teléfono, y verifica tu correo antes de confirmar.';
   updateBookingGuide();
   if(bookingValidationIssue){
     const current=bookingFirstIssue();
@@ -582,8 +629,8 @@ async function book(){
   try{
     const x=await api("/appointments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
       booking_verification_token:bookingProof.token,business_id:business.id,service_id:booking.service.id,professional_id:professionalId,
-      client_name:booking.name.trim(),client_phone:normalizedPhone,client_email:booking.email.trim()||null,
-      date:booking.date,start_time:booking.time,notes:booking.notes||null,reminder_opt_in:booking.reminder
+      client_name:booking.name.trim(),...(emailOnly()?{}:{client_phone:normalizedPhone}),client_email:booking.email.trim()||null,
+      date:booking.date,start_time:booking.time,notes:booking.notes||null,reminder_opt_in:emailOnly()?false:booking.reminder
     })});
     bookingProof={phase:'identify',token:'',bound:'',busy:false};
     bookingResultStatus=x.appointment.status;
@@ -605,6 +652,7 @@ function clearMyAccess(){
   myMethods=[];myBusy=false;sessionStorage.removeItem(myStorageKey);
 }
 async function identifyMyAppointments(){
+  if(emailOnly())return requestMyCode();
   if(myBusy||!myPrivacyAccepted)return;
   myPhoneCountry=document.getElementById("myPhoneCountry").value;
   myPhone=document.getElementById("myPhone").value.trim();
@@ -619,9 +667,14 @@ async function identifyMyAppointments(){
 }
 async function requestMyCode(){
   if(myBusy||Date.now()<myResendAt)return;
+  if(emailOnly()){
+    myEmail=document.getElementById('myEmail')?.value.trim()||myEmail;
+    if(!myPrivacyAccepted||!validEmail(myEmail))return;
+  }
   myBusy=true;error="";message="";const generation=myGeneration;render();
   try{
-    const x=await api("/public/appointments/otp/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({business_id:business.id,phone:normalizePhone(myPhoneCountry,myPhone),channel:"email",privacy_accepted:myPrivacyAccepted,privacy_version:PRIVACY_VERSION})});
+    const body={business_id:business.id,privacy_accepted:myPrivacyAccepted,privacy_version:PRIVACY_VERSION,...(emailOnly()?{email:myEmail}:{phone:normalizePhone(myPhoneCountry,myPhone),channel:'email'})};
+    const x=await api(emailOnly()?'/public/client-email/my_appointments/request':"/public/appointments/otp/request",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     if(generation!==myGeneration)return;
     myChallenge=x.challenge_id;myCode="";myResendAt=Date.now()+(x.resend_after_seconds||60)*1000;
     myStep="code";message=x.message;
@@ -634,7 +687,7 @@ async function verifyMyCode(){
   if(!/^[0-9]{6}$/.test(myCode)){error="Escribe los 6 dígitos del código.";render();return}
   myBusy=true;error="";const generation=myGeneration;render();
   try{
-    const x=await api("/public/appointments/otp/verify",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({challenge_id:myChallenge,code:myCode})});
+    const x=await api(emailOnly()?'/public/client-email/my_appointments/verify':"/public/appointments/otp/verify",{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({challenge_id:myChallenge,code:myCode,...(emailOnly()?{business_id:business.id,email:myEmail,privacy_accepted:myPrivacyAccepted,privacy_version:PRIVACY_VERSION}:{})})});
     if(generation!==myGeneration)return;
     myToken=x.access_token;sessionStorage.setItem(myStorageKey,myToken);
     myCode="";myChallenge="";message="";await loadMyAppointments();
@@ -645,7 +698,7 @@ async function loadMyAppointments(){
   if(!myToken)return;
   const generation=myGeneration,token=myToken;
   try{
-    const x=await api("/public/appointments/my",{headers:{Authorization:"Bearer "+token}});
+    const x=await api(emailOnly()?"/public/client-email/my":"/public/appointments/my",{headers:{Authorization:"Bearer "+token}});
     if(generation!==myGeneration)return;
     myAppointments=x.appointments||[];myStep="list";
   }catch(e){if(generation===myGeneration){clearMyAccess();error=e.message;render()}throw e}
@@ -733,6 +786,22 @@ function bookingGuideStage(id,number,title,content){
 }
 function updateBookingGuide(){
   if(step!==4)return;
+  if(emailOnly()){
+    const verified=bookingProof.phase==='verified'&&bookingProof.token&&bookingProof.bound===bookingIdentity()&&Date.now()<bookingProof.expiresAt;
+    const active=!bookingPrivacyAccepted?0:!validEmail(booking.email)?1:!verified?2:3;
+    ['privacy','contact','verify','confirm'].forEach((id,index)=>{
+      const stage=document.getElementById('guide-'+id);if(!stage)return;
+      const locked=index>active,content=stage.querySelector('.guideContent');
+      stage.dataset.state=locked?'locked':index===active?'current':'done';
+      if(index===active)stage.setAttribute('aria-current','step');else stage.removeAttribute('aria-current');
+      content.disabled=locked;content.toggleAttribute('inert',locked);
+      if(locked)content.setAttribute('aria-hidden','true');else content.removeAttribute('aria-hidden');
+    });
+    const progress=document.getElementById('bookingGuideProgress');
+    if(progress)progress.textContent='Paso '+(active+1)+' de 4 · '+['Autorización de datos','Correo','Verificación del correo','Confirmación de la cita'][active];
+    const button=document.querySelector('[data-a="book"]');if(button&&!bookingBusy)button.textContent=bookingDetailsValid()?'Confirmar cita':'Continuar';
+    return;
+  }
   const contactReady=bookingPrivacyAccepted&&Boolean(booking.name.trim())&&bookingPhoneValid();
   const verified=contactReady&&bookingProof.phase==='verified'&&Boolean(bookingProof.token)&&bookingProof.bound===bookingIdentity()&&Date.now()<bookingProof.expiresAt;
   const active=!bookingPrivacyAccepted?0:!contactReady?1:!verified?2:3;
@@ -791,9 +860,15 @@ function bookingStepContent(){
     h+=bookingGuideStage('privacy','1','Autoriza el tratamiento de tus datos',privacyConsentHtml('booking'));
 
     h+='<p id="bookingDataHelp" class="phoneHelp">Autoriza el tratamiento de datos para continuar.</p>';
+    if(emailOnly()){
+      h+=bookingGuideStage('contact','2','Escribe tu correo','<label for="email">Correo electrónico</label><input id="email" type="email" maxlength="254" autocomplete="email" value="'+esc(booking.email)+'">');
+      h+=bookingGuideStage('verify','3','Verifica tu correo','<div id="bookingEmailProof">'+bookingProofHtml()+'</div>');
+      h+=bookingGuideStage('confirm','4','Completa tus datos y confirma','<label for="name">Nombre completo</label><input id="name" maxlength="200" autocomplete="name" value="'+esc(booking.name)+'"><label for="notes">Notas de logística (opcional)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea>');
+    }else{
     h+=bookingGuideStage('contact','2','Completa tus datos de contacto','<label class="booking-contact-label">Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label class="booking-contact-label">WhatsApp</label>'+phoneFieldHtml("phoneCountry","phone",booking.phoneCountry,booking.phone,"Ej. 3001234567"));
     h+=bookingGuideStage('verify','3','Verifica tu correo','<div id="bookingEmailProof">'+bookingProofHtml()+'</div>');
     h+=bookingGuideStage('confirm','4','Revisa y confirma tu cita','<label>Notas de logística (opcional; no incluyas datos de salud)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea><label style="display:flex;gap:8px;align-items:center"><input style="width:auto" type="checkbox" id="rem" '+(booking.reminder?'checked':'')+'> Quiero recordatorios</label>');
+    }
 
   }else if(step===5){
     const pending=bookingResultStatus==='PENDING';
@@ -816,7 +891,10 @@ function renderMyAppointments(){
   let h='<h3 class="stepTitle">Mis citas</h3>';
   if(error)h+='<div class="err">'+esc(error)+'</div>';
   if(message&&myStep==="code")h+='<div class="ok" role="status">'+esc(message)+'</div>';
-  if(myStep==="phone"){
+  if(myStep==="phone"&&emailOnly()){
+    h+=privacyConsentHtml('my');
+    h+='<label for="myEmail">Correo que usaste al reservar</label><input id="myEmail" type="email" maxlength="254" autocomplete="email" value="'+esc(myEmail)+'" '+(!myPrivacyAccepted?'disabled':'')+'><button class="btn p full" data-a="identifyMy" '+(myBusy||!myPrivacyAccepted||!validEmail(myEmail)?'disabled':'')+'>Enviar código</button>';
+  }else if(myStep==="phone"){
     h+=privacyConsentHtml('my');
     h+='<p class="stepSub">Ingresa el número que usaste al reservar, con su país.</p><label>WhatsApp</label>'+phoneFieldHtml("myPhoneCountry","myPhone",myPhoneCountry,myPhone,"Ej. 3001234567")+'<button style="margin-top:12px" class="btn p full" data-a="identifyMy" '+(myBusy||!myPrivacyAccepted?'disabled':'')+'>'+(myBusy?'Consultando…':'Continuar')+'</button>';
   }else if(myStep==="method"){
@@ -825,7 +903,7 @@ function renderMyAppointments(){
     if(!emailAvailable)h+='<p class="muted">No podemos verificar este número por correo. Revisa el país y número o contacta al negocio para validar tus datos.</p>';
     h+='<button class="btn full" data-a="myBack" '+(myBusy?'disabled':'')+'>Cambiar número</button>';
   }else if(myStep==="code"){
-    h+='<p class="stepSub">Revisa el correo que usaste al reservar, incluida la carpeta de spam. El código vence en 5 minutos.</p><label for="myCode">Código de 6 dígitos</label><input id="myCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value="'+esc(myCode)+'"><button style="margin-top:12px" class="btn p full" data-a="verifyMyCode" '+(myBusy||!/^[0-9]{6}$/.test(myCode)?'disabled':'')+'>'+(myBusy?'Verificando…':'Verificar y ver mis citas')+'</button><button style="margin-top:8px" class="btn full" data-a="requestMyCode" '+(myBusy||Date.now()<myResendAt?'disabled':'')+'>Reenviar código</button><small class="phoneHelp">Puedes solicitar otro código después de 60 segundos.</small><button style="margin-top:8px" class="btn full" data-a="myBack" '+(myBusy?'disabled':'')+'>Cambiar número</button>';
+    h+='<p class="stepSub">Revisa el correo que usaste al reservar, incluida la carpeta de spam. El código vence en 5 minutos.</p><label for="myCode">Código de 6 dígitos</label><input id="myCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value="'+esc(myCode)+'"><button style="margin-top:12px" class="btn p full" data-a="verifyMyCode" '+(myBusy||!/^[0-9]{6}$/.test(myCode)?'disabled':'')+'>'+(myBusy?'Verificando…':'Verificar y ver mis citas')+'</button><button style="margin-top:8px" class="btn full" data-a="requestMyCode" '+(myBusy||Date.now()<myResendAt?'disabled':'')+'>Reenviar código</button><small class="phoneHelp">Puedes solicitar otro código después de 60 segundos.</small><button style="margin-top:8px" class="btn full" data-a="myBack" '+(myBusy?'disabled':'')+'>'+(emailOnly()?'Cambiar correo':'Cambiar número')+'</button>';
   }else if(myBusy){
     h+='<p role="status">Cargando tus citas…</p>';
   }else{
@@ -856,6 +934,10 @@ document.getElementById('app').addEventListener('input',e=>{
   }
   if(step===4&&['name','phone','email','notes'].includes(e.target.id))updateBookingButton();
   if(step===4&&e.target.id==='phone')scheduleBookingPhoneLookup();
+  if(e.target.id==='myEmail'){
+    myEmail=e.target.value;
+    const button=document.querySelector('[data-a="identifyMy"]');if(button)button.disabled=myBusy||!myPrivacyAccepted||!validEmail(myEmail);
+  }
   if(e.target.id==='myCode'){
     myCode=e.target.value.replace(/[^0-9]/g,'').slice(0,6);e.target.value=myCode;
     const button=document.querySelector('[data-a="verifyMyCode"]');
@@ -874,7 +956,7 @@ setInterval(()=>{
 
 function revealContactAfterConsent(kind){
   // Reveal the next field without focusing it or opening the mobile keyboard.
-  const target=kind==='booking'?(document.getElementById('name')?.value.trim()?document.getElementById('phone'):document.getElementById('name')):document.getElementById('myPhone');
+  const target=emailOnly()?document.getElementById(kind==='booking'?'email':'myEmail'):kind==='booking'?(document.getElementById('name')?.value.trim()?document.getElementById('phone'):document.getElementById('name')):document.getElementById('myPhone');
   const reducedMotion=window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
   target?.scrollIntoView?.({block:'center',behavior:reducedMotion?'auto':'smooth'});
 }
@@ -882,12 +964,14 @@ function revealContactAfterConsent(kind){
 document.getElementById('app').addEventListener('change',e=>{
   if(e.target.id==='bookingPrivacy'){
     bookingPrivacyAccepted=e.target.checked;
+    bookingGeneration++;
     if(!bookingPrivacyAccepted){bookingProof={phase:'identify',token:'',bound:'',busy:false};refreshBookingProof()}
     updateBookingButton();if(bookingPrivacyAccepted){revealContactAfterConsent('booking');scheduleBookingPhoneLookup(true);}
   }
   if(e.target.id==='myPrivacy'){
     myPrivacyAccepted=e.target.checked;
-    const button=document.querySelector('[data-a="identifyMy"]');if(button)button.disabled=myBusy||!myPrivacyAccepted;
+    if(emailOnly()){const input=document.getElementById('myEmail');if(input)input.disabled=!myPrivacyAccepted}
+    const button=document.querySelector('[data-a="identifyMy"]');if(button)button.disabled=myBusy||!myPrivacyAccepted||(emailOnly()&&!validEmail(myEmail));
     if(myPrivacyAccepted)revealContactAfterConsent('my');
   }
   if(step===4&&['phoneCountry','rem'].includes(e.target.id))updateBookingButton();
@@ -921,14 +1005,14 @@ document.getElementById('app').addEventListener('click',e=>{
   else if(a==='bookingIdentify'){bookingEmailAction('options')}
   else if(a==='bookingSend'){bookingEmailAction('request')}
   else if(a==='bookingVerify'){bookingEmailAction('verify')}
-  else if(a==='book'){booking.name=document.getElementById('name').value;booking.phoneCountry=document.getElementById('phoneCountry').value;booking.phone=document.getElementById('phone').value;if(document.getElementById('email'))booking.email=document.getElementById('email').value;booking.notes=document.getElementById('notes').value;booking.reminder=document.getElementById('rem').checked;book()}
+  else if(a==='book'){booking.name=document.getElementById('name').value;if(!emailOnly()){booking.phoneCountry=document.getElementById('phoneCountry').value;booking.phone=document.getElementById('phone').value;}if(document.getElementById('email'))booking.email=document.getElementById('email').value;booking.notes=document.getElementById('notes').value;booking.reminder=document.getElementById('rem')?.checked||false;book()}
   else if(a==='my'){view='my';step=0;myStep=myToken?'list':myStep;menuOpen=false;message='';if(myToken){myBusy=true;render();loadMyAppointments().catch(e=>error=e.message).finally(()=>{myBusy=false;render()})}else render()}
   else if(a==='home'){view='home';step=0;error='';message='';menuOpen=false;render()}
   else if(a==='identifyMy'){identifyMyAppointments()}
   else if(a==='requestMyCode'){requestMyCode()}
   else if(a==='verifyMyCode'){verifyMyCode()}
   else if(a==='myBack'){clearMyAccess();myResendAt=0;message='';render()}
-  else if(a==='myLogout'){clearMyAccess();myPhoneCountry='+57';myPhone='';message='';render()}
+  else if(a==='myLogout'){clearMyAccess();myPhoneCountry='+57';myPhone='';myEmail='';message='';render()}
   else if(a==='newBooking'){bookingPrivacyAccepted=false;view='home';booking={service:null,professional:null,date:'',time:'',name:'',phoneCountry:'+57',phone:'',email:'',notes:'',reminder:false};availability=[];step=1;error='';message='';render()}
   else if(a==='reset'){bookingPrivacyAccepted=false;booking={service:null,professional:null,date:'',time:'',name:'',phoneCountry:'+57',phone:'',email:'',notes:'',reminder:false};availability=[];view='home';step=1;message='';render()}
   else if(a==='menu'){menuOpen=!menuOpen;render()}
@@ -939,6 +1023,3 @@ loadBase();
 </script>
 </body>
 </html>
-
-
-
