@@ -287,6 +287,52 @@ body:not(.modalOpen){overflow-y:auto}
 }
 
 
+
+/* Fondo elegido por el negocio. Las tarjetas mantienen su propia superficie. */
+:root[data-client-background] body{background:linear-gradient(var(--page-tint),var(--page-tint)),var(--site-bg-image,none) center/cover fixed,var(--page-bg);color:var(--page-ink)}
+:root[data-client-background] .siteHeader{background:var(--page-header)}
+:root[data-client-background] .navLinks{color:var(--page-ink)}
+:root[data-client-background] .hero p,
+:root[data-client-background] .sectionHead p,
+:root[data-client-background] .footer{color:var(--page-muted)}
+:root[data-client-background] .feature,
+:root[data-client-background] .serviceCard,
+:root[data-client-background] .person,
+:root[data-client-background] .contactCard,
+:root[data-client-background] .bookingPanel,
+:root[data-client-background] .mobileMenu{color:var(--ink)}
+:root[data-client-background] .heroActions .btn.ghost{color:var(--page-ink);border-color:var(--page-muted)}
+
+/* Fondo del negocio en Reservar cita y Mis citas */
+:root[data-client-background] .bookingPanel,
+:root[data-client-background] .panelFoot {
+  background: var(--page-bg);
+  color: var(--page-ink);
+}
+
+:root[data-client-background] .panelHead .closeBtn,
+:root[data-client-background] .panelBody > .stepSub,
+:root[data-client-background] .panelBody > label,
+:root[data-client-background] .panelBody > .phoneHelp {
+  color: var(--page-ink);
+}
+
+/* Texto oscuro dentro de las tarjetas claras */
+:root[data-client-background] .bookingPanel .choice,
+:root[data-client-background] .bookingPanel .summary,
+:root[data-client-background] .bookingPanel .privacyCard,
+:root[data-client-background] .bookingPanel .bookingGuideStage,
+:root[data-client-background] .bookingPanel .emailProofCard,
+:root[data-client-background] .bookingPanel .item {
+  color: var(--ink);
+}
+
+/* Botones secundarios sobre el fondo personalizado */
+:root[data-client-background] .panelFoot .btn:not(.p) {
+  background: var(--page-bg);
+  color: var(--page-ink);
+}
+
 </style>
 </head>
 <body>
@@ -383,6 +429,23 @@ async function api(path,opts={}){
   if(!r.ok)throw new Error(data.detail||("HTTP "+r.status));
   return data;
 }
+function applyClientBackground(color){
+  const root=document.documentElement;
+  const valid=typeof color==='string'&&/^#[0-9a-f]{6}$/i.test(color);
+  const custom=valid&&color.toLowerCase()!=='#fffaf8';
+  root.toggleAttribute('data-client-background',custom);
+  if(!custom)return;
+  const rgb=[1,3,5].map(index=>parseInt(color.slice(index,index+2),16));
+  const linear=rgb.map(value=>{const channel=value/255;return channel<=0.04045?channel/12.92:Math.pow((channel+0.055)/1.055,2.4)});
+  const luminance=linear[0]*0.2126+linear[1]*0.7152+linear[2]*0.0722;
+  const dark=luminance<0.179;
+  root.style.setProperty('--page-bg',color);
+  root.style.setProperty('--page-tint','rgba('+rgb.join(',')+',.90)');
+  root.style.setProperty('--page-header','rgba('+rgb.join(',')+',.96)');
+  root.style.setProperty('--page-ink',dark?'#ffffff':'#000000');
+  root.style.setProperty('--page-muted',dark?'#ffffff':'#000000');
+}
+
 async function loadBase(){
   try{
     if(!BUSINESS_SLUG)throw new Error("Enlace de reserva inválido. Falta identificar el negocio.");
@@ -391,6 +454,7 @@ async function loadBase(){
     services=catalog.services||[];
     professionals=catalog.professionals||[];
     document.documentElement.style.setProperty("--acc",business.primary_color||"#b98888");
+    applyClientBackground(business.background_color);
     const titleFonts={PLAYFAIR:'"Playfair Display",serif',GEORGIA:'Georgia,serif',SERIF:'Georgia,serif',SANS:'"DM Sans",system-ui,sans-serif',MODERN:'"DM Sans",system-ui,sans-serif'};
     document.documentElement.style.setProperty("--title-font",titleFonts[String(business.title_font||"PLAYFAIR").toUpperCase()]||titleFonts.PLAYFAIR);
     if(business.background_image_url){
