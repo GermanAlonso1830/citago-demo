@@ -2527,6 +2527,7 @@ function businessPlanFeatures(plan,showExcluded){
  const professionals=limit==null?"Profesionales sin límite":limit===1?"1 profesional":limit+" profesionales";
  const features=[
   [professionals,true],
+  ...(plan.client_email_only===true?[["Verificación del cliente por correo",true]]:[]),
   ...Object.entries(BUSINESS_PLAN_FEATURES).map(([key,label])=>[label,plan.features?.[key]===true])
  ];
  return features.filter(([,included])=>showExcluded||included).map(([label,included])=>
@@ -2544,11 +2545,15 @@ function bizPlan(){
  let html=heading;
  if(currentPlan){
   const inTrial=subscription.status==="TRIAL";
+  const start=businessPlanDate(inTrial?subscription.trial_started_at:subscription.current_period_start);
   const end=businessPlanDate(inTrial?subscription.trial_ends_at:subscription.current_period_end);
+  const missingDate="Sin fecha registrada";
   const status=BUSINESS_PLAN_STATUS[subscription.status]||subscription.status||"";
   html+='<div class="pn"><h2>'+esc(currentPlan.name)+' · '+esc(P(currentPlan.monthly_price))+'/mes</h2>'+
    (status?'<span class="tg'+(subscription.status==="ACTIVE"?'':' w')+'">'+esc(status)+'</span>':'')+
-   (end?'<p style="color:var(--mute)">'+(inTrial?'Fin de la prueba: ':'Fin del período: ')+esc(end)+'</p>':'')+'</div>'+
+   '<div style="margin-top:12px"><p><b>'+(inTrial?'Inicio de la prueba: ':'Inicio del período: ')+
+   '</b>'+esc(start||missingDate)+'</p><p><b>'+(inTrial?'Fin de la prueba: ':'Fin del período: ')+
+   '</b>'+esc(end||missingDate)+'</p></div></div>'+
    '<div class="pn"><h2>Qué incluye</h2>'+businessPlanFeatures(currentPlan,true)+'</div>';
  }else{
   html+='<div class="pn"><p>Tu negocio aún no tiene un plan asignado.</p></div>';

@@ -100,6 +100,12 @@ body.modalOpen{overflow:hidden}
 .footer{padding:28px 24px;text-align:center;color:var(--mut);font-size:.86rem}
 
 .overlay{position:fixed;inset:0;z-index:80;background:rgba(35,28,26,.45);display:flex;justify-content:flex-end;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.bookingProgress{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:16px;background:rgba(20,16,24,.56);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+.bookingProgress[hidden]{display:none}
+.bookingProgressCard{width:min(220px,100%);aspect-ratio:1;display:grid;place-content:center;justify-items:center;gap:16px;padding:24px;border-radius:50%;background:#fff;color:#29232e;text-align:center;font-weight:600;box-shadow:var(--shadow)}
+.bookingProgressSpinner{width:46px;height:46px;border:4px solid #e4dfe7;border-top-color:var(--acc);border-radius:50%;animation:bookingProgressSpin .8s linear infinite}
+@keyframes bookingProgressSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.bookingProgressSpinner{animation:none}}
 .bookingPanel{width:min(520px,100%);height:100%;background:#fff;box-shadow:-18px 0 50px rgba(20,10,10,.15);display:flex;flex-direction:column;animation:slideIn .22s ease}
 @keyframes slideIn{from{transform:translateX(18px);opacity:.6}to{transform:none;opacity:1}}
 .panelHead{display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid var(--line)}
@@ -337,13 +343,20 @@ body:not(.modalOpen){overflow-y:auto}
 </head>
 <body>
 <div id="app"></div>
+<div class="bookingProgress" id="bookingProgress" hidden>
+  <div class="bookingProgressCard" role="status" tabindex="-1" aria-labelledby="bookingProgressLabel">
+    <span class="bookingProgressSpinner" aria-hidden="true"></span>
+    <span id="bookingProgressLabel">Asignando tu cita…</span>
+  </div>
+</div>
 <script>
 const API=(location.hostname==="127.0.0.1"||location.hostname==="localhost")?"http://127.0.0.1:8000":"https://citago-backend.onrender.com";
 const qs=new URLSearchParams(location.search);
 const BUSINESS_SLUG=qs.get("biz")||"";
 let business=null,services=[],professionals=[],step=0;
 let booking={service:null,professional:null,date:"",time:"",name:"",phoneCountry:"+57",phone:"",email:"",notes:"",reminder:false};
-let availability=[],message="",error="",bookingBusy=false;
+let availability=[],message="",error="",bookingBusy=false,bookingAvailable=true;
+const BOOKING_UNAVAILABLE_MESSAGE="Las reservas en línea no están disponibles por el momento. Contacta al negocio para más detalles.";
 let view="home",myStep="phone",myPhoneCountry="+57",myPhone="",myToken=sessionStorage.getItem("client_otp_v2:"+BUSINESS_SLUG)||"",myAppointments=[],myBusy=false;
 // Legacy phone-only sessions are never reused.
 sessionStorage.removeItem("booking_my_token");sessionStorage.removeItem("citago_my_token");
@@ -451,6 +464,7 @@ async function loadBase(){
     if(!BUSINESS_SLUG)throw new Error("Enlace de reserva inválido. Falta identificar el negocio.");
     const catalog=await api("/public/businesses/"+encodeURIComponent(BUSINESS_SLUG)+"/catalog");
     business=catalog.business;
+    bookingAvailable=catalog.booking_available!==false;
     services=catalog.services||[];
     professionals=catalog.professionals||[];
     document.documentElement.style.setProperty("--acc",business.primary_color||"#b98888");
@@ -513,7 +527,7 @@ function basicBookingProofHtml(){
   const p=bookingProof;
   let h='<section class="emailProofCard" aria-labelledby="bookingEmailTitle" aria-busy="'+Boolean(p.busy)+'"><h4 id="bookingEmailTitle" tabindex="-1">Verifica tu correo</h4>';
   if(p.feedback)h+='<div class="err" role="alert">'+esc(p.feedback)+'</div>';
-  if(p.phase==='verified')return h+'<div class="ok" id="bookingEmailVerified" role="status" tabindex="-1">Correo verificado. Completa tu nombre y confirma tu cita.</div></section>';
+  if(p.phase==='verified')return h+'<div class="ok" id="bookingEmailVerified" role="status" tabindex="-1">Correo verificado. '+(registeredBookingName()?'Revisa tus datos y confirma tu cita.':'Completa tu nombre y confirma tu cita.')+'</div></section>';
   if(p.phase==='code'){
     h+='<p>Código enviado. Revisa también spam.</p><label for="bookingCode">Código de 6 dígitos</label><input class="otpInput" id="bookingCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" value="'+esc(p.code||'')+'"><button class="btn p full" data-a="bookingVerify" '+(p.busy||!/^[0-9]{6}$/.test(p.code||'')?'disabled':'')+'>Verificar correo</button><button class="btn full" data-a="bookingSend" '+(p.busy||Date.now()<(p.resendAt||0)?'disabled':'')+'>Reenviar código</button><small>El código vence en 5 minutos. Puedes reenviarlo después de 60 segundos.</small>';
   }else h+='<button class="btn p full" data-a="bookingSend" '+(p.busy||!bookingPrivacyAccepted||!validEmail(booking.email)?'disabled':'')+'>'+(p.busy?'Enviando…':'Enviar código')+'</button>';
@@ -536,8 +550,9 @@ async function basicBookingEmailAction(action){
     if(action==='request')bookingProof={...bookingProof,...x,phase:'code',token:'',code:'',resendAt:Date.now()+x.resend_after_seconds*1000};
     if(action==='verify'){
       booking.email=x.email;
-      if(x.full_name){booking.name=x.full_name;const name=document.getElementById('name');if(name)name.value=x.full_name}
-      bookingProof={...bookingProof,phase:'verified',token:x.booking_verification_token,expiresAt:Date.now()+x.expires_in_seconds*1000};
+      bookingProof={...bookingProof,phase:'verified',token:x.booking_verification_token,
+        registeredName:typeof x.full_name==='string'?x.full_name.trim():'',
+        expiresAt:Date.now()+x.expires_in_seconds*1000};
     }
   }catch(e){if(generation===bookingGeneration)bookingProof.feedback=e.message}
   finally{if(generation===bookingGeneration){bookingProof.busy=false;refreshBookingProof(true)}}
@@ -604,6 +619,11 @@ async function bookingEmailAction(action){
   }catch(e){if(identity===bookingIdentity())bookingProof.feedback=typeof e.message==='string'?e.message:'Revisa los datos e intenta nuevamente.'}
   finally{bookingProof.busy=false;refreshBookingProof(identity===bookingIdentity());if(identity!==bookingIdentity())scheduleBookingPhoneLookup(true)}
 }
+function registeredBookingName(){
+  const proof=bookingProof;
+  return emailOnly()&&bookingPrivacyAccepted&&proof.phase==='verified'&&proof.token&&
+    proof.bound===bookingIdentity()&&Date.now()<proof.expiresAt?proof.registeredName||'':'';
+}
 function bookingDetailsValid(){
   return !bookingFirstIssue();
 }
@@ -617,7 +637,8 @@ function bookingFirstIssue(){
     if(!bookingPrivacyAccepted)return {id:'bookingPrivacy',text:'Autoriza el tratamiento de datos para continuar.'};
     if(!validEmail(booking.email))return {id:'email',text:'Escribe un correo electrónico válido.'};
     if(bookingProof.phase!=='verified'||!bookingProof.token||bookingProof.bound!==bookingIdentity()||Date.now()>=bookingProof.expiresAt)return {id:bookingProof.phase==='code'?'bookingCode':'bookingEmailTitle',text:'Solicita el código y verifica tu correo para continuar.'};
-    if(!booking.name.trim()||booking.name.trim().length>200)return {id:'name',text:'Escribe tu nombre completo, de hasta 200 caracteres.'};
+    const name=registeredBookingName()||booking.name.trim();
+    if(!name||name.length>200)return {id:'name',text:'Escribe tu nombre completo, de hasta 200 caracteres.'};
     return null;
   }
   if(!bookingPrivacyAccepted)return {id:'bookingPrivacy',text:'Para reservar, debes aceptar el tratamiento de tus datos personales. Marca la casilla si estás de acuerdo.'};
@@ -656,13 +677,25 @@ function showBookingValidation(issue){
 }
 function readBookingFields(){
   for(const id of ['name','phoneCountry','phone','email','notes']){
-    const el=document.getElementById(id);if(el)booking[id]=el.value;
+    const el=document.getElementById(id);if(el&&(id!=='name'||!el.readOnly))booking[id]=el.value;
   }
   const rem=document.getElementById('rem');if(rem)booking.reminder=rem.checked;
 }
 function updateBookingButton(){
   readBookingFields();
   if(bookingProof.bound&&bookingProof.bound!==bookingIdentity()){bookingGeneration++;bookingProof={phase:'identify',token:'',bound:'',busy:false};if(!emailOnly())booking.email='';const block=document.getElementById('bookingEmailProof');if(block)block.innerHTML=bookingProofHtml()}
+  if(emailOnly()){
+    const name=document.getElementById('name');
+    const nameHelp=document.getElementById('registeredBookingNameHelp');
+    const registeredName=registeredBookingName();
+    if(name&&nameHelp){
+      if(registeredName||name.readOnly)name.value=registeredName||booking.name;
+      name.readOnly=Boolean(registeredName);
+      nameHelp.hidden=!registeredName;
+      if(registeredName)name.setAttribute('aria-describedby',nameHelp.id);
+      else name.removeAttribute('aria-describedby');
+    }
+  }
   const button=document.querySelector('[data-a="book"]');
   if(button)button.disabled=bookingBusy;
   const identify=document.querySelector('[data-a="bookingIdentify"]');if(identify)identify.disabled=bookingProof.busy||!bookingPrivacyAccepted;
@@ -689,11 +722,17 @@ async function book(){
     professionalId=available?.professional_id||available?.id||null;
   }
   if(!booking.time||!professionalId){error="Selecciona un horario disponible.";render();return}
-  bookingBusy=true;error="";render();
+  const app=document.getElementById('app');
+  const progress=document.getElementById('bookingProgress');
+  bookingBusy=true;
+  error="";
+  app.inert=true;
+  progress.hidden=false;
+  progress.firstElementChild.focus({preventScroll:true});
   try{
     const x=await api("/appointments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
       booking_verification_token:bookingProof.token,business_id:business.id,service_id:booking.service.id,professional_id:professionalId,
-      client_name:booking.name.trim(),...(emailOnly()?{}:{client_phone:normalizedPhone}),client_email:booking.email.trim()||null,
+      client_name:registeredBookingName()||booking.name.trim(),...(emailOnly()?{}:{client_phone:normalizedPhone}),client_email:booking.email.trim()||null,
       date:booking.date,start_time:booking.time,notes:booking.notes||null,reminder_opt_in:emailOnly()?false:booking.reminder
     })});
     bookingProof={phase:'identify',token:'',bound:'',busy:false};
@@ -702,8 +741,21 @@ async function book(){
     if(x.email_confirmation?.accepted)message+=(x.appointment.status==='PENDING'?' Enviamos al correo la recepción de tu solicitud; falta la aprobación del negocio.':' Enviamos la confirmación a tu correo.');
     else if(x.email_confirmation)message+=' Tu cita está registrada, pero no pudimos confirmar el envío del correo. Puedes consultarla en Mis citas; no necesitas volver a reservar.';
     step=5;
-  }catch(e){error=e.message}
-  finally{bookingBusy=false;render()}
+  }catch(e){
+    error=e.message;
+    if(error===BOOKING_UNAVAILABLE_MESSAGE)bookingAvailable=false;
+  }
+  finally{
+    progress.hidden=true;
+    app.inert=false;
+    bookingBusy=false;
+    render();
+    const feedback=app.querySelector(step===5||!bookingAvailable?'.panelBody .stepTitle':'.panelBody .err');
+    if(feedback){
+      feedback.tabIndex=-1;
+      feedback.focus();
+    }
+  }
 }
 function fmtAppointmentDate(iso){
   const d=new Date(iso);const tz=(business&&business.timezone)||"America/Bogota";
@@ -927,7 +979,7 @@ function bookingStepContent(){
     if(emailOnly()){
       h+=bookingGuideStage('contact','2','Escribe tu correo','<label for="email">Correo electrónico</label><input id="email" type="email" maxlength="254" autocomplete="email" value="'+esc(booking.email)+'">');
       h+=bookingGuideStage('verify','3','Verifica tu correo','<div id="bookingEmailProof">'+bookingProofHtml()+'</div>');
-      h+=bookingGuideStage('confirm','4','Completa tus datos y confirma','<label for="name">Nombre completo</label><input id="name" maxlength="200" autocomplete="name" value="'+esc(booking.name)+'"><label for="notes">Notas de logística (opcional)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea>');
+      h+=bookingGuideStage('confirm','4','Completa tus datos y confirma','<label for="name">Nombre completo</label><input id="name" maxlength="200" autocomplete="name" value="'+esc(booking.name)+'"><div id="registeredBookingNameHelp" hidden><small class="phoneHelp">Si necesitas corregir tu nombre, contacta al negocio.</small></div><label for="notes">Notas de logística (opcional)</label><textarea id="notes" rows="3">'+esc(booking.notes)+'</textarea>');
     }else{
     h+=bookingGuideStage('contact','2','Completa tus datos de contacto','<label class="booking-contact-label">Nombre completo</label><input id="name" autocomplete="name" value="'+esc(booking.name)+'"><label class="booking-contact-label">WhatsApp</label>'+phoneFieldHtml("phoneCountry","phone",booking.phoneCountry,booking.phone,"Ej. 3001234567"));
     h+=bookingGuideStage('verify','3','Verifica tu correo','<div id="bookingEmailProof">'+bookingProofHtml()+'</div>');
@@ -949,7 +1001,15 @@ function bookingFooter(){
   if(step===4)return '<div class="panelFoot"><button class="btn" data-a="back" '+(bookingBusy?'disabled':'')+'>← Volver</button><button class="btn p" data-a="book" '+(bookingBusy?'disabled':'')+'>'+(bookingBusy?'Guardando…':'Confirmar cita')+'</button></div>';
   return '<div class="panelFoot"><button class="btn" data-a="my">Mis citas</button><button class="btn p" data-a="reset">Reservar otra</button></div>';
 }
-function bookingOverlay(){return '<div class="overlay"><section class="bookingPanel">'+bookingHeader()+ '<div class="panelBody">'+bookingStepContent()+'</div>'+bookingFooter()+'</section></div>'}
+function bookingOverlay(){
+  if(!bookingAvailable){
+    return '<div class="overlay"><section class="bookingPanel">'+bookingHeader()+
+      '<div class="panelBody"><h3 class="stepTitle" tabindex="-1">Reservas en línea no disponibles</h3>'+
+      '<p class="stepSub">Contacta al negocio para más detalles.</p></div>'+
+      '<div class="panelFoot"><button class="btn" data-a="my">Mis citas</button>'+
+      '<button class="btn p" data-a="closeBooking">Cerrar</button></div></section></div>';
+  }
+  return '<div class="overlay"><section class="bookingPanel">'+bookingHeader()+ '<div class="panelBody">'+bookingStepContent()+'</div>'+bookingFooter()+'</section></div>'}
 
 function renderMyAppointments(){
   let h='<h3 class="stepTitle">Mis citas</h3>';
@@ -986,7 +1046,8 @@ function render(){
   const modal=view==="my"?myAppointmentsOverlay():(step>0?bookingOverlay():"");
   if(modal){document.body.classList.add('modalOpen');h+=modal}else document.body.classList.remove('modalOpen');
   document.getElementById('app').innerHTML=h;
-  if(step===4)updateBookingButton();
+  if(view!=="my"&&step>0&&!bookingAvailable)document.querySelector('.bookingPanel .stepTitle')?.focus({preventScroll:true});
+  else if(step===4)updateBookingButton();
 }
 
 document.getElementById('app').addEventListener('input',e=>{
@@ -1048,7 +1109,7 @@ document.getElementById('app').addEventListener('change',e=>{
 });
 document.getElementById('app').addEventListener('click',e=>{
   const t=e.target.closest('[data-a]');if(!t)return;
-  if(t.disabled)return;
+  if(t.disabled||bookingBusy)return;
   const a=t.dataset.a;if(a==='privacy'){e.preventDefault();openPrivacyPolicy();return}error='';
   if(a==='openBooking'){view='home';step=1;menuOpen=false;render()}
   else if(a==='closeBooking'){step=0;view='home';menuOpen=false;render()}
@@ -1069,7 +1130,7 @@ document.getElementById('app').addEventListener('click',e=>{
   else if(a==='bookingIdentify'){bookingEmailAction('options')}
   else if(a==='bookingSend'){bookingEmailAction('request')}
   else if(a==='bookingVerify'){bookingEmailAction('verify')}
-  else if(a==='book'){booking.name=document.getElementById('name').value;if(!emailOnly()){booking.phoneCountry=document.getElementById('phoneCountry').value;booking.phone=document.getElementById('phone').value;}if(document.getElementById('email'))booking.email=document.getElementById('email').value;booking.notes=document.getElementById('notes').value;booking.reminder=document.getElementById('rem')?.checked||false;book()}
+  else if(a==='book'){book()}
   else if(a==='my'){view='my';step=0;myStep=myToken?'list':myStep;menuOpen=false;message='';if(myToken){myBusy=true;render();loadMyAppointments().catch(e=>error=e.message).finally(()=>{myBusy=false;render()})}else render()}
   else if(a==='home'){view='home';step=0;error='';message='';menuOpen=false;render()}
   else if(a==='identifyMy'){identifyMyAppointments()}

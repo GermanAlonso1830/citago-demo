@@ -305,7 +305,10 @@ async function saveBusiness(form,business){
    const result=await api(url+"/subscription",{
     method:"PUT",headers,body:JSON.stringify({plan_id:plan.id,status})
    });
-   Object.assign(business,{plan_id:result.plan_id,plan_name:plan.name,subscription_status:result.status,trial_ends_at:null});
+   Object.assign(business,{
+    plan_id:result.plan_id,plan_name:plan.name,subscription_status:result.status,
+    trial_started_at:null,trial_ends_at:null,current_period_start:null,current_period_end:null
+   });
   }
  }catch(e){
   if(!authUser)render();
@@ -344,9 +347,12 @@ function openBusinessEditor(business){
   ? '<option value="'+esc(currentPlanId)+'" selected>'+esc(currentPlanName)+'</option>'
   : currentPlanId?'':'<option value="" selected>Sin plan asignado</option>')+
   plans.map(plan=>'<option value="'+esc(plan.id)+'"'+(String(plan.id)===currentPlanId?' selected':'')+'>'+esc(plan.name)+' · '+money(plan.price_cop)+'</option>').join("");
- const trialEnd=business.subscription_status==="TRIAL"&&business.trial_ends_at
-  ?" · vence "+dateCO(business.trial_ends_at):"";
  const subscription=subscriptionLabel(business.subscription_status);
+ const inTrial=business.subscription_status==="TRIAL";
+ const start=dateCO(inTrial?business.trial_started_at:business.current_period_start);
+ const end=dateCO(inTrial?business.trial_ends_at:business.current_period_end);
+ const startLabel=inTrial?"Inicio de la prueba":"Inicio del período";
+ const endLabel=inTrial?"Fin de la prueba":"Fin del período";
  const app=document.getElementById("app");
  app.insertAdjacentHTML("beforeend",
   '<dialog class="plan-dialog business-editor" id="business-editor" aria-labelledby="business-editor-title">'+
@@ -355,7 +361,9 @@ function openBusinessEditor(business){
   '<fieldset style="border:0;padding:0;margin:0">'+
   '<label>Estado del negocio<select name="is_active"><option value="true"'+(active?' selected':'')+'>Activo</option><option value="false"'+(active?'':' selected')+'>Inactivo</option></select></label>'+
   '<label>Plan<select name="plan_id"'+(plans.length?'':' disabled')+'>'+planOptions+'</select></label>'+
-  (subscription?'<small class="muted">'+esc(currentPlanName+' · '+subscription+trialEnd)+'</small>':'')+
+  (subscription?'<small class="muted">'+esc(currentPlanName+' · '+subscription)+'<br>'+
+   startLabel+': '+esc(start||"Sin fecha registrada")+'<br>'+
+   endLabel+': '+esc(end||"Sin fecha registrada")+'</small>':'')+
   (plansError?'<p class="muted">'+esc(plansError)+'</p>':'')+
   '<div class="row business-links"><button class="btn" type="button" data-open-client="'+esc(business.slug)+'">Abrir cliente</button>'+
   '<button class="btn" type="button" data-copy-client="'+esc(business.slug)+'">Copiar cliente</button>'+
