@@ -74,6 +74,12 @@ body.modalOpen{overflow:hidden}
 .featureIcon{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--acc-soft);color:var(--acc);font-size:1.15rem;margin-bottom:12px}
 .feature b{display:block;margin-bottom:4px}.feature span{color:var(--mut);font-size:.93rem}
 
+.publicReviewsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px}
+.publicReviewCard{min-width:0;padding:20px;border:1px solid var(--line);border-radius:18px;background:#fff;color:var(--ink)}
+.publicReviewName{margin:0;font-size:1rem;overflow-wrap:anywhere}
+.publicReviewStars{color:#8a531f;letter-spacing:.12em;margin:4px 0 0}
+.publicReviewComment{margin:10px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.publicReviewsActions{margin-top:16px;text-align:center}
 .serviceGrid{display:grid;grid-template-columns:1fr;gap:12px}
 .serviceCard{display:grid;grid-template-columns:124px minmax(145px,1.05fr) minmax(230px,2fr) 86px 110px auto;gap:18px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:18px;padding:12px 14px 12px 12px;box-shadow:0 10px 26px rgba(50,35,33,.035);transition:transform .18s ease,box-shadow .18s ease}
 .serviceCard:hover{transform:translateY(-1px);box-shadow:0 14px 30px rgba(50,35,33,.06)}
@@ -353,6 +359,12 @@ body:not(.modalOpen){overflow-y:auto}
 const API=(location.hostname==="127.0.0.1"||location.hostname==="localhost")?"http://127.0.0.1:8000":"https://citago-backend.onrender.com";
 const qs=new URLSearchParams(location.search);
 const BUSINESS_SLUG=qs.get("biz")||"";
+const reviewLink=qs.get("review")||"";
+let reviewTarget=/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(reviewLink)?reviewLink:"";
+let reviewForm=null;
+const PUBLIC_REVIEWS_PAGE_SIZE=20;
+const MAX_PUBLIC_REVIEWS_PAGE=100000;
+const publicReviews={items:[],page:0,busy:false,failed:false,hasMore:true};
 let business=null,services=[],professionals=[],step=0;
 let booking={service:null,professional:null,date:"",time:"",name:"",phoneCountry:"+57",phone:"",email:"",notes:"",reminder:false};
 let availability=[],message="",error="",bookingBusy=false,bookingAvailable=true;
@@ -480,6 +492,29 @@ async function loadBase(){
     document.title=(business.name||"Reservas")+" · Reservas";
   }catch(e){error=e.message}
   render();
+}
+async function loadPublicReviews(){
+  if(publicReviews.busy||!publicReviews.hasMore)return;
+  const page=publicReviews.page+1;
+  const restoreFocus=document.activeElement?.dataset?.a==="loadPublicReviews";
+  publicReviews.busy=true;
+  publicReviews.failed=false;
+  renderPublicReviews();
+  try{
+    const items=await api("/public/businesses/"+encodeURIComponent(BUSINESS_SLUG)+"/reviews?page="+page);
+    if(!Array.isArray(items))throw new Error("Respuesta de reseñas inválida.");
+    publicReviews.items=publicReviews.items.concat(items);
+    publicReviews.page=page;
+    publicReviews.hasMore=items.length===PUBLIC_REVIEWS_PAGE_SIZE&&page<MAX_PUBLIC_REVIEWS_PAGE;
+  }catch{
+    publicReviews.failed=true;
+  }finally{
+    publicReviews.busy=false;
+    renderPublicReviews();
+    if(restoreFocus&&document.activeElement===document.body){
+      (document.querySelector('[data-a="loadPublicReviews"]')||document.getElementById("publicReviewsTitle"))?.focus({preventScroll:true});
+    }
+  }
 }
 async function loadAvailability(){
   if(!booking.service||!booking.date)return;
@@ -708,6 +743,14 @@ function updateBookingButton(){
     if(!current||current.id!==bookingValidationIssue.id||current.text!==bookingValidationIssue.text)clearBookingValidation();
   }
 }
+function setClientProgress(label){
+  const app=document.getElementById('app');
+  const progress=document.getElementById('bookingProgress');
+  app.inert=Boolean(label);
+  if(label)document.getElementById('bookingProgressLabel').textContent=label;
+  progress.hidden=!label;
+  if(label)progress.firstElementChild.focus({preventScroll:true});
+}
 async function book(){
   if(bookingBusy)return;
   readBookingFields();
@@ -723,12 +766,9 @@ async function book(){
   }
   if(!booking.time||!professionalId){error="Selecciona un horario disponible.";render();return}
   const app=document.getElementById('app');
-  const progress=document.getElementById('bookingProgress');
   bookingBusy=true;
   error="";
-  app.inert=true;
-  progress.hidden=false;
-  progress.firstElementChild.focus({preventScroll:true});
+  setClientProgress("Asignando tu cita…");
   try{
     const x=await api("/appointments",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
       booking_verification_token:bookingProof.token,business_id:business.id,service_id:booking.service.id,professional_id:professionalId,
@@ -746,8 +786,7 @@ async function book(){
     if(error===BOOKING_UNAVAILABLE_MESSAGE)bookingAvailable=false;
   }
   finally{
-    progress.hidden=true;
-    app.inert=false;
+    setClientProgress("");
     bookingBusy=false;
     render();
     const feedback=app.querySelector(step===5||!bookingAvailable?'.panelBody .stepTitle':'.panelBody .err');
@@ -764,6 +803,7 @@ function fmtAppointmentDate(iso){
 function statusLabel(s){return ({CONFIRMED:"Confirmada",PENDING:"Pendiente",COMPLETED:"Completada",NO_SHOW:"No asistió",CANCELLED:"Cancelada",REJECTED:"Rechazada"})[s]||s}
 function statusClass(s){return s==="CONFIRMED"||s==="COMPLETED"?"tag":s==="PENDING"?"tag w":"tag x"}
 function clearMyAccess(){
+  reviewForm=null;
   myPrivacyAccepted=false;myGeneration++;myToken="";myAppointments=[];myStep="phone";myChallenge="";myCode="";
   myMethods=[];myBusy=false;sessionStorage.removeItem(myStorageKey);
 }
@@ -801,14 +841,21 @@ async function verifyMyCode(){
   if(myBusy)return;
   myCode=(document.getElementById("myCode")?.value||"").trim();
   if(!/^[0-9]{6}$/.test(myCode)){error="Escribe los 6 dígitos del código.";render();return}
-  myBusy=true;error="";const generation=myGeneration;render();
+  myBusy=true;error="";const generation=myGeneration;
+  setClientProgress("Verificando código…");
   try{
     const x=await api(emailOnly()?'/public/client-email/my_appointments/verify':"/public/appointments/otp/verify",{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({challenge_id:myChallenge,code:myCode,...(emailOnly()?{business_id:business.id,email:myEmail,privacy_accepted:myPrivacyAccepted,privacy_version:PRIVACY_VERSION}:{})})});
     if(generation!==myGeneration)return;
     myToken=x.access_token;sessionStorage.setItem(myStorageKey,myToken);
     myCode="";myChallenge="";message="";await loadMyAppointments();
   }catch(e){if(generation===myGeneration)error=e.message}
-  finally{if(generation===myGeneration){myBusy=false;render()}}
+  finally{
+    setClientProgress("");
+    if(generation===myGeneration)myBusy=false;
+    render();
+    const target=document.querySelector('.panelBody .err')||document.querySelector('.panelBody .stepTitle');
+    if(target){target.tabIndex=-1;target.focus()}
+  }
 }
 async function loadMyAppointments(){
   if(!myToken)return;
@@ -818,7 +865,42 @@ async function loadMyAppointments(){
     if(generation!==myGeneration)return;
     myAppointments=x.appointments||[];myStep="list";
   }catch(e){if(generation===myGeneration){clearMyAccess();error=e.message;render()}throw e}
+  if(reviewTarget&&emailOnly()){
+    const target=reviewTarget;
+    reviewForm=null;
+    try{
+      const result=await api("/public/client-email/my/"+encodeURIComponent(target)+"/review",{headers:{Authorization:"Bearer "+token}});
+      if(generation===myGeneration&&target===reviewTarget)reviewForm=result;
+    }catch(e){if(generation===myGeneration&&target===reviewTarget)error=e.message}
+  }
 }
+async function submitReview(form){
+  if(myBusy||!reviewForm||!reviewTarget)return;
+  const fields=new FormData(form);
+  const draft={rating:Number(fields.get("rating")),comment:fields.get("comment"),
+    publication_consent:fields.has("publication_consent"),show_first_name:fields.has("show_first_name")};
+  reviewForm={...reviewForm,review:draft};
+  myBusy=true;error="";
+  try{
+    const saved=await api("/public/client-email/my/"+encodeURIComponent(reviewTarget)+"/review",{
+      method:"PUT",headers:{Authorization:"Bearer "+myToken,"Content-Type":"application/json"},
+      body:JSON.stringify(draft)
+    });
+    reviewForm=null;reviewTarget="";
+    message=({PRIVATE:"Tu reseña quedó guardada en privado.",PENDING:"Tu reseña quedó guardada y está pendiente de moderación."})[saved.moderation_status]||"Tu reseña quedó guardada.";
+  }catch(e){error=e.message}
+  finally{myBusy=false;render()}
+}
+document.getElementById("app").addEventListener("change",e=>{
+  if(e.target.id!=="reviewPublicationConsent")return;
+  const name=e.target.form.elements.show_first_name;
+  name.disabled=!e.target.checked;
+  if(name.disabled)name.checked=false;
+});
+document.getElementById("app").addEventListener("submit",e=>{
+  if(e.target.id!=="appointmentReview")return;
+  e.preventDefault();submitReview(e.target);
+});
 
 function brandLogo(){
   const logo=business?.logo_url;
@@ -827,9 +909,9 @@ function brandLogo(){
 function publicHeader(){
   return '<header class="siteHeader"><div class="headerInner">'+
     '<a class="brand" href="#inicio" data-a="home"><div class="brandMark">'+brandLogo()+'</div><div class="brandName">'+esc(business.name)+'</div></a>'+
-    '<div class="headerSpacer"></div><nav class="navLinks"><a href="#inicio">Inicio</a><a href="#servicios">Servicios</a><a href="#equipo">Equipo</a><a href="#contacto">Contacto</a></nav>'+
+    '<div class="headerSpacer"></div><nav class="navLinks"><a href="#inicio">Inicio</a><a href="#servicios">Servicios</a><a href="#equipo">Equipo</a><a href="#resenas">Reseñas</a><a href="#contacto">Contacto</a></nav>'+
     '<button class="btn p headerReserve" data-a="openBooking">📅 Reservar</button><button class="menuBtn" data-a="menu">☰</button>'+
-    '<div class="mobileMenu '+(menuOpen?'open':'')+'"><a href="#inicio" data-a="menuClose">Inicio</a><a href="#servicios" data-a="menuClose">Servicios</a><a href="#equipo" data-a="menuClose">Equipo</a><a href="#contacto" data-a="menuClose">Contacto</a><button data-a="my">Mis citas</button></div>'+
+    '<div class="mobileMenu '+(menuOpen?'open':'')+'"><a href="#inicio" data-a="menuClose">Inicio</a><a href="#servicios" data-a="menuClose">Servicios</a><a href="#equipo" data-a="menuClose">Equipo</a><a href="#resenas" data-a="menuClose">Reseñas</a><a href="#contacto" data-a="menuClose">Contacto</a><button data-a="my">Mis citas</button></div>'+
   '</div></header>';
 }
 function heroSection(){
@@ -885,6 +967,37 @@ function teamSection(){
     '</article>';
   }).join('')+'</div></section>';
 }
+function publicReviewCard(review){
+  const rating=review?.rating;
+  if(!Number.isInteger(rating)||rating<1||rating>5)return "";
+  const name=review.first_name||"Cliente";
+  const comment=review.comment?'<p class="publicReviewComment">'+esc(review.comment)+'</p>':"";
+  return '<article class="publicReviewCard"><h3 class="publicReviewName">'+esc(name)+'</h3>'+
+    '<p class="publicReviewStars" role="img" aria-label="'+rating+' de 5 estrellas">'+"★".repeat(rating)+"☆".repeat(5-rating)+'</p>'+
+    comment+'</article>';
+}
+function publicReviewsContent(){
+  const cards=publicReviews.items.map(publicReviewCard).join("");
+  const list=cards?'<div class="publicReviewsGrid">'+cards+'</div>':"";
+  let status="";
+  if(publicReviews.busy)status="Cargando reseñas…";
+  else if(publicReviews.failed)status="No se pudieron cargar las reseñas.";
+  else if(!cards&&publicReviews.page>0)status="Este negocio todavía no tiene reseñas publicadas.";
+  const notice=status?'<p class="empty" role="status">'+status+'</p>':"";
+  const action=!publicReviews.busy&&(publicReviews.failed||(publicReviews.page>0&&publicReviews.hasMore))
+    ?'<div class="publicReviewsActions"><button type="button" class="btn" data-a="loadPublicReviews">'+
+      (publicReviews.failed?"Reintentar":"Ver más reseñas")+'</button></div>':"";
+  return list+notice+action;
+}
+function renderPublicReviews(){
+  const container=document.getElementById("publicReviewsContent");
+  if(container)container.innerHTML=publicReviewsContent();
+}
+function publicReviewsSection(){
+  return '<section class="section" id="resenas" aria-labelledby="publicReviewsTitle">'+
+    '<div class="sectionHead"><h2 id="publicReviewsTitle" tabindex="-1">Reseñas</h2></div>'+
+    '<div id="publicReviewsContent">'+publicReviewsContent()+'</div></section>';
+}
 function contactSection(){
   const address=business.address||business.location||"Consulta la ubicación directamente con el negocio.";
   const phone=business.phone||business.whatsapp||business.contact_phone||"Disponible al confirmar tu reserva";
@@ -895,7 +1008,7 @@ function contactSection(){
     '<div class="contactLine"><div>🕐</div><div><b>Horarios</b><span>'+esc(hours)+'</span></div></div>'+
   '</div></div></section>';
 }
-function landing(){return publicHeader()+heroSection()+featureStrip()+servicesSection()+teamSection()+contactSection()+'<footer class="footer">Reservas digitales para '+esc(business.name)+'<br><a class="privacyLink" data-a="privacy" href="legal/privacidad-2026-10-28.html" target="_blank" rel="noopener">Tratamiento de datos personales</a></footer>'}
+function landing(){return publicHeader()+heroSection()+featureStrip()+servicesSection()+teamSection()+publicReviewsSection()+contactSection()+'<footer class="footer">Reservas digitales para '+esc(business.name)+'<br><a class="privacyLink" data-a="privacy" href="legal/privacidad-2026-10-28.html" target="_blank" rel="noopener">Tratamiento de datos personales</a></footer>'}
 
 function bookingGuideStage(id,number,title,content){
   return '<section class="bookingGuideStage" id="guide-'+id+'" data-state="locked" aria-labelledby="guide-title-'+id+'"><h4 id="guide-title-'+id+'"><span class="guideNumber" aria-hidden="true">'+number+'</span>'+title+'</h4><p class="guideHint" id="guide-hint-'+id+'"></p><fieldset class="guideContent" aria-label="'+title+'" disabled inert aria-hidden="true">'+content+'</fieldset></section>';
@@ -1014,7 +1127,19 @@ function bookingOverlay(){
 function renderMyAppointments(){
   let h='<h3 class="stepTitle">Mis citas</h3>';
   if(error)h+='<div class="err">'+esc(error)+'</div>';
-  if(message&&myStep==="code")h+='<div class="ok" role="status">'+esc(message)+'</div>';
+  if(reviewTarget&&emailOnly()&&(myStep==="phone"||myStep==="code"))h+='<p class="stepSub">Verifica tu correo para dejar tu reseña.</p>';
+  if(reviewForm&&myStep==="list"&&!myBusy){
+    const draft=reviewForm.review||{};
+    const options=[1,2,3,4,5].map(n=>'<option value="'+n+'" '+(draft.rating===n?'selected':'')+'>'+n+'</option>').join('');
+    return h+'<h4>Dejar una reseña · '+esc(reviewForm.service)+'</h4><form id="appointmentReview">'+
+      '<label for="rating">Calificación de 1 a 5 estrellas</label><select id="rating" name="rating" required><option value="">Selecciona</option>'+options+'</select>'+
+      '<label for="reviewComment">Comentario opcional</label><textarea id="reviewComment" name="comment" maxlength="500">'+esc(draft.comment||"")+'</textarea>'+
+      '<p>El negocio podrá leer tu reseña. Si autorizas publicarla, Plataforma la revisará antes de mostrarla. Evita incluir datos personales en el comentario.</p>'+
+      '<label><input type="checkbox" id="reviewPublicationConsent" name="publication_consent" '+(draft.publication_consent?'checked':'')+'> Autorizo publicar mi calificación y comentario</label>'+
+      '<label><input type="checkbox" name="show_first_name" '+(draft.publication_consent?(draft.show_first_name?'checked':''):'disabled')+'> Mostrar también mi primer nombre</label>'+
+      '<button type="submit" class="btn p full">Guardar reseña</button><button type="button" class="btn full" data-a="closeReview">Volver a Mis citas</button></form>';
+  }
+  if(message&&(myStep==="code"||myStep==="list"))h+='<div class="ok" role="status">'+esc(message)+'</div>';
   if(myStep==="phone"&&emailOnly()){
     h+=privacyConsentHtml('my');
     h+='<label for="myEmail">Correo que usaste al reservar</label><input id="myEmail" type="email" maxlength="254" autocomplete="email" value="'+esc(myEmail)+'" '+(!myPrivacyAccepted?'disabled':'')+'><button class="btn p full" data-a="identifyMy" '+(myBusy||!myPrivacyAccepted||!validEmail(myEmail)?'disabled':'')+'>Enviar código</button>';
@@ -1110,7 +1235,7 @@ document.getElementById('app').addEventListener('change',e=>{
 document.getElementById('app').addEventListener('click',e=>{
   const t=e.target.closest('[data-a]');if(!t)return;
   if(t.disabled||bookingBusy)return;
-  const a=t.dataset.a;if(a==='privacy'){e.preventDefault();openPrivacyPolicy();return}error='';
+  const a=t.dataset.a;if(a==='loadPublicReviews'){loadPublicReviews();return}if(a==='privacy'){e.preventDefault();openPrivacyPolicy();return}error='';
   if(a==='openBooking'){view='home';step=1;menuOpen=false;render()}
   else if(a==='closeBooking'){step=0;view='home';menuOpen=false;render()}
   else if(a==='next'){step++;render()}
@@ -1137,14 +1262,23 @@ document.getElementById('app').addEventListener('click',e=>{
   else if(a==='requestMyCode'){requestMyCode()}
   else if(a==='verifyMyCode'){verifyMyCode()}
   else if(a==='myBack'){clearMyAccess();myResendAt=0;message='';render()}
-  else if(a==='myLogout'){clearMyAccess();myPhoneCountry='+57';myPhone='';myEmail='';message='';render()}
+  else if(a==='closeReview'){reviewTarget="";reviewForm=null;render()}
+  else if(a==='myLogout'){reviewTarget="";reviewForm=null;clearMyAccess();myPhoneCountry='+57';myPhone='';myEmail='';message='';render()}
   else if(a==='newBooking'){bookingPrivacyAccepted=false;view='home';booking={service:null,professional:null,date:'',time:'',name:'',phoneCountry:'+57',phone:'',email:'',notes:'',reminder:false};availability=[];step=1;error='';message='';render()}
   else if(a==='reset'){bookingPrivacyAccepted=false;booking={service:null,professional:null,date:'',time:'',name:'',phoneCountry:'+57',phone:'',email:'',notes:'',reminder:false};availability=[];view='home';step=1;message='';render()}
   else if(a==='menu'){menuOpen=!menuOpen;render()}
   else if(a==='menuClose'){menuOpen=false;render()}
 });
 
-loadBase();
+loadBase().then(()=>{
+  if(!business)return;
+  loadPublicReviews();
+  if(!reviewTarget||!emailOnly())return;
+  view="my";
+  if(!myToken){render();return}
+  myBusy=true;myStep="list";render();
+  loadMyAppointments().catch(()=>{}).finally(()=>{myBusy=false;render()});
+});
 </script>
 </body>
 </html>

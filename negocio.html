@@ -186,6 +186,7 @@ body{
 }
 .side .sl2 button[data-i="home"]::before{content:"⌂"}
 .side .sl2 button[data-i="cit"]::before{content:"◷"}
+.side .sl2 button[data-i="reviews"]::before{content:"☆"}
 .side .sl2 button[data-i="svc"]::before{content:"✦"}
 .side .sl2 button[data-i="team"]::before{content:"◎"}
 .side .sl2 button[data-i="blk"]::before{content:"⊘"}
@@ -987,6 +988,86 @@ async function loadAppointments(){
   APPTS=await response.json();
  }catch(error){console.error(error);APPTS_ERROR="No se pudieron cargar las citas."}
  finally{APPTS_LOADING=false;render()}
+}
+let businessReviews={page:1,items:[],hasNext:false,loading:false,error:false};
+let reviewReportBusy=false;
+const reviewStatusLabel={PRIVATE:"Privada",PENDING:"Pendiente de moderación",APPROVED:"Aprobada para publicar",REJECTED:"Rechazada"};
+
+async function reportBusinessReview(form){
+ if(reviewReportBusy)return;
+ const reason=form.elements.reason.value.trim();
+ const feedback=form.querySelector("[role=status]");
+ if(reason.length<3){feedback.textContent="Escribe un motivo de al menos 3 caracteres.";return}
+ const button=form.querySelector('button[type="submit"]');
+ reviewReportBusy=true;
+ button.disabled=true;
+ try{
+  const response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/appointments/reviews/"+
+   encodeURIComponent(form.dataset.reviewReport)+"/report",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({reason,revision:Number(form.dataset.revision)})
+   });
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(typeof result.detail==="string"?result.detail:"No se pudo enviar el reporte.");
+  const item=businessReviews.items.find(row=>row.appointment_id===form.dataset.reviewReport&&row.revision===Number(form.dataset.revision));
+  if(item)item.reported=true;
+  form.querySelector("label").hidden=true;
+  button.hidden=true;
+  feedback.textContent="Reporte enviado a Plataforma.";
+ }catch(e){
+  feedback.textContent=e.message;
+ }finally{
+  reviewReportBusy=false;
+  button.disabled=false;
+ }
+}
+
+document.getElementById("app").addEventListener("submit",e=>{
+ if(!e.target.matches("[data-review-report]"))return;
+ e.preventDefault();
+ reportBusinessReview(e.target);
+});
+
+async function loadBusinessReviews(page=1){
+ if(businessReviews.loading)return;
+ businessReviews={...businessReviews,page,loading:true,error:false};
+ render();
+ try{
+  const response=await fetch(API_BASE+"/businesses/"+BUSINESS_ID+"/appointments/reviews?page="+page);
+  if(!response.ok)throw new Error("Error HTTP "+response.status);
+  const data=await response.json();
+  businessReviews={page,items:data.reviews,hasNext:data.has_next,loading:false,error:false};
+ }catch(error){
+  businessReviews={...businessReviews,loading:false,error:true};
+ }finally{
+  if(V==="b"&&NV==="reviews")render();
+ }
+}
+
+function bizReviews(){
+ const {page,items,hasNext,loading,error}=businessReviews;
+ const title='<h1>Reseñas</h1>';
+ if(loading)return title+'<p role="status">Cargando reseñas…</p>';
+ if(error)return title+'<div class="pn"><p role="alert">No pudimos cargar las reseñas.</p>'+
+  '<button class="btn p" data-a="reloadReviews">Reintentar</button></div>';
+ const cards=items.map(review=>
+  '<article class="pn" style="margin-bottom:12px"><div class="rw" style="justify-content:space-between;flex-wrap:wrap">'+
+  '<h2 style="margin:0">'+esc(review.service||"Servicio")+'</h2>'+
+  '<strong>'+esc(review.rating)+' de 5 estrellas</strong></div>'+
+  '<p style="color:var(--mute)">'+esc(fmtBlockDate(review.created_at,review.timezone))+'</p>'+
+  (review.comment?'<p style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(review.comment)+'</p>':'')+
+  '<p>'+esc(reviewStatusLabel[review.moderation_status]||"")+'</p>'+
+  (review.reported?'<p>Reporte enviado a Plataforma.</p>':
+   ["PENDING","APPROVED"].includes(review.moderation_status)?
+    '<details><summary>Reportar reseña</summary><form data-review-report="'+esc(review.appointment_id)+'" data-revision="'+esc(review.revision)+'">'+
+    '<label>Motivo <textarea name="reason" rows="2" required minlength="3" maxlength="500"></textarea></label>'+
+    '<button type="submit" class="btn">Enviar reporte</button><p role="status"></p></form></details>':'')+
+  '</article>').join("");
+ return title+(cards||'<div class="pn"><p role="status">No hay reseñas en esta página.</p></div>')+
+  (page>1||hasNext?'<nav class="rw" aria-label="Páginas de reseñas">'+
+   (page>1?'<button class="btn" data-a="prevReviews">Anterior</button>':'')+
+   '<span>Página '+page+'</span>'+
+   (hasNext?'<button class="btn" data-a="nextReviews">Siguiente</button>':'')+'</nav>':'');
 }
 function bizCitas(){
  var h='<h1>Citas</h1><div style="margin-top:14px">';
@@ -2121,8 +2202,8 @@ function downloadBookingQr(){
  document.body.appendChild(a);a.click();a.remove();
 }
 
-function biz(){var s=NV==="home"?bizHome():NV==="cit"?bizCitas():NV==="svc"?bizSvc():NV==="team"?bizTeam():NV==="blk"?bizBlk():NV==="rem"?bizRem():NV==="rep"?bizRep():NV==="link"?bizLink():NV==="plan"?bizPlan():bizCfg();
- return'<div class="sh">'+nav([["account","← Mi cuenta"],["home","Inicio"],["cit","Citas"+(pc()?" ("+pc()+")":"")],["svc","Servicios"],["team",W.pros],["blk","Bloqueos"],["rem","Recordatorios"],["rep","Reportes"],["link","Mi link de reservas"],["cfg","Configuración"],["plan","Mi plan"]],NV,esc(BZ.name))+'<main class="mn'+((NV==="svc"||NV==="team")?" module-with-fab":"")+(NV==="plan"?" business-plan":"")+'">'+(who==="Plataforma"?'<span class="tg w">Editando como plataforma</span>':'')+s+'</main></div>'}
+function biz(){var s=NV==="home"?bizHome():NV==="cit"?bizCitas():NV==="reviews"?bizReviews():NV==="svc"?bizSvc():NV==="team"?bizTeam():NV==="blk"?bizBlk():NV==="rem"?bizRem():NV==="rep"?bizRep():NV==="link"?bizLink():NV==="plan"?bizPlan():bizCfg();
+ return'<div class="sh">'+nav([["account","← Mi cuenta"],["home","Inicio"],["cit","Citas"+(pc()?" ("+pc()+")":"")],["reviews","Reseñas"],["svc","Servicios"],["team",W.pros],["blk","Bloqueos"],["rem","Recordatorios"],["rep","Reportes"],["link","Mi link de reservas"],["cfg","Configuración"],["plan","Mi plan"]],NV,esc(BZ.name))+'<main class="mn'+((NV==="svc"||NV==="team")?" module-with-fab":"")+(NV==="plan"?" business-plan":"")+'">'+(who==="Plataforma"?'<span class="tg w">Editando como plataforma</span>':'')+s+'</main></div>'}
 function canBook(){return SV.some(function(v){return!v.off&&PR.some(function(p){return p.sv.indexOf(v.id)>-1})})}
 function sugg(){var t=TPL[BZ.type].sv,c=t.map(function(x,i){return SV.some(function(v){return v.n===x[0]})?'':'<button data-a="sug" data-i="'+i+'">+ '+esc(x[0])+' · '+P(x[2])+'</button>'}).join("");
  return c?'<div class="pn" style="overflow:visible"><h2>Sugerencias para tu tipo de negocio</h2><p style="color:var(--mute);margin:0 0 8px;font-size:.88rem">Toca para agregar y luego ajusta el precio y la duración.</p><div class="chips">'+c+'</div></div>':''}
@@ -2828,7 +2909,7 @@ app.onclick=function(e){
   if(V==="b"&&t.dataset.i==="account"){goToMyAccount();return}
   SERVICE_CREATE_OPEN=false;PRO_CREATE_OPEN=false;resetProfessionalServicePicker();resetProfessionalCreatePhoto();resetProfessionalCreateDraft();resetPanelScroll();
   if(V==="a")AV=t.dataset.i;
-  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="blk"){MO=false;resetBlockForm();resetPanelScroll();loadRealBlocks();setTimeout(resetPanelScroll,0);return}if(NV==="rem"){MO=false;resetPanelScroll();loadReminderCenter();setTimeout(resetPanelScroll,0);return}if(NV==="rep"){MO=false;loadBusinessReport();return}if(NV==="plan"){MO=false;resetPanelScroll();loadBusinessPlan();return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
+  else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="reviews"){MO=false;loadBusinessReviews();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="blk"){MO=false;resetBlockForm();resetPanelScroll();loadRealBlocks();setTimeout(resetPanelScroll,0);return}if(NV==="rem"){MO=false;resetPanelScroll();loadReminderCenter();setTimeout(resetPanelScroll,0);return}if(NV==="rep"){MO=false;loadBusinessReport();return}if(NV==="plan"){MO=false;resetPanelScroll();loadBusinessPlan();return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
   MO=false
  }
  else if(a==="copyBookingLink"){copyBookingLink();return}
@@ -2849,6 +2930,9 @@ app.onclick=function(e){
  else if(a==="toggleReminder24"){toggleReminderSetting(24);return}
  else if(a==="toggleReminder2"){toggleReminderSetting(2);return}
  else if(a==="saveReminderSettings"){saveReminderSettings();return}
+ else if(a==="reloadReviews"){loadBusinessReviews(businessReviews.page);return}
+ else if(a==="prevReviews"&&businessReviews.page>1){loadBusinessReviews(businessReviews.page-1);return}
+ else if(a==="nextReviews"&&businessReviews.hasNext){loadBusinessReviews(businessReviews.page+1);return}
  else if(a==="reloadDash"){loadDashboard();return}
  else if(a==="reloadAppts"){loadAppointments();return}
  else if(a==="reloadSvc"){loadServices();return}

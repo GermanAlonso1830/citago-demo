@@ -324,7 +324,76 @@ async function saveBusiness(form,business){
  else render();
  focusBusinessEdit(business.id);
 }
-function nav(){return '<aside class="side"><h2>CitaGo</h2><button data-v="businesses" class="'+(view==="businesses"?"on":"")+'">🏢 Negocios</button><button data-v="types" class="'+(view==="types"?"on":"")+'">🧩 Tipos</button><button data-v="plans" class="'+(view==="plans"?"on":"")+'">💎 Planes</button><div class="sideUser"><b>'+esc(authUser?.full_name||"Administrador")+'</b><span>'+esc(authUser?.email||"")+'</span></div><button data-a="logout">↪ Cerrar sesión</button></aside>'}
+let moderation={items:[],page:1,hasNext:false,loading:false,error:"",message:""};
+let moderationSaving=false;
+
+async function loadModeration(page=1,message=""){
+ if(moderation.loading)return;
+ moderation={...moderation,page,loading:true,error:"",message};
+ const session=authToken;
+ render();
+ try{
+  const result=await api("/platform/reviews?page="+page);
+  if(session===authToken)moderation={items:result.reviews,page,hasNext:result.has_next,loading:false,error:"",message};
+ }catch(e){
+  moderation={...moderation,loading:false,error:e.message};
+ }finally{
+  if(session!==authToken)moderation={items:[],page:1,hasNext:false,loading:false,error:"",message:""};
+  if(view==="moderation"||!authUser)render();
+ }
+}
+
+async function saveModeration(form,status){
+ if(moderationSaving||moderation.loading||!["APPROVED","REJECTED"].includes(status))return;
+ const item=moderation.items.find(row=>row.appointment_id===form.dataset.moderateReview);
+ if(!item)return;
+ const reason=form.elements.reason.value.trim();
+ const feedback=form.querySelector("[role=status]");
+ if(reason.length<3){feedback.textContent="Escribe un motivo de al menos 3 caracteres.";return}
+ const buttons=Array.from(form.querySelectorAll('button[type="submit"]'));
+ buttons.forEach(button=>button.disabled=true);
+ moderationSaving=true;
+ try{
+  await api("/platform/reviews/"+encodeURIComponent(item.appointment_id),{
+   method:"PATCH",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({status,revision:item.revision,report_open:item.report_open,reason})
+  });
+  await loadModeration(1,"Decisión registrada.");
+ }catch(e){
+  if(!authUser)render();
+  else feedback.textContent=e.message;
+ }finally{
+  moderationSaving=false;
+  buttons.forEach(button=>button.disabled=false);
+ }
+}
+
+function moderationPanel(){
+ const {items,page,hasNext,loading,error,message}=moderation;
+ const title='<h1>Moderación de reseñas</h1>';
+ const reload='<button type="button" class="btn" data-moderation-page="'+page+'">Actualizar listado</button>';
+ if(loading)return title+'<p role="status">Cargando reseñas…</p>';
+ if(error)return title+'<p role="alert">'+esc(error)+'</p>'+reload;
+ return title+(message?'<p role="status">'+esc(message)+'</p>':'')+reload+
+  (items.length?items.map(item=>
+   '<article class="card"><h3>'+esc(item.business)+' · '+esc(item.service||"Servicio")+'</h3>'+
+   '<p><strong>'+esc(item.rating)+' de 5 estrellas</strong> · '+esc(dateCO(item.updated_at))+
+   ' · '+(item.moderation_status==="APPROVED"?"Aprobada con reporte":"Pendiente de moderación")+'</p>'+
+   (item.comment?'<p style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(item.comment)+'</p>':'')+
+   (item.report_open?'<p style="overflow-wrap:anywhere"><strong>Reporte del negocio</strong> '+esc(item.report_reason)+'</p>':'')+
+   '<form data-moderate-review="'+esc(item.appointment_id)+'">'+
+   '<label>Motivo de la decisión <input name="reason" required minlength="3" maxlength="500"></label>'+
+   '<div class="row"><button type="submit" class="btn p" value="APPROVED">'+
+   (item.moderation_status==="APPROVED"?"Mantener aprobada":"Aprobar")+
+   '</button><button type="submit" class="btn" value="REJECTED">Rechazar</button></div>'+
+   '<p role="status"></p></form></article>').join(""):'<p role="status">No hay reseñas por moderar en esta página.</p>')+
+  (page>1||hasNext?'<nav aria-label="Páginas de moderación">'+
+    (page>1?'<button class="btn" data-moderation-page="'+(page-1)+'">Anterior</button>':'')+
+    ' <span>Página '+page+'</span> '+
+    (hasNext?'<button class="btn" data-moderation-page="'+(page+1)+'">Siguiente</button>':'')+'</nav>':'');
+}
+
+function nav(){return '<aside class="side"><h2>CitaGo</h2><button data-v="businesses" class="'+(view==="businesses"?"on":"")+'">🏢 Negocios</button><button data-v="types" class="'+(view==="types"?"on":"")+'">🧩 Tipos</button><button data-v="plans" class="'+(view==="plans"?"on":"")+'">💎 Planes</button><button data-v="moderation" class="'+(view==="moderation"?"on":"")+'">Moderar reseñas</button><div class="sideUser"><b>'+esc(authUser?.full_name||"Administrador")+'</b><span>'+esc(authUser?.email||"")+'</span></div><button data-a="logout">↪ Cerrar sesión</button></aside>'}
 function businessPanel(){
  const rows=businesses.map(b=>{
   const active=b.is_active!==false;
@@ -483,14 +552,24 @@ function render(){
  const app=document.getElementById("app");
  if(authLoading){app.innerHTML='<div class="authScreen"><div class="authCard"><h1>Plataforma CitaGo</h1><p class="sub">Validando sesión…</p></div></div>';return}
  if(!authUser){app.innerHTML=loginView();return}
- app.innerHTML='<div class="shell">'+nav()+'<main class="main"><div class="wrap">'+(error?'<div class="err">'+esc(error)+'</div>':'')+(loading?'<div class="card">Cargando...</div>':view==="businesses"?businessPanel():view==="types"?typesPanel():plansPanel())+'</div></main></div>';
+ app.innerHTML='<div class="shell">'+nav()+'<main class="main"><div class="wrap">'+(error?'<div class="err">'+esc(error)+'</div>':'')+(loading?'<div class="card">Cargando...</div>':view==="businesses"?businessPanel():view==="types"?typesPanel():view==="moderation"?moderationPanel():plansPanel())+'</div></main></div>';
 }
 document.getElementById("app").addEventListener("submit",e=>{
  if(e.target.id==="loginForm"){e.preventDefault();loginPlatform()}
  if(e.target.matches("[data-edit-plan]")){e.preventDefault();savePlan(e.target)}
+ if(e.target.matches("[data-moderate-review]")){e.preventDefault();saveModeration(e.target,e.submitter?.value)}
 });
 document.getElementById("app").addEventListener("click",e=>{
- const n=e.target.closest("[data-v]");if(n){if(!planSaving){view=n.dataset.v;editingPlanId=null;planMessage="";render()}return}
+ const n=e.target.closest("[data-v]");
+ if(n){
+  if(planSaving||moderationSaving)return;
+  view=n.dataset.v;editingPlanId=null;planMessage="";
+  if(view==="moderation"&&!moderation.loading)loadModeration();
+  else render();
+  return;
+ }
+ const moderationPage=e.target.closest("[data-moderation-page]");
+ if(moderationPage){if(!moderationSaving)loadModeration(Number(moderationPage.dataset.moderationPage));return}
  const edit=e.target.closest("[data-edit-plan-button]");
  if(edit){
   editingPlanId=edit.dataset.editPlanButton;
