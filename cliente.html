@@ -25,7 +25,12 @@
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;padding-top:75px;background:linear-gradient(rgba(255,250,248,.90),rgba(255,250,248,.90)),var(--site-bg-image,none) center/cover fixed,var(--bg);color:var(--ink);font:16px/1.5 "DM Sans",system-ui,sans-serif}
+body{margin:0;padding-top:75px;isolation:isolate;background-color:var(--bg);color:var(--ink);font:16px/1.5 "DM Sans",system-ui,sans-serif}
+body::before{
+  --background-tint:rgba(255,250,248,.90);
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:linear-gradient(var(--background-tint),var(--background-tint)),var(--site-bg-image,none) center/cover no-repeat;
+}
 button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 button:disabled{opacity:.5;cursor:not-allowed;transform:none}
@@ -301,7 +306,8 @@ body:not(.modalOpen){overflow-y:auto}
 
 
 /* Fondo elegido por el negocio. Las tarjetas mantienen su propia superficie. */
-:root[data-client-background] body{background:linear-gradient(var(--page-tint),var(--page-tint)),var(--site-bg-image,none) center/cover fixed,var(--page-bg);color:var(--page-ink)}
+:root[data-client-background] body{background-color:var(--page-bg);color:var(--page-ink)}
+:root[data-client-background] body::before{--background-tint:var(--page-tint)}
 :root[data-client-background] .siteHeader{background:var(--page-header)}
 :root[data-client-background] .navLinks{color:var(--page-ink)}
 :root[data-client-background] .hero p,
@@ -465,7 +471,7 @@ function applyClientBackground(color){
   const luminance=linear[0]*0.2126+linear[1]*0.7152+linear[2]*0.0722;
   const dark=luminance<0.179;
   root.style.setProperty('--page-bg',color);
-  root.style.setProperty('--page-tint','rgba('+rgb.join(',')+',.90)');
+  root.style.setProperty('--page-tint','rgba('+rgb.join(',')+',.78)');
   root.style.setProperty('--page-header','rgba('+rgb.join(',')+',.96)');
   root.style.setProperty('--page-ink',dark?'#ffffff':'#000000');
   root.style.setProperty('--page-muted',dark?'#ffffff':'#000000');
