@@ -350,6 +350,16 @@ body:not(.modalOpen){overflow-y:auto}
   background: var(--page-bg);
   color: var(--page-ink);
 }
+.stepSub.reviewVerifyIntro {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+#myEmail + button[data-a="identifyMy"],
+#appointmentReview button[data-a="closeReview"] {
+  margin-top: 12px;
+}
 
 </style>
 </head>
@@ -583,6 +593,10 @@ async function basicBookingEmailAction(action){
   const body=action==='verify'?{...base,challenge_id:bookingProof.challenge_id,code:bookingProof.code}:base;
   if(action==='verify'&&!/^[0-9]{6}$/.test(body.code||''))return;
   bookingProof={...bookingProof,busy:true,bound:identity,feedback:''};refreshBookingProof();
+  const showSendingProgress = action === 'request' && bookingProof.phase !== 'code';
+   if (showSendingProgress) {
+     setClientProgress('Enviando código…');
+   }
   try{
     if(action==='request')await api('/public/client-email/booking/options',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(base)});
     if(generation!==bookingGeneration||identity!==bookingIdentity()||!bookingPrivacyAccepted)return;
@@ -596,7 +610,16 @@ async function basicBookingEmailAction(action){
         expiresAt:Date.now()+x.expires_in_seconds*1000};
     }
   }catch(e){if(generation===bookingGeneration)bookingProof.feedback=e.message}
-  finally{if(generation===bookingGeneration){bookingProof.busy=false;refreshBookingProof(true)}}
+  finally {
+   if (showSendingProgress) {
+    setClientProgress('');
+   }
+
+   if (generation === bookingGeneration) {
+    bookingProof.busy = false;
+    refreshBookingProof(true);
+   }
+  }
 }
 function bookingProofHtml(){
   if(emailOnly())return basicBookingProofHtml();
@@ -1133,7 +1156,7 @@ function bookingOverlay(){
 function renderMyAppointments(){
   let h='<h3 class="stepTitle">Mis citas</h3>';
   if(error)h+='<div class="err">'+esc(error)+'</div>';
-  if(reviewTarget&&emailOnly()&&(myStep==="phone"||myStep==="code"))h+='<p class="stepSub">Verifica tu correo para dejar tu reseña.</p>';
+  if(reviewTarget&&emailOnly()&&(myStep==="phone"||myStep==="code"))h+='<p class="stepSub reviewVerifyIntro">Verifica tu correo para dejar tu reseña.</p>';
   if(reviewForm&&myStep==="list"&&!myBusy){
     const draft=reviewForm.review||{};
     const options=[1,2,3,4,5].map(n=>'<option value="'+n+'" '+(draft.rating===n?'selected':'')+'>'+n+'</option>').join('');
