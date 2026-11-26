@@ -929,7 +929,7 @@ function works(p,d,t,m){var dw=new Date(d+"T12:00").getDay();return p.days.index
 function elig(){var id=SV[st.svc].id;return PR.filter(function(p){return p.sv.indexOf(id)>-1&&(!st.pro||p.id===st.pro)})}
 function okSlot(d,t,m){var n=new Date();if(d===iso(n)&&tm(t)<=n.getHours()*60+n.getMinutes())return false;if(tm(t)+m>tm(BZ.close))return false;return elig().some(function(p){return works(p,d,t,m)&&free(p.id,d,t,m)})}
 function slots(){var a=[];for(var m=tm(BZ.open);m<tm(BZ.close);m+=BZ.step)a.push(ft(m));return a}
-function mark(){return'<div class="mark">'+(BZ.logo?'<img src="'+BZ.logo+'" alt="Logo">':esc(BZ.name[0]))+'</div>'}
+function mark(){return'<div class="mark">'+(BZ.logo?'<img src="'+esc(BZ.logo)+'" alt="Logo">':esc(BZ.name[0]))+'</div>'}
 function tp(t,back){return'<div class="top"><button class="ib" data-a="back" aria-label="Volver">'+(back?'←':'')+'</button><h2>'+t+'</h2><span></span></div>'}
 function summ(){var s=SV[st.svc],p=PR.filter(function(x){return x.id===st.pro})[0];return'<div class="sum"><div class="av">'+s.e+'</div><div><b>'+esc(s.n)+'</b><small style="display:block;color:var(--mute)">'+s.m+' min · '+P(s.p)+'</small>'+(st.date&&st.time?'<small style="display:block;color:var(--mute)">'+lng(st.date)+', '+h12(st.time)+'</small>':'')+'<small style="display:block;color:var(--mute)">Con '+(p?p.n:'cualquier '+W.pro)+'</small></div></div>'}
 function cal(){var b=new Date(T0.getFullYear(),T0.getMonth()+st.mo,1),f=(b.getDay()+6)%7,n=new Date(b.getFullYear(),b.getMonth()+1,0).getDate(),t0=new Date(T0.getFullYear(),T0.getMonth(),T0.getDate());
