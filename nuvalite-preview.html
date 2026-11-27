@@ -224,9 +224,12 @@ body.mobile-menu-open{overflow:hidden}
 
 .plans{padding:74px 0;background:white}
 .plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.plan{border:1px solid var(--line);border-radius:26px;padding:24px;position:relative;background:#fff}
-.plan.pop{border:2px solid var(--violet);box-shadow:0 18px 45px rgba(118,87,255,.14);transform:translateY(-6px)}
-.popflag{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,var(--pink),var(--violet));color:white;border-radius:999px;padding:5px 11px;font-size:.72rem;font-weight:800}
+.plan{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:26px;padding:24px;background:#fff;overflow-wrap:anywhere}
+.plan h3{margin:0;font-size:1.1rem}
+.plan .btn{width:100%;margin-top:auto}
+.plan-status:not(:empty){margin:0 0 12px;color:var(--mut)}
+.plan-retry{margin-bottom:12px}
+.plan-retry[hidden]{display:none}
 .price{font:800 2rem "Plus Jakarta Sans";margin:6px 0} .plan ul{padding:0;list-style:none;color:var(--mut)} .plan li{padding:6px 0} .plan li:before{content:"✓";color:var(--green);font-weight:900;margin-right:8px}
 .cta{padding:72px 0;background:linear-gradient(95deg,#f62bcb,#6b50ff 48%,#14a9ff);color:white}
 .cta-in{display:flex;align-items:center;justify-content:space-between;gap:24px} .cta h2{font:800 clamp(2rem,5vw,3.4rem)/1 "Plus Jakarta Sans";margin:0 0 8px} .cta p{margin:0;color:#f4ecff}
@@ -282,7 +285,6 @@ footer{padding:34px 0 44px;background:#0d1027;color:#c7cce0}
  .photo-grid{grid-template-columns:1fr 1fr;gap:9px} .photo-card{min-height:170px;border-radius:18px} .photo-card b{font-size:.84rem;left:11px;bottom:10px}
  .feature-grid{gap:10px} .feature{padding:18px}
  .demo-box{padding:17px}
- .plan.pop{transform:none}
  .mobile-cta{display:flex;position:fixed;z-index:60;bottom:12px;left:12px;right:12px;background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.8);box-shadow:0 12px 40px rgba(18,22,54,.18);border-radius:18px;padding:8px;gap:8px}
  .mobile-cta .btn{flex:1;padding:12px 10px}
  footer{padding-bottom:88px}
@@ -464,7 +466,7 @@ footer{padding:34px 0 44px;background:#0d1027;color:#c7cce0}
 <div class="citalite-floatbar" id="citaliteFloatBar" hidden>
   <button class="float-back" type="button" data-go="home" aria-label="Volver al portal de aplicaciones">←</button>
   <div class="float-brand"><i>📅</i><span>CitaLite</span></div>
-  <button class="float-trial" type="button" data-go="register">Prueba gratis</button>
+  <button class="float-trial" type="button" data-go="register" data-trial-label>Crear cuenta</button>
 </div>
 
 <main id="app" class="page"></main>
@@ -482,8 +484,7 @@ const APPS={
   key:"citalite",name:"CitaLite",icon:"📅",available:true,color:"#7657ff",bg:"linear-gradient(145deg,#efe9ff,#ffe8fa)",
   title:"Reservas y agenda",tag:"Citas, clientes y profesionales.",
   desc:"Organiza reservas, profesionales, clientes y horarios en un solo lugar. Tus clientes reservan desde su propia página y tú administras todo desde tu panel.",
-  types:["Barbería","Odontología","Salón de belleza","Spa","Uñas y estética","Psicología","Fisioterapia","Consultorio","Otro profesional"],
-  price:"Desde $59.900/mes"
+  types:["Barbería","Odontología","Salón de belleza","Spa","Uñas y estética","Psicología","Fisioterapia","Consultorio","Otro profesional"]
  },
  storelite:{
   key:"storelite",name:"StoreLite",icon:"📦",available:false,color:"#20c878",bg:"linear-gradient(145deg,#e8fff4,#eaf7ff)",
@@ -608,7 +609,7 @@ function citalitePortal(){
     <h1>Agenda, organiza y <span style="background:linear-gradient(90deg,#ff38cf,#7a67ff,#1ac8ff);-webkit-background-clip:text;color:transparent">haz crecer tu negocio.</span></h1>
     <p class="lead">Reservas online, clientes, profesionales, recordatorios y reportes en una experiencia pensada para negocios que trabajan con citas.</p>
     <div class="hero-actions">
-      <button class="btn primary" data-go="register">Prueba gratis por 14 días →</button>
+      <button class="btn primary" type="button" data-go="register" id="citaliteHeroSignup">Crear cuenta →</button>
       <button class="btn ghost" style="color:white" data-scroll="demo">▶ Ver demo</button>
     </div>
     <div class="microproof"><span>✓ Sin tarjeta de crédito</span><span>✓ Configuración en minutos</span><span>✓ Página para tus clientes</span></div>
@@ -677,15 +678,92 @@ function citalitePortal(){
   </div>
  </div></section>
  <section class="plans"><div class="wrap">
-  <div class="section-head"><div><div class="eyebrow">Planes</div><h2>Elige cuando estés listo.</h2></div><p>Empieza con 14 días de prueba. Los precios del prototipo usan los planes que ya habíamos definido para CitaLite.</p></div>
-  <div class="plan-grid">
-   <article class="plan"><b>Básico</b><div class="price">$59.900 <small>/ mes</small></div><ul><li>1 profesional</li><li>Página de reservas</li><li>Agenda y clientes</li><li>Soporte por correo</li></ul><button class="btn light" style="width:100%" data-go="register">Comenzar gratis</button></article>
-   <article class="plan pop"><span class="popflag">Más popular</span><b>Pro</b><div class="price">$94.900 <small>/ mes</small></div><ul><li>Varios profesionales</li><li>WhatsApp</li><li>Reportes</li><li>Soporte prioritario</li></ul><button class="btn primary" style="width:100%" data-go="register">Probar 14 días gratis</button></article>
-   <article class="plan"><b>Premium</b><div class="price">$139.900 <small>/ mes</small></div><ul><li>Todo lo de Pro</li><li>Pagos</li><li>Multisede</li><li>Funciones avanzadas</li></ul><button class="btn light" style="width:100%" data-go="register">Comenzar gratis</button></article>
-  </div>
+  <div class="section-head"><div><h2>Planes de CitaLite</h2></div><p id="citaliteTrialNote"></p></div>
+  <p id="planStatus" class="plan-status" role="status">Cargando planes…</p>
+  <button id="planRetry" class="btn light sm plan-retry" type="button" hidden>Reintentar</button>
+  <div id="planGrid" class="plan-grid"></div>
  </div></section>
- <section class="cta"><div class="wrap cta-in"><div><h2>Empieza con 14 días gratis.</h2><p>Configura tu negocio, conoce la experiencia y decide después.</p></div><button class="btn light" data-go="register">Crear mi CitaLite →</button></div></section>
- <div class="mobile-cta"><button class="btn light" data-go="home">Apps</button><button class="btn primary" data-go="register">Prueba gratis</button></div>`;
+ <section class="cta"><div class="wrap cta-in"><div><h2 id="citaliteSignupHeading">Crea tu cuenta de CitaLite.</h2><p>Configura tu negocio, conoce la experiencia y decide después.</p></div><button class="btn light" data-go="register">Crear mi CitaLite →</button></div></section>
+ <div class="mobile-cta"><button class="btn light" data-go="home">Apps</button><button class="btn primary" type="button" data-go="register" data-trial-label>Crear cuenta</button></div>`;
+}
+
+const cop = new Intl.NumberFormat("es-CO", {
+ style: "currency",
+ currency: "COP",
+ minimumFractionDigits: 0,
+ maximumFractionDigits: 2,
+});
+const planFeatures = [
+ ["client_email_only", "Verificación del cliente por correo"],
+ ["whatsapp_enabled", "WhatsApp"],
+ ["reports_enabled", "Reportes"],
+ ["payments_enabled", "Pagos"],
+ ["multi_location_enabled", "Multisede"],
+];
+
+function planCard(plan, signupLabel){
+ const card=document.createElement("article");
+ card.className="plan";
+
+ const name=document.createElement("h3");
+ name.textContent=plan.name;
+
+ const price=document.createElement("div");
+ price.className="price";
+ const period=document.createElement("small");
+ period.textContent="/ mes";
+ price.append(cop.format(plan.monthly_price), " ", period);
+
+ const limits=plan.max_professionals;
+ const features=[limits===null?"Profesionales sin límite":limits===1?"1 profesional":`${limits} profesionales`];
+ for(const [key,label] of planFeatures){
+   if(plan[key]===true)features.push(label);
+ }
+ const list=document.createElement("ul");
+ for(const feature of features){
+   const item=document.createElement("li");
+   item.textContent=feature;
+   list.append(item);
+ }
+
+ const signup=document.createElement("button");
+ signup.type="button";
+ signup.className="btn light";
+ signup.dataset.go="register";
+ signup.textContent=signupLabel;
+ card.append(name, price, list, signup);
+ return card;
+}
+
+function updateCitaLiteTrial(duration){
+ const label=duration?"Prueba gratis":"Crear cuenta";
+ document.querySelectorAll("[data-trial-label]").forEach(button=>{button.textContent=label});
+ $("#citaliteHeroSignup").textContent=duration?`Prueba gratis por ${duration} →`:"Crear cuenta →";
+ $("#citaliteTrialNote").textContent=duration?`Empieza con ${duration} de prueba gratis.`:"";
+ $("#citaliteSignupHeading").textContent=duration?`Empieza con ${duration} gratis.`:"Crea tu cuenta de CitaLite.";
+ return label;
+}
+
+async function loadCitaLitePlans(){
+ const grid=$("#planGrid");
+ const status=$("#planStatus");
+ const retry=$("#planRetry");
+ status.textContent="Cargando planes…";
+ retry.hidden=true;
+
+ try{
+   const {fetchCitaLitePlans,formatTrialDays}=await import("./citalite-plans.js");
+   const catalog=await fetchCitaLitePlans();
+   if(!grid.isConnected)return;
+   const duration=catalog.trial_days===null?"":formatTrialDays(catalog.trial_days);
+   const signupLabel=updateCitaLiteTrial(duration);
+   grid.replaceChildren(...catalog.plans.map(plan=>planCard(plan,signupLabel)));
+   status.textContent=catalog.plans.length?"":"Por ahora no hay planes disponibles.";
+ }catch{
+   if(!grid.isConnected)return;
+   status.textContent="No pudimos cargar los planes en este momento.";
+   retry.hidden=false;
+ }
 }
 
 function comingPortal(a){
@@ -901,6 +979,9 @@ function render(){
  }
 
  if(S.view==="portal" && S.current==="citalite"){
+   updateCitaLiteTrial("");
+   $("#planRetry").onclick=loadCitaLitePlans;
+   loadCitaLitePlans();
    setTimeout(initHeroCarousel,0);
  }else{
    clearInterval(heroAutoTimer);
