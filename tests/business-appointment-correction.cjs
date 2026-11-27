@@ -7,6 +7,7 @@ const extract=(start,end)=>{const a=html.indexOf(start),b=html.indexOf(end,a);as
 const record=(id,status)=>({id,status,date:'2026-10-27',start_time:'15:00',client:{name:'Client',phone:'573001234567'},service:{name:'Haircut'},professional:{name:'Leo'}});
 w.APPTS=[record('done','COMPLETED'),record('absent','NO_SHOW'),record('cancel','CANCELLED'),record('reject','REJECTED'),record('active','CONFIRMED')];
 w.APPTS_LOADING=false;w.APPTS_ERROR='';w.APPT_CORRECTION=null;w.APPT_STATUS_BUSY=false;w.APPT_STATUS_MESSAGE='';w.API_BASE='https://api.test';w.BUSINESS_ID='business';w.app=d.getElementById('app');
+w.CAN_CORRECT_CLIENTS=false;w.CLIENT_CORRECTION=null;w.CLIENT_CORRECTION_MESSAGE='';
 w.esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));w.lng=w.h12=s=>s;w.console.error=()=>{};
 const alerts=[],requests=[];let mode='ok',release,latest=null,dashRefreshes=0;
 w.alert=m=>alerts.push(m);w.HTMLElement.prototype.scrollIntoView=function(){};

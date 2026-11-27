@@ -794,6 +794,7 @@ const BUSINESS_ID = new URLSearchParams(window.location.search).get("id");
 const ACCESS_TOKEN = sessionStorage.getItem("nuvalite_access_token") || "";
 const _nativeFetch = window.fetch.bind(window);
 let AUTHORIZED_BUSINESS = null;
+let CAN_CORRECT_CLIENTS = false;
 
 function updateBusinessPageTitle(name){
   const businessName = String(name || "").trim();
@@ -844,6 +845,7 @@ async function verifyBusinessSession(){
       goToMyAccount("No tienes acceso a ese negocio.");
       return false;
     }
+    CAN_CORRECT_CLIENTS = me.global_role === "SUPER_ADMIN" || ["OWNER", "ADMIN"].includes(AUTHORIZED_BUSINESS.role);
     updateBusinessPageTitle(AUTHORIZED_BUSINESS.name);
     return true;
   }catch(error){
@@ -878,6 +880,7 @@ window.fetch = async function(input, init){
 var DASH = null, DASH_LOADING = false, DASH_ERROR = "";
 var APPTS = [], APPTS_LOADING = false, APPTS_ERROR = "";
 var APPT_CORRECTION=null, APPT_STATUS_BUSY=false, APPT_STATUS_MESSAGE="";
+let CLIENT_CORRECTION = null, CLIENT_CORRECTION_MESSAGE = "";
 var API_SERVICES = [], SERVICES_LOADING = false, SERVICES_ERROR = "";
 var EDIT_SERVICE_ID = null, SERVICE_SAVING = false, SERVICE_ACTION_BUSY = "", SERVICE_EDIT_INITIAL_STATE = "", SERVICE_EDIT_DIRTY = false;
 var SERVICE_MSG = "", SERVICE_UI_ERROR = "";
@@ -1023,6 +1026,7 @@ async function reportBusinessReview(form){
 }
 
 document.getElementById("app").addEventListener("submit",e=>{
+ if(e.target.id==="clientCorrectionForm"){e.preventDefault();saveClientCorrection(e.target);return}
  if(!e.target.matches("[data-review-report]"))return;
  e.preventDefault();
  reportBusinessReview(e.target);
@@ -1071,6 +1075,7 @@ function bizReviews(){
 }
 function bizCitas(){
  var h='<h1>Citas</h1><div style="margin-top:14px">';
+ if(CLIENT_CORRECTION_MESSAGE)h+='<p role="status" style="color:#19764D">'+esc(CLIENT_CORRECTION_MESSAGE)+'</p>';
  if(APPT_STATUS_MESSAGE)h+='<p role="status" style="color:#19764D">'+esc(APPT_STATUS_MESSAGE)+'</p>';
  var statusDisabled=APPT_STATUS_BUSY?' disabled':'';
  if(APPTS_LOADING)return h+'<div class="pn"><p>Cargando citas reales...</p></div></div>';
@@ -1087,10 +1092,103 @@ function bizCitas(){
    h+='<div class="dn"><button class="btn" data-a="apiCorrectStatus" data-id="'+esc(a.id)+'"'+statusDisabled+'>Corregir estado</button></div>';
    if(APPT_CORRECTION&&APPT_CORRECTION.id===a.id)h+=appointmentCorrectionHtml();
   }
+  if(CAN_CORRECT_CLIENTS&&a.client.id){
+   h+='<div class="dn"><button class="btn" type="button" data-a="editClient" data-id="'+esc(a.id)+'"'+
+    (CLIENT_CORRECTION?.saving?' disabled':'')+'>Corregir datos del cliente</button></div>';
+   if(CLIENT_CORRECTION?.appointmentId===a.id)h+=clientCorrectionHtml(CLIENT_CORRECTION);
+  }
   h+='</div>'
  });
  return h+'</div>'
 }
+function clientCorrectionHtml(edit){
+ const section='<section class="pn" aria-label="Corregir datos del cliente" style="margin:12px 0 0">';
+ const cancel='<button class="btn" type="button" data-a="cancelClientCorrection"'+(edit.saving?' disabled':'')+'>Cancelar</button>';
+ const error=edit.error?'<p role="alert" style="color:#B3372A">'+esc(edit.error)+'</p>':'';
+ if(edit.loading)return section+'<p role="status">Cargando los datos del cliente…</p>'+cancel+'</section>';
+ if(!edit.details)return section+error+cancel+'</section>';
+
+ const phone=edit.details.field==="phone";
+ const label=phone?"Teléfono":"Nombre";
+ const hint=phone?'<p id="clientCorrectionHint" style="color:var(--mute);font-size:.85rem">Incluye el indicativo del país (ej. +57). El cliente deberá verificar su correo de nuevo para usar el nuevo número.</p>':'';
+ const disabled=edit.saving||!edit.draft.trim()||edit.draft.trim()===edit.initial;
+ return section+'<form id="clientCorrectionForm"><b>Corregir '+label.toLowerCase()+'</b>'+
+  '<div style="margin-top:8px"><label for="clientCorrectionValue">'+label+'</label>'+
+  '<input id="clientCorrectionValue" name="value" type="'+(phone?'tel':'text')+
+  '" maxlength="'+(phone?'40':'200')+'" value="'+esc(edit.draft)+'" required'+
+  (phone?' aria-describedby="clientCorrectionHint"':'')+(edit.saving?' disabled':'')+'></div>'+
+  hint+error+'<div class="dn"><button type="submit" class="btn p"'+(disabled?' disabled':'')+'>'+
+  (edit.saving?'Guardando…':'Guardar corrección')+'</button>'+cancel+'</div></form></section>';
+}
+
+function clientCorrectionUrl(clientId){
+ return API_BASE+"/businesses/"+encodeURIComponent(BUSINESS_ID)+"/clients/"+encodeURIComponent(clientId)+"/correction";
+}
+
+async function openClientCorrection(appointmentId){
+ if(!CAN_CORRECT_CLIENTS||CLIENT_CORRECTION?.saving)return;
+ const appointment=APPTS.find(item=>item.id===appointmentId);
+ if(!appointment?.client?.id)return;
+
+ const edit={appointmentId,clientId:appointment.client.id,loading:true,saving:false,error:""};
+ CLIENT_CORRECTION=edit;
+ CLIENT_CORRECTION_MESSAGE="";
+ render();
+ try{
+  const response=await fetch(clientCorrectionUrl(edit.clientId),{cache:"no-store"});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(typeof data.detail==="string"?data.detail:"No se pudieron cargar los datos del cliente.");
+  if(!["name","phone"].includes(data.field)||typeof data.revision!=="string"||
+     (data.value!==null&&typeof data.value!=="string"))throw new Error("No se pudieron cargar los datos del cliente.");
+
+  edit.details=data;
+  edit.initial=data.field==="phone"&&data.value?"+"+data.value.replace(/[^0-9]/g,""):(data.value||"");
+  edit.draft=edit.initial;
+ }catch(error){
+  edit.error=error.message;
+ }finally{
+  if(CLIENT_CORRECTION===edit){
+   edit.loading=false;
+   render();
+   document.getElementById("clientCorrectionValue")?.focus();
+  }
+ }
+}
+
+async function saveClientCorrection(form){
+ const edit=CLIENT_CORRECTION;
+ if(!edit?.details||edit.saving||!CAN_CORRECT_CLIENTS)return;
+ const value=form.elements.namedItem("value").value.trim();
+ if(!value||value===edit.initial)return;
+
+ edit.draft=value;
+ edit.saving=true;
+ edit.error="";
+ render();
+ try{
+  const response=await fetch(clientCorrectionUrl(edit.clientId),{
+   method:"PATCH",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({field:edit.details.field,value,revision:edit.details.revision}),
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(typeof data.detail==="string"?data.detail:"Revisa el dato e intenta nuevamente.");
+  if(data.field!==edit.details.field||typeof data.value!=="string")throw new Error("Vuelve a abrir la corrección para revisar el dato guardado.");
+
+  APPTS.forEach(appointment=>{
+   if(appointment.client?.id===edit.clientId)appointment.client[data.field]=data.value;
+  });
+  if(CLIENT_CORRECTION===edit)CLIENT_CORRECTION=null;
+  CLIENT_CORRECTION_MESSAGE="Datos del cliente actualizados.";
+  if(V==="b"&&NV==="cit")await loadAppointments();
+ }catch(error){
+  edit.error=error.message;
+ }finally{
+  edit.saving=false;
+  if(V==="b"&&NV==="cit")render();
+ }
+}
+
 function appointmentCorrectionHtml(){
  var c=APPT_CORRECTION,from=c.from==='COMPLETED'?'Completada':'No asistió',to=c.to==='COMPLETED'?'Completada':'No asistió';
  return '<section style="margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:14px" aria-label="Corregir resultado de la cita"><b>Corregir estado</b><p style="margin:8px 0">De <b>'+from+'</b> a <b>'+to+'</b>.</p><p style="color:var(--mute);font-size:.85rem">Usa esta opción si marcaste el resultado por error. La corrección conservará el historial.</p><label for="appointmentCorrectionReason">Motivo de la corrección</label><textarea id="appointmentCorrectionReason" rows="2" maxlength="500" placeholder="Ej. Seleccioné el resultado equivocado." '+(APPT_STATUS_BUSY?'disabled':'')+'>'+esc(c.reason)+'</textarea>'+(c.error?'<p role="alert" style="color:#B3372A">'+esc(c.error)+'</p>':'')+'<div class="dn"><button class="btn p" data-a="saveAppointmentCorrection" '+(APPT_STATUS_BUSY||c.reason.trim().length<3?'disabled':'')+'>'+(APPT_STATUS_BUSY?'Guardando…':'Guardar corrección')+'</button><button class="btn" data-a="cancelAppointmentCorrection" '+(APPT_STATUS_BUSY?'disabled':'')+'>Cancelar</button></div></section>';
@@ -2793,6 +2891,13 @@ function openFreshImagePicker(kind,id){
 
 var app=document.getElementById("app");
 app.oninput=function(e){
+ if(e.target.id==="clientCorrectionValue"&&CLIENT_CORRECTION){
+  const edit=CLIENT_CORRECTION;
+  edit.draft=e.target.value;
+  const submit=e.target.form.querySelector('[type="submit"]');
+  submit.disabled=edit.saving||!edit.draft.trim()||edit.draft.trim()===edit.initial;
+  return;
+ }
  if(e.target.id==='appointmentCorrectionReason'&&APPT_CORRECTION){
   APPT_CORRECTION.reason=e.target.value;
   var save=document.querySelector('[data-a="saveAppointmentCorrection"]');if(save)save.disabled=APPT_STATUS_BUSY||APPT_CORRECTION.reason.trim().length<3;
@@ -2908,6 +3013,8 @@ app.onclick=function(e){
  else if(a==="reset")st=JSON.parse(JSON.stringify(st0));
  else if(a==="nav"){
   if(V==="b"&&t.dataset.i==="account"){goToMyAccount();return}
+  if(!CLIENT_CORRECTION?.saving)CLIENT_CORRECTION=null;
+  CLIENT_CORRECTION_MESSAGE="";
   SERVICE_CREATE_OPEN=false;PRO_CREATE_OPEN=false;resetProfessionalServicePicker();resetProfessionalCreatePhoto();resetProfessionalCreateDraft();resetPanelScroll();
   if(V==="a")AV=t.dataset.i;
   else{NV=t.dataset.i;if(NV==="cit"){MO=false;loadAppointments();return}if(NV==="reviews"){MO=false;loadBusinessReviews();return}if(NV==="home"){MO=false;loadDashboard();return}if(NV==="svc"){MO=false;resetPanelScroll();loadServices();setTimeout(resetPanelScroll,0);return}if(NV==="team"){MO=false;ASSIGN_PRO_ID=null;ASSIGN_SERVICE_IDS=[];ASSIGN_ERROR="";ASSIGN_INITIAL_STATE="";SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";resetPanelScroll();loadProfessionals();setTimeout(resetPanelScroll,0);return}if(NV==="blk"){MO=false;resetBlockForm();resetPanelScroll();loadRealBlocks();setTimeout(resetPanelScroll,0);return}if(NV==="rem"){MO=false;resetPanelScroll();loadReminderCenter();setTimeout(resetPanelScroll,0);return}if(NV==="rep"){MO=false;loadBusinessReport();return}if(NV==="plan"){MO=false;resetPanelScroll();loadBusinessPlan();return}if(NV==="cfg"){MO=false;loadBusinessSettings();return}}
@@ -2979,6 +3086,8 @@ app.onclick=function(e){
  }
  else if(a==="saveProSchedules"){saveProfessionalSchedules();return}
  else if(a==="cancelProSchedules"){SCHEDULE_PRO_ID=null;SCHEDULES=[];SCHEDULE_ERROR="";SCHEDULE_INITIAL_STATE="";render();return}
+ else if(a==="editClient"){openClientCorrection(t.dataset.id);return}
+ else if(a==="cancelClientCorrection"){if(!CLIENT_CORRECTION?.saving){CLIENT_CORRECTION=null;render()}return}
  else if(a==="apiCorrectStatus"){openAppointmentCorrection(t.dataset.id);return}
  else if(a==="cancelAppointmentCorrection"){if(!APPT_STATUS_BUSY){APPT_CORRECTION=null;render()}return}
  else if(a==="saveAppointmentCorrection"){if(APPT_CORRECTION)updateAppointmentStatus(APPT_CORRECTION.id,APPT_CORRECTION.to,APPT_CORRECTION);return}
