@@ -51,12 +51,31 @@ const clearMsg=()=>$('#msg').innerHTML='';
 $('#heroApp').textContent=app.name;
 const appPill=$('#appPill');
 appPill.textContent=`${app.icon} ${app.name}${app.available?'':' · Próximamente'}`;
-if(app.available){
- import("./citalite-plans.js").then(async ({fetchCitaLitePlans,formatTrialDays})=>{
-   const {trial_days}=await fetchCitaLitePlans(API_BASE);
-   if(trial_days!==null)appPill.textContent+=` · ${formatTrialDays(trial_days)} gratis`;
- }).catch(()=>{/* Conserva la etiqueta del registro si falla la consulta. */});
+async function loadRegistrationTrial() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 65000);
+
+  try {
+    const response = await fetch(`${API_BASE}/public/plans`, {
+      cache: "no-store",
+      credentials: "omit",
+      signal: controller.signal,
+    });
+    if (!response.ok) return;
+
+    const catalog = await response.json();
+    const days = catalog?.trial_days;
+    if (Number.isInteger(days) && days > 0) {
+      const duration = days === 1 ? "1 día" : `${days} días`;
+      appPill.textContent = `${app.icon} ${app.name} · ${duration} gratis`;
+    }
+  } catch {
+    // Conserva la etiqueta del registro si falla la consulta.
+  } finally {
+    clearTimeout(timeout);
+  }
 }
+if (app.available) loadRegistrationTrial();
 $('#type').innerHTML='<option value="">Selecciona…</option>'+app.types.map(([label,slug])=>`<option value="${slug}">${label}</option>`).join('');
 if(!app.available) $('#heroText').textContent=`Crea tu cuenta NUVALITE y deja registrado tu interés en ${app.name}.`;
 const emailOk=v=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.trim());

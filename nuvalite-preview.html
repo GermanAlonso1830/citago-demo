@@ -687,6 +687,48 @@ function citalitePortal(){
  <div class="mobile-cta"><button class="btn light" data-go="home">Apps</button><button class="btn primary" type="button" data-go="register" data-trial-label>Crear cuenta</button></div>`;
 }
 
+const localHosts = ["localhost", "127.0.0.1", "[::1]"];
+
+const CITALITE_API_BASE = localHosts.includes(window.location.hostname)
+  ? "http://127.0.0.1:8000"
+  : "https://citago-backend.onrender.com";
+
+function formatTrialDays(days) {
+  return days === 1 ? "1 día" : `${days} días`;
+}
+
+function validPlan(plan) {
+  return typeof plan?.name === "string"
+    && Number.isFinite(plan.monthly_price)
+    && plan.monthly_price >= 0
+    && (plan.max_professionals === null
+      || (Number.isInteger(plan.max_professionals) && plan.max_professionals > 0));
+}
+
+async function fetchCitaLitePlans() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 65000);
+
+  try {
+    const response = await fetch(`${CITALITE_API_BASE}/public/plans`, {
+      cache: "no-store",
+      credentials: "omit",
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error("No se pudieron cargar los planes.");
+
+    const catalog = await response.json();
+    if (!Array.isArray(catalog?.plans) || !catalog.plans.every(validPlan)
+      || (catalog.trial_days !== null
+        && (!Number.isInteger(catalog.trial_days) || catalog.trial_days < 1))) {
+      throw new Error("El catálogo de planes tiene un formato inválido.");
+    }
+    return catalog;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 const cop = new Intl.NumberFormat("es-CO", {
  style: "currency",
  currency: "COP",
@@ -752,7 +794,6 @@ async function loadCitaLitePlans(){
  retry.hidden=true;
 
  try{
-   const {fetchCitaLitePlans,formatTrialDays}=await import("./citalite-plans.js");
    const catalog=await fetchCitaLitePlans();
    if(!grid.isConnected)return;
    const duration=catalog.trial_days===null?"":formatTrialDays(catalog.trial_days);
